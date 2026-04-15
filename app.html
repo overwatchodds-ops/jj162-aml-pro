@@ -31,6 +31,7 @@ import * as ScreenOnboardingIndividual from './screens/onboarding/individual.js'
 import * as ScreenOnboardingComplete   from './screens/onboarding/complete.js';
 
 import * as ScreenSetup          from './screens/setup.js';
+import * as ScreenAppointments   from './screens/appointments.js';
 import * as ScreenDashboard      from './screens/dashboard.js';
 import * as ScreenFirmProfile    from './screens/firm-profile.js';
 import * as ScreenFirmEdit       from './screens/firm-profile-edit.js';
@@ -78,6 +79,7 @@ const Screens = {
 
   // Setup checklist (shown after onboarding + accessible from sidebar)
   setup:              ScreenSetup.screen,
+  appointments:       ScreenAppointments.screen,
 
   // Main
   dashboard:          ScreenDashboard.screen,
@@ -142,7 +144,7 @@ const ONBOARDING_SCREENS = [
 
 // Screens that are part of the setup sequence — show setup banner
 const SETUP_SCREENS = [
-  'setup', 'firm-profile', 'firm-profile-edit',
+  'setup', 'firm-profile', 'firm-profile-edit', 'appointments',
   'servicerisk', 'customerrisk', 'georisk', 'overallrisk',
 ];
 
@@ -162,6 +164,8 @@ function isSetupComplete() {
   return !!(
     f.firmName &&
     f.abn &&
+    f.appointments?.amlco?.name &&
+    f.appointments?.senior?.name &&
     f.designatedServices?.length &&
     f.riskAssessment?.rating &&
     f.amlProgram?.approvedBy &&
@@ -307,6 +311,7 @@ function setupBanner() {
   const f = S.firm || {};
   const doneCount = [
     !!(f.firmName && f.abn),
+    !!(f.appointments?.amlco?.name && f.appointments?.senior?.name),
     !!(f.designatedServices?.length),
     !!(f.riskAssessment?.rating),
     !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
@@ -329,7 +334,7 @@ function setupBanner() {
     ">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:11px;font-weight:700;color:#4f46e5;background:#c7d2fe;padding:2px 8px;border-radius:20px;">Setup</span>
-        <span style="font-size:12px;color:#4338ca;font-weight:500;">${doneCount} of 5 steps complete</span>
+        <span style="font-size:12px;color:#4338ca;font-weight:500;">${doneCount} of 6 steps complete</span>
       </div>
       <button onclick="go('setup')" style="font-size:11px;color:#4f46e5;font-weight:600;background:none;border:none;cursor:pointer;text-decoration:underline;">← Back to checklist</button>
     </div>`;
