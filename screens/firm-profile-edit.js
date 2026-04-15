@@ -178,87 +178,105 @@ function tabServices(firm) {
     </div>`;
 }
 
-// ─── TAB: RISK ────────────────────────────────────────────────────────────────
-function tabRisk(firm) {
-  const risk = firm.riskAssessment || {};
-  const ratings = ['Low','Medium','High'];
+// ─── RISK ASSESSMENT TAB — drop this into firm-profile-edit.js ────────────────
+// Replace your existing renderRiskTab() (or equivalent) with this function.
+// It renders a summary of all four lenses and routes into the standalone screens.
+
+function renderRiskTab() {
+  const ra = S.firm.riskAssessment || {};
+
+  const sr  = ra.serviceRating  || null;
+  const cr  = ra.customerRating || null;
+  const gr  = ra.geoRating      || null;
+  const pf  = ra.pfRating       || null;
+  const overall = ra.overallRating || ra.rating || null;
+
+  function pill(r) {
+    if (!r) return '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Not assessed</span>';
+    const bg  = r === 'High' ? '#fef2f2' : r === 'Medium' ? '#fffbeb' : '#f0fdf4';
+    const col = r === 'High' ? '#991b1b' : r === 'Medium' ? '#92400e' : '#166534';
+    return `<span style="font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;background:${bg};color:${col};">${r}</span>`;
+  }
+
+  const lenses = [
+    { label: 'Service Risk',              rating: sr,   route: 'servicerisk',  desc: 'Based on your designated services' },
+    { label: 'Customer Risk',             rating: cr,   route: 'customerrisk', desc: 'Based on your client types' },
+    { label: 'Geography / Delivery Risk', rating: gr,   route: 'georisk',      desc: 'Based on client location and delivery channels' },
+    { label: 'Proliferation Financing',   rating: pf,   route: 'overallrisk',  desc: 'Assessed on Overall Risk screen' },
+  ];
+
+  const allDone = sr && cr && gr && pf && overall;
+  const doneLenses = lenses.filter(l => l.rating).length;
 
   return `
-    <div class="card">
-      <div class="section-heading">Firm risk assessment</div>
-      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Assess your firm's overall AML/CTF risk based on the services you provide, your client base, and geographic exposure.</p>
+    <div style="max-width:620px;">
 
-      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
-
-        <div class="form-row">
-          <label class="label">Service risk</label>
-          <select id="risk-service" class="inp">
-            <option value="">Select...</option>
-            ${ratings.map(r=>`<option value="${r}" ${risk.serviceRisk===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+      <!-- PROGRESS -->
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:500;color:#0f172a;">Risk assessment progress</span>
+          <span style="font-size:11px;color:#94a3b8;">${doneLenses} of 4 lenses complete</span>
         </div>
-
-        <div class="form-row">
-          <label class="label">Client risk</label>
-          <select id="risk-client" class="inp">
-            <option value="">Select...</option>
-            ${ratings.map(r=>`<option value="${r}" ${risk.clientRisk===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+        <div style="background:#f1f5f9;border-radius:99px;height:4px;overflow:hidden;">
+          <div style="background:#4f46e5;height:4px;border-radius:99px;width:${Math.round(doneLenses/4*100)}%;transition:width .3s;"></div>
         </div>
+      </div>
 
-        <div class="form-row">
-          <label class="label">Geographic risk</label>
-          <select id="risk-geo" class="inp">
-            <option value="">Select...</option>
-            ${ratings.map(r=>`<option value="${r}" ${risk.geographicRisk===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+      <!-- LENS ROWS -->
+      <div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:14px;">
+        ${lenses.map((l, i) => `
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px;${i < lenses.length - 1 ? 'border-bottom:0.5px solid #f1f5f9;' : ''}">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:#0f172a;">${l.label}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${l.desc}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            ${pill(l.rating)}
+            <button onclick="go('${l.route}')"
+              style="font-size:11px;font-weight:500;background:none;border:none;cursor:pointer;color:${!l.rating ? '#4f46e5' : '#94a3b8'};">
+              ${!l.rating ? 'Complete →' : 'Edit'}
+            </button>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <!-- OVERALL RATING -->
+      <div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${overall ? '10px' : '0'};">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:#0f172a;">Overall Inherent Risk Rating</div>
+            ${ra.assessedDate ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">Assessed ${ra.assessedDate}${ra.nextReviewDate ? ' · Review by ' + ra.nextReviewDate : ''}</div>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${pill(overall)}
+            <button onclick="go('overallrisk')"
+              style="font-size:11px;font-weight:500;background:none;border:none;cursor:pointer;color:${!overall ? '#4f46e5' : '#94a3b8'};">
+              ${!overall ? 'Complete →' : 'Edit'}
+            </button>
+          </div>
         </div>
-
-        <div class="form-row">
-          <label class="label">Proliferation financing risk</label>
-          <select id="risk-pf" class="inp">
-            <option value="">Select...</option>
-            ${ratings.map(r=>`<option value="${r}" ${risk.pfRisk===r?'selected':''}>${r}</option>`).join('')}
-          </select>
-        </div>
-
+        ${overall ? `
+        <div style="font-size:11px;color:#64748b;line-height:1.5;border-top:0.5px solid #f1f5f9;padding-top:10px;">
+          ${overall === 'High'
+            ? 'Your AML/CTF program must include enhanced controls and documented risk mitigation strategies.'
+            : overall === 'Medium'
+            ? 'Standard controls apply with a documented risk assessment and at least annual review.'
+            : 'Standard AML/CTF program controls apply. A documented program and regular review are still mandatory.'}
+        </div>` : ''}
       </div>
 
-      <div class="form-row" style="margin-top:var(--space-3);">
-        <label class="label label-required">Overall risk rating</label>
-        <select id="risk-overall" class="inp">
-          <option value="">Select...</option>
-          ${ratings.map(r=>`<option value="${r}" ${risk.rating===r?'selected':''}>${r}</option>`).join('')}
-        </select>
-      </div>
+      ${!allDone ? `
+      <div style="background:#fffbeb;border:0.5px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:14px;">
+        Complete all four risk lenses and save the Overall Risk screen to record your risk assessment. This unlocks Step 3 of setup.
+        <button onclick="go('servicerisk')" style="font-size:11px;color:#92400e;font-weight:500;background:none;border:none;cursor:pointer;text-decoration:underline;">Start →</button>
+      </div>` : `
+      <div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:10px;padding:12px 14px;font-size:12px;color:#166534;">
+        Risk assessment complete. To update, edit individual lenses above — your overall rating will recalculate automatically.
+      </div>`}
 
-      <div class="form-row">
-        <label class="label label-required">Assessed by</label>
-        <input id="risk-by" type="text" class="inp" value="${risk.assessedBy||''}" placeholder="Staff member name">
-      </div>
-
-      <div class="form-row">
-        <label class="label label-required">Assessed date</label>
-        <input id="risk-date" type="date" class="inp" value="${risk.assessedDate||new Date().toISOString().split('T')[0]}">
-      </div>
-
-      <div class="form-row">
-        <label class="label">Next review date</label>
-        <input id="risk-next" type="date" class="inp" value="${risk.nextReviewDate||''}">
-      </div>
-
-      <div class="form-row">
-        <label class="label">Methodology / notes</label>
-        <textarea id="risk-methodology" class="inp" rows="4" placeholder="Describe the methodology used and key risk factors considered...">${risk.methodology||''}</textarea>
-      </div>
-
-      <div id="risk-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
-      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
-        <button onclick="go('firm-profile')" class="btn-sec" style="flex:1;">Cancel</button>
-        <button onclick="saveFirmRisk()" class="btn" style="flex:2;">Save risk assessment</button>
-      </div>
     </div>`;
 }
+
 
 // ─── TAB: PROGRAM ─────────────────────────────────────────────────────────────
 function tabProgram(firm) {
