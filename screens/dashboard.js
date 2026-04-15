@@ -93,16 +93,16 @@ export function screen() {
         </div>
         <div style="text-align:right;">
           <div style="font-size:28px;font-weight:var(--font-weight-bold);color:${verdict.color};">${compliant.length}/${individuals.length}</div>
-          <div style="font-size:var(--font-size-xs);color:${verdict.color};">individuals compliant</div>
+          <div style="font-size:var(--font-size-xs);color:${verdict.color};">staff compliant</div>
         </div>
       </div>
 
       <!-- Stats row -->
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-3);margin-bottom:var(--space-4);">
         ${[
-          { label: 'Individuals',   value: individuals.length, screen: 'individuals',  color: 'var(--color-primary)' },
-          { label: 'Entities',      value: entities.length,    screen: 'entities',     color: 'var(--color-primary)' },
-          { label: 'Action needed', value: action.length,      screen: 'individuals',  color: action.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
+          { label: 'Staff',          value: individuals.length, screen: 'staff',        color: 'var(--color-primary)' },
+          { label: 'Clients',        value: entities.length,    screen: 'clients',      color: 'var(--color-primary)' },
+          { label: 'Action needed', value: action.length,      screen: 'staff',        color: action.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
           { label: 'Firm gaps',     value: gaps.length,        screen: 'firm-profile', color: gaps.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
         ].map(s => `
           <div
@@ -155,11 +155,11 @@ export function screen() {
             <div class="card">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
                 <div class="section-heading" style="margin:0;">Action required</div>
-                <button onclick="go('individuals',{filter:'action'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View all</button>
+                <button onclick="go('staff',{filter:'action'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View all</button>
               </div>
               ${action.slice(0,5).map(r => `
                 <div
-                  onclick="go('individual-detail',{individualId:'${r.ind.individualId}'})"
+                  onclick="go('staff-detail',{individualId:'${r.ind.individualId}'})"
                   style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;"
                 >
                   <div class="avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0;">${initials(r.ind.fullName)}</div>
@@ -178,9 +178,9 @@ export function screen() {
             <div class="card">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
                 <div class="section-heading" style="margin:0;">No connections</div>
-                <button onclick="go('individuals',{filter:'no_links'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View all</button>
+                <button onclick="go('staff',{filter:'no_links'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View all</button>
               </div>
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${noLinks.length} individual${noLinks.length!==1?'s':''} not yet connected to a firm role or entity.</p>
+              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${noLinks.length} individual${noLinks.length!==1?'s':''} not yet linked to a firm role or client.</p>
             </div>
           ` : ''}
 
@@ -193,7 +193,7 @@ export function screen() {
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
               <div class="section-heading" style="margin:0;">Upcoming reviews (90 days)</div>
-              <button onclick="go('entities')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">All entities</button>
+              <button onclick="go('clients')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">All entities</button>
             </div>
             ${upcoming.length === 0 ? `
               <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No entity reviews due in the next 90 days.</p>
@@ -202,7 +202,7 @@ export function screen() {
               const urgent   = daysLeft <= 30;
               return `
                 <div
-                  onclick="go('entity-detail',{entityId:'${e.entityId}'})"
+                  onclick="go('client-detail',{entityId:'${e.entityId}'})"
                   style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;"
                 >
                   <div>
@@ -221,10 +221,10 @@ export function screen() {
               <button onclick="go('audit-trail')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Audit trail</button>
             </div>
             ${recent.length === 0 ? `
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No individuals yet. Add your first individual to get started.</p>
+              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No individuals yet. Add your first staff member or client to get started.</p>
             ` : recent.map(i => `
               <div
-                onclick="go('individual-detail',{individualId:'${i.individualId}'})"
+                onclick="go('staff-detail',{individualId:'${i.individualId}'})"
                 style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;"
               >
                 <div class="avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0;">${initials(i.fullName)}</div>
@@ -240,8 +240,8 @@ export function screen() {
             <div class="section-heading">Quick actions</div>
             <div style="display:flex;flex-direction:column;gap:var(--space-2);">
               ${[
-                { label: '+ New individual',     screen: 'individual-new',  params: {}                    },
-                { label: '+ New entity',         screen: 'entity-new',      params: {}                    },
+                { label: '+ Add staff member',   screen: 'staff-new',       params: {}                    },
+                { label: '+ New client',         screen: 'client-new',      params: {}                    },
                 { label: '+ Bulk upload',        screen: 'bulk-upload',     params: {}                    },
                 { label: '+ New SMR',            screen: 'smr-new',         params: {}                    },
                 { label: 'Generate report',      screen: 'report',          params: {}                    },
