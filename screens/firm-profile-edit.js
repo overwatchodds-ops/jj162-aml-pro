@@ -417,7 +417,7 @@ window.saveFirmDetails = async function() {
     Object.assign(S.firm, fields);
     await auditFirm('firm_details_updated', `Firm details updated — ${name}`);
     toast('Firm details saved');
-    go('firm-profile');
+    go('setup');
   } catch (err) {
     errEl.textContent = 'Failed to save. Please try again.';
     errEl.style.display = 'block';
@@ -442,7 +442,7 @@ window.saveFirmEnrolment = async function() {
     S.firm.austracEnrolment = fields.austracEnrolment;
     await auditFirm('austrac_enrolment_updated', `AUSTRAC enrolment details updated`);
     toast('Enrolment details saved');
-    go('firm-profile');
+    go('setup');
   } catch (err) {
     errEl.textContent = 'Failed to save. Please try again.';
     errEl.style.display = 'block';
@@ -504,7 +504,7 @@ window.saveFirmRisk = async function() {
     S.firm.riskAssessment = fields.riskAssessment;
     await auditFirm('risk_assessment_updated', `Firm risk assessment updated — ${rating} risk — assessed by ${by}`);
     toast('Risk assessment saved');
-    go('firm-profile');
+    go('setup');
   } catch (err) {
     errEl.textContent = 'Failed to save. Please try again.';
     errEl.style.display = 'block';
@@ -537,7 +537,7 @@ window.saveFirmProgram = async function() {
     S.firm.amlProgram = fields.amlProgram;
     await auditFirm('program_approved', `AML/CTF Program approved — v${version} — approved by ${approvedBy}`);
     toast('AML/CTF Program saved');
-    go('firm-profile');
+    go('setup');
   } catch (err) {
     errEl.textContent = 'Failed to save. Please try again.';
     errEl.style.display = 'block';
