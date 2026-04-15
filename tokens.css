@@ -1,0 +1,118 @@
+/* ─── SIMPLEAML PRO — DESIGN TOKENS ─────────────────────────────────────────
+   Single source of truth for all visual values.
+   Change a value here — it updates everywhere instantly.
+   Never hardcode hex values, px sizes, or radii in screen files.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── BRAND ────────────────────────────────────────────────────────────────
+     Source: #4f46e5 used throughout current app.html and screen files.      */
+  --color-primary:          #4f46e5;  /* indigo — buttons, links, accents    */
+  --color-primary-hover:    #4338ca;  /* darker indigo on hover              */
+  --color-primary-active:   #3730a3;  /* darker still on active/press        */
+  --color-primary-light:    #eff6ff;  /* light blue tint — info banners      */
+  --color-primary-border:   #bfdbfe;  /* info banner borders                 */
+  --color-primary-text:     #1e40af;  /* text on light blue backgrounds      */
+
+  /* ── TEXT ─────────────────────────────────────────────────────────────────
+     Source: #0f172a, #64748b, #94a3b8 used throughout screen files.         */
+  --color-text-primary:     #0f172a;  /* headings, labels, primary content   */
+  --color-text-secondary:   #64748b;  /* body text, descriptions             */
+  --color-text-muted:       #94a3b8;  /* placeholders, helper text, metadata */
+  --color-text-light:       #cbd5e1;  /* very subtle — dividers as text      */
+
+  /* ── SURFACES ─────────────────────────────────────────────────────────────
+     Source: #ffffff, #f8fafc, #f1f5f9 used throughout screen files.         */
+  --color-surface:          #ffffff;  /* cards, inputs, modals               */
+  --color-surface-alt:      #f8fafc;  /* page background, empty states       */
+  --color-surface-inset:    #f1f5f9;  /* inset sections within cards         */
+
+  /* ── BORDERS ──────────────────────────────────────────────────────────────
+     Source: #e2e8f0, #f1f5f9 used throughout screen files.                  */
+  --color-border:           #e2e8f0;  /* default border — cards, inputs      */
+  --color-border-light:     #f1f5f9;  /* subtle dividers within cards        */
+  --color-border-focus:     #4f46e5;  /* input focus border                  */
+
+  /* ── STATUS — SUCCESS ─────────────────────────────────────────────────────
+     Source: #10b981, #ecfdf5, #065f46 used in dashboard and status badges.  */
+  --color-success:          #10b981;  /* compliant indicators                */
+  --color-success-light:    #ecfdf5;  /* success badge background            */
+  --color-success-border:   #6ee7b7;  /* success banner border               */
+  --color-success-text:     #065f46;  /* text on success backgrounds         */
+
+  /* ── STATUS — WARNING ─────────────────────────────────────────────────────
+     Source: #f59e0b, #fffbeb, #92400e used in attention banners.            */
+  --color-warning:          #f59e0b;  /* attention indicators                */
+  --color-warning-light:    #fffbeb;  /* warning badge background            */
+  --color-warning-border:   #fde68a;  /* warning banner border               */
+  --color-warning-text:     #92400e;  /* text on warning backgrounds         */
+
+  /* ── STATUS — DANGER ──────────────────────────────────────────────────────
+     Source: #ef4444, #fef2f2, #991b1b used in action required banners.      */
+  --color-danger:           #ef4444;  /* action required indicators          */
+  --color-danger-light:     #fef2f2;  /* danger badge background             */
+  --color-danger-border:    #fca5a5;  /* danger banner border                */
+  --color-danger-text:      #991b1b;  /* text on danger backgrounds          */
+
+  /* ── STATUS — INFO ────────────────────────────────────────────────────────
+     Source: #eff6ff, #bfdbfe, #1e40af used in info banners throughout.      */
+  --color-info:             #3b82f6;  /* informational indicators            */
+  --color-info-light:       #eff6ff;  /* info banner background              */
+  --color-info-border:      #bfdbfe;  /* info banner border                  */
+  --color-info-text:        #1e40af;  /* text on info backgrounds            */
+
+  /* ── TYPOGRAPHY ───────────────────────────────────────────────────────────
+     Source: font sizes extracted from screen files throughout.               */
+  --font-family:            -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-xs:           11px;     /* badges, labels, metadata            */
+  --font-size-sm:           12px;     /* secondary content, table headers    */
+  --font-size-base:         13px;     /* primary body text, inputs           */
+  --font-size-md:           14px;     /* slightly larger body, descriptions  */
+  --font-size-lg:           16px;     /* section subheadings                 */
+  --font-size-xl:           20px;     /* screen headings (h1)                */
+
+  --font-weight-normal:     400;
+  --font-weight-medium:     500;
+  --font-weight-semibold:   600;
+  --font-weight-bold:       700;
+
+  --line-height-tight:      1.4;
+  --line-height-base:       1.6;
+  --line-height-relaxed:    1.7;
+
+  /* ── SPACING ──────────────────────────────────────────────────────────────
+     Source: padding and gap values extracted from screen files.              */
+  --space-1:                4px;
+  --space-2:                8px;
+  --space-3:                12px;
+  --space-4:                16px;
+  --space-5:                20px;
+  --space-6:                24px;
+  --space-8:                32px;
+  --space-10:               40px;
+
+  /* ── BORDER RADIUS ────────────────────────────────────────────────────────
+     Source: border-radius values extracted from screen files.                */
+  --radius-sm:              6px;      /* small elements — checkboxes, tags   */
+  --radius-md:              8px;      /* inputs, small buttons               */
+  --radius-lg:              10px;     /* banners, info boxes                 */
+  --radius-xl:              12px;     /* cards, panels                       */
+  --radius-2xl:             16px;     /* modals                              */
+  --radius-pill:            99px;     /* badges, status pills                */
+
+  /* ── SHADOWS ──────────────────────────────────────────────────────────────
+     Source: box-shadow values used in modals and toasts.                     */
+  --shadow-modal:           0 20px 60px rgba(0,0,0,0.2);
+  --shadow-card:            0.5px solid var(--color-border);  /* used as border not shadow */
+
+  /* ── LAYOUT ───────────────────────────────────────────────────────────────*/
+  --sidebar-width:          220px;
+  --content-max-width:      860px;
+  --form-max-width:         680px;
+
+  /* ── TRANSITIONS ──────────────────────────────────────────────────────────*/
+  --transition-fast:        0.15s ease;
+  --transition-base:        0.2s ease;
+
+}
