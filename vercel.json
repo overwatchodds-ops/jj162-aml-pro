@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/app.html" },
+    { "source": "/(.*)", "destination": "/$1" }
+  ]
+}
