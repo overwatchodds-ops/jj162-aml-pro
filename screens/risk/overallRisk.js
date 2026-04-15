@@ -1,6 +1,5 @@
 import { S } from '../../state/index.js';
 import { updateFirmProfile } from '../../firebase/firestore.js';
-import { toast } from '../components/index.js';
 
 /* ─── HELPERS ─────────────────────────────────────────────────────────────────*/
 function _saveRA(patch) {
@@ -262,7 +261,7 @@ window.orSave = async function() {
   try {
     await _saveRA(ra);
     toast('Risk assessment saved');
-    go('program');
+    go('firm-profile-edit',{'tab':'program'});
   } catch(e) {
     toast('Save failed — check your connection', 'err');
     console.error(e);
