@@ -132,35 +132,107 @@ function tabEnrolment(firm) {
 // ─── TAB: SERVICES ────────────────────────────────────────────────────────────
 function tabServices(firm) {
   const selected = firm.designatedServices || [];
-  const categories = [...new Set(MATRIX.map(m => m.category))];
+  const selectedItems = MATRIX.filter(m => selected.includes(m.id));
 
   return `
     <div class="card">
       <div class="section-heading">Designated services</div>
-      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Select every service your firm provides. This determines your AML/CTF scope and drives your risk assessment.</p>
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Search and select every service your firm provides. This determines your AML/CTF scope and drives your risk assessment.</p>
 
-      ${categories.map(cat => `
-        <div style="margin-bottom:var(--space-4);">
-          <div style="font-size:10px;font-weight:var(--font-weight-medium);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-2);">${cat}</div>
-          ${MATRIX.filter(m => m.category === cat).map(m => `
-            <label class="check-row ${selected.includes(m.id) ? (m.status==='IN'?'selected-primary':'selected') : ''}">
-              <input type="checkbox" ${selected.includes(m.id)?'checked':''} onchange="toggleService(${m.id},this)" style="margin-top:2px;flex-shrink:0;">
-              <div style="flex:1;">
-                <div class="check-row-label">${m.task}</div>
-                <div class="check-row-desc">${m.table6 || 'Out of scope'}</div>
-              </div>
-              <span class="badge ${m.status==='IN'?'badge-danger':m.status==='OUT'?'badge-success':'badge-warning'}" style="flex-shrink:0;">
-                ${m.status}
-              </span>
-            </label>`).join('')}
-        </div>`).join('')}
+      <!-- Selected services -->
+      <div id="selected-services" style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-3);min-height:${selectedItems.length ? 'auto' : '0'};">
+        ${selectedItems.map(m => `
+          <div style="display:flex;align-items:center;gap:6px;background:var(--color-primary-light, #eef2ff);border:0.5px solid var(--color-primary);border-radius:99px;padding:4px 10px 4px 12px;font-size:var(--font-size-xs);color:var(--color-primary);">
+            <span>${m.task}</span>
+            <button onclick="removeService(${m.id})" style="background:none;border:none;cursor:pointer;color:var(--color-primary);font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
+          </div>`).join('')}
+        ${selectedItems.length === 0 ? `<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-style:italic;">No services selected yet.</p>` : ''}
+      </div>
+
+      <!-- Search input -->
+      <div style="position:relative;margin-bottom:var(--space-2);">
+        <input
+          id="svc-search"
+          type="text"
+          class="inp"
+          placeholder="Type to search services (e.g. tax, SMSF, bookkeeping...)"
+          oninput="filterServices(this.value)"
+          autocomplete="off"
+          style="padding-right:32px;"
+        >
+        <button onclick="document.getElementById('svc-search').value='';filterServices('');" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:16px;">×</button>
+      </div>
+
+      <!-- Results -->
+      <div id="svc-results" style="border:0.5px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;max-height:320px;overflow-y:auto;display:none;">
+      </div>
 
       <div id="svc-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
         <button onclick="go('firm-profile')" class="btn-sec" style="flex:1;">Cancel</button>
         <button onclick="saveFirmServices()" class="btn" style="flex:2;">Save services</button>
       </div>
-    </div>`;
+    </div>
+
+    <script>
+    window._svcSelected = ${JSON.stringify(selected)};
+
+    window.filterServices = function(query) {
+      const results = document.getElementById('svc-results');
+      if (!results) return;
+      const q = query.trim().toLowerCase();
+      if (!q) { results.style.display = 'none'; return; }
+
+      const MATRIX_DATA = ${JSON.stringify(MATRIX.map(m => ({ id: m.id, task: m.task, category: m.category, table6: m.table6, status: m.status })))};
+      const matches = MATRIX_DATA.filter(m =>
+        !window._svcSelected.includes(m.id) &&
+        (m.task.toLowerCase().includes(q) || m.category.toLowerCase().includes(q) || (m.table6||'').toLowerCase().includes(q))
+      ).slice(0, 10);
+
+      if (!matches.length) {
+        results.innerHTML = '<div style="padding:12px 16px;font-size:var(--font-size-xs);color:var(--color-text-muted);">No matching services found.</div>';
+      } else {
+        results.innerHTML = matches.map(m => \`
+          <div onclick="addService(\${m.id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;background:var(--color-surface);transition:background .1s;"
+            onmouseover="this.style.background='var(--color-surface-alt)'" onmouseout="this.style.background='var(--color-surface)'">
+            <div>
+              <div style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">\${m.task}</div>
+              <div style="font-size:10px;color:var(--color-text-muted);">\${m.category} · \${m.table6 || 'Out of scope'}</div>
+            </div>
+            <span class="badge \${m.status==='IN'?'badge-danger':m.status==='OUT'?'badge-success':'badge-warning'}" style="flex-shrink:0;margin-left:var(--space-3);">\${m.status}</span>
+          </div>\`).join('');
+      }
+      results.style.display = 'block';
+    };
+
+    window.addService = function(id) {
+      if (!window._svcSelected.includes(id)) {
+        window._svcSelected.push(id);
+        renderSelected();
+      }
+      document.getElementById('svc-search').value = '';
+      document.getElementById('svc-results').style.display = 'none';
+    };
+
+    window.removeService = function(id) {
+      window._svcSelected = window._svcSelected.filter(s => s !== id);
+      renderSelected();
+    };
+
+    window.renderSelected = function() {
+      const MATRIX_DATA = ${JSON.stringify(MATRIX.map(m => ({ id: m.id, task: m.task })))};
+      const el = document.getElementById('selected-services');
+      if (!el) return;
+      const items = MATRIX_DATA.filter(m => window._svcSelected.includes(m.id));
+      el.innerHTML = items.length
+        ? items.map(m => \`
+            <div style="display:flex;align-items:center;gap:6px;background:var(--color-primary-light,#eef2ff);border:0.5px solid var(--color-primary);border-radius:99px;padding:4px 10px 4px 12px;font-size:var(--font-size-xs);color:var(--color-primary);">
+              <span>\${m.task}</span>
+              <button onclick="removeService(\${m.id})" style="background:none;border:none;cursor:pointer;color:var(--color-primary);font-size:14px;line-height:1;padding:0;margin-left:2px;">×</button>
+            </div>\`).join('')
+        : '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-style:italic;">No services selected yet.</p>';
+    };
+    <\/script>`;
 }
 
 // ─── TAB: RISK ────────────────────────────────────────────────────────────────
@@ -379,24 +451,26 @@ window.saveFirmEnrolment = async function() {
 
 window.saveFirmServices = async function() {
   const errEl = document.getElementById('svc-error');
-  errEl.style.display = 'none';
+  if (errEl) errEl.style.display = 'none';
 
-  const selected = _serviceSelections
-    ? Array.from(_serviceSelections)
-    : (S.firm?.designatedServices || []);
+  const selected = window._svcSelected || (S.firm?.designatedServices || []);
+
+  if (!selected.length) {
+    if (errEl) { errEl.textContent = 'Please select at least one designated service.'; errEl.style.display = 'block'; }
+    return;
+  }
 
   const fields = { designatedServices: selected };
 
   try {
     await updateFirmProfile(S.firmId, fields);
     S.firm.designatedServices = selected;
-    _serviceSelections = null;
+    window._svcSelected = null;
     await auditFirm('services_updated', `Designated services updated — ${selected.length} services selected`);
     toast('Designated services saved');
-    go('firm-profile');
+    go('setup');
   } catch (err) {
-    errEl.textContent = 'Failed to save. Please try again.';
-    errEl.style.display = 'block';
+    if (errEl) { errEl.textContent = 'Failed to save. Please try again.'; errEl.style.display = 'block'; }
   }
 };
 
