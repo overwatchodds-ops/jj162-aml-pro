@@ -35,12 +35,15 @@ import * as ScreenDashboard      from './screens/dashboard.js';
 import * as ScreenFirmProfile    from './screens/firm-profile.js';
 import * as ScreenFirmEdit       from './screens/firm-profile-edit.js';
 
-import * as ScreenClients        from './screens/clients/list.js';
-import * as ScreenClientNew      from './screens/clients/new.js';
-import * as ScreenClientDetail   from './screens/clients/detail.js';
+import * as ScreenIndividuals    from './screens/individuals/list.js';
+import * as ScreenIndividual     from './screens/individuals/detail.js';
+import * as ScreenIndividualNew  from './screens/individuals/new.js';
+import * as ScreenIndividualEdit from './screens/individuals/edit.js';
 
-import * as ScreenStaff          from './screens/staff/list.js';
-import * as ScreenStaffNew       from './screens/staff/new.js';
+import * as ScreenEntities       from './screens/entities/list.js';
+import * as ScreenEntity         from './screens/entities/detail.js';
+import * as ScreenEntityNew      from './screens/entities/new.js';
+import * as ScreenEntityEdit     from './screens/entities/edit.js';
 
 import * as ScreenSMR            from './screens/smr/list.js';
 import * as ScreenSMRDetail      from './screens/smr/detail.js';
@@ -78,14 +81,27 @@ const Screens = {
   'firm-profile':     ScreenFirmProfile.screen,
   'firm-profile-edit':ScreenFirmEdit.screen,
 
-  // Clients (replaces entities + individual-as-client)
-  clients:            ScreenClients.screen,
-  'client-new':       ScreenClientNew.screen,
-  'client-detail':    ScreenClientDetail.screen,
+  // Clients (individuals + entities presented as client relationships)
+  clients:              ScreenEntities.screen,
+  'client-detail':      ScreenEntity.screen,
+  'client-new':         ScreenEntityNew.screen,
+  'client-edit':        ScreenEntityEdit.screen,
 
-  // Staff vetting (replaces individuals-as-staff)
-  staff:              ScreenStaff.screen,
-  'staff-new':        ScreenStaffNew.screen,
+  // Staff Vetting (individuals linked to the firm)
+  staff:                ScreenIndividuals.screen,
+  'staff-detail':       ScreenIndividual.screen,
+  'staff-new':          ScreenIndividualNew.screen,
+  'staff-edit':         ScreenIndividualEdit.screen,
+
+  // Keep original routes alive so any existing go() calls don't break
+  individuals:          ScreenIndividuals.screen,
+  'individual-detail':  ScreenIndividual.screen,
+  'individual-new':     ScreenIndividualNew.screen,
+  'individual-edit':    ScreenIndividualEdit.screen,
+  entities:             ScreenEntities.screen,
+  'entity-detail':      ScreenEntity.screen,
+  'entity-new':         ScreenEntityNew.screen,
+  'entity-edit':        ScreenEntityEdit.screen,
 
   // SMR
   smr:                ScreenSMR.screen,
