@@ -82,10 +82,10 @@ export function screen() {
            </div>`;
 
     const actionBtn = done
-      ? `<button onclick="go('${step.screen}'${step.params ? ','+JSON.stringify(step.params) : ''})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Review →</button>`
+      ? `<button onclick="go('${step.screen}'${step.params ? "," + JSON.stringify(step.params).replace(/"/g, "'") : ''})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Review →</button>`
       : locked
         ? `<span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Complete step ${index} first</span>`
-        : `<button onclick="go('${step.screen}'${step.params ? ','+JSON.stringify(step.params) : ''})" class="btn" style="font-size:var(--font-size-xs);padding:6px 14px;">Start →</button>`;
+        : `<button onclick="go('${step.screen}'${step.params ? "," + JSON.stringify(step.params).replace(/"/g, "'") : ''})" class="btn" style="font-size:var(--font-size-xs);padding:6px 14px;">Start →</button>`;
 
     return `
       <div style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4) 0;border-bottom:0.5px solid var(--color-border-light);opacity:${locked ? '0.5' : '1'};">
