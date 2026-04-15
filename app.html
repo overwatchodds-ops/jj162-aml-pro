@@ -429,8 +429,8 @@ onAuthStateChanged(auth, async (user) => {
     S.user = { uid: user.uid, email: user.email };
     await load(user.uid);
 
-    if (!S.firm?.firmName && !S.firm?.name) {
-      // Brand new user — start onboarding
+    if (!S.firm) {
+      // Brand new user — no firm record exists yet
       go('onboarding-firm');
     } else if (!isSetupComplete() && S.currentScreen === 'dashboard') {
       // Returning user who hasn't finished setup — send to checklist
