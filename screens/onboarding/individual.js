@@ -36,15 +36,16 @@ export function screen() {
 
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
         <button onclick="go('onboarding-firm')" class="btn-sec" style="flex:1;">← Back</button>
-        <button onclick="obIndNext()" class="btn" style="flex:2;">Continue →</button>
+        <button id="ob-ind-btn" onclick="obIndNext()" class="btn" style="flex:2;">Continue →</button>
       </div>
     </div>`;
 }
 
-window.obIndNext = function() {
+window.obIndNext = async function() {
   const name  = document.getElementById('ob-ind-name')?.value?.trim();
   const email = document.getElementById('ob-ind-email')?.value?.trim();
   const errEl = document.getElementById('ob-ind-error');
+  const btn   = document.getElementById('ob-ind-btn');
 
   errEl.style.display = 'none';
 
@@ -59,8 +60,100 @@ window.obIndNext = function() {
   };
 
   save();
-  go('onboarding-complete');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try {
+    await commitOnboarding();
+    go('onboarding-complete');
+  } catch (err) {
+    showErr(errEl, 'Failed to save your details. Please try again.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue →'; }
+  }
 };
+
+async function commitOnboarding() {
+  const { saveFirmProfile, saveIndividual, saveLink, saveAuditEntry } = await import('../../firebase/firestore.js');
+
+  const firmData = S._onboardingFirm       || {};
+  const indData  = S._onboardingIndividual || {};
+  const uid      = S.user?.uid;
+  const now      = new Date().toISOString();
+
+  const firmId       = 'firm_' + uid;
+  const individualId = 'ind_'  + uid;
+  const linkId       = 'link_' + uid + '_firm';
+
+  await saveFirmProfile(firmId, {
+    firmId,
+    firmName:  firmData.name,
+    abn:       firmData.abn,
+    acn:       firmData.acn     || '',
+    address:   firmData.address,
+    phone:     firmData.phone   || '',
+    email:     firmData.email   || S.user?.email || '',
+    austracEnrolment: {},
+    amlProgram:       {},
+    riskAssessment:   {},
+    subscription:     { plan: 'pro', status: 'active' },
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await saveIndividual(individualId, {
+    individualId,
+    firmId,
+    fullName:  indData.name,
+    email:     indData.email || S.user?.email || '',
+    phone:     indData.phone || '',
+    role:      'Principal',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await saveLink(linkId, {
+    linkId,
+    individualId,
+    linkedObjectType: 'firm',
+    linkedObjectId:   firmId,
+    roleType:         'Principal',
+    status:           'active',
+    startDate:        now,
+    createdAt:        now,
+  });
+
+  await saveAuditEntry({
+    firmId,
+    userId:     individualId,
+    userName:   indData.name,
+    action:     'firm_created',
+    targetType: 'firm',
+    targetId:   firmId,
+    targetName: firmData.name,
+    detail:     'Firm profile created during onboarding',
+    timestamp:  now,
+  });
+
+  S.firm = {
+    firmId,
+    firmName:  firmData.name,
+    abn:       firmData.abn,
+    acn:       firmData.acn     || '',
+    address:   firmData.address,
+    phone:     firmData.phone   || '',
+    email:     firmData.email   || S.user?.email || '',
+    austracEnrolment: {},
+    amlProgram:       {},
+    riskAssessment:   {},
+  };
+  S.firmId       = firmId;
+  S.individualId = individualId;
+
+  delete S._onboardingFirm;
+  delete S._onboardingIndividual;
+
+  save();
+}
 
 function showErr(el, msg) {
   el.textContent   = msg;

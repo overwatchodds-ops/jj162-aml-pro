@@ -44,9 +44,9 @@ export function screen() {
         </svg>
       </div>
 
-      <h1 class="screen-title" style="margin-bottom:var(--space-2);">Your firm is set up</h1>
+      <h1 class="screen-title" style="margin-bottom:var(--space-2);">Welcome to SimpleAML Pro</h1>
       <p style="font-size:var(--font-size-sm);color:var(--color-text-secondary);margin-bottom:var(--space-6);line-height:var(--line-height-relaxed);">
-        Account created. Now complete your compliance foundation before 1 July 2026 — each step below builds on the previous one.
+        Your account is created. Complete these five steps before 1 July 2026 to meet your AUSTRAC obligations — each step builds on the previous one.
       </p>
 
       <div style="text-align:left;margin-bottom:var(--space-6);">
