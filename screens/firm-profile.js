@@ -39,10 +39,10 @@ export function screen() {
 
   // Overall firm compliance health
   const gaps = [];
-  if (!enrolment.enrolmentId)   gaps.push('AUSTRAC enrolment ID not recorded');
-  if (!program.version)          gaps.push('AML/CTF Program not approved');
-  if (!risk.rating)              gaps.push('Firm risk assessment not completed');
   if (!firmServices.length)      gaps.push('Designated services not recorded');
+  if (!risk.rating)              gaps.push('Firm risk assessment not completed');
+  if (!program.version)          gaps.push('AML/CTF Program not approved');
+  if (!enrolment.enrolmentId)    gaps.push('AUSTRAC enrolment ID not recorded');
 
   const firmStatus = gaps.length === 0
     ? `<span class="badge badge-success">All firm obligations recorded</span>`
@@ -53,7 +53,7 @@ export function screen() {
       <div class="screen-header">
         <div>
           <h1 class="screen-title">Firm Profile</h1>
-          <p class="screen-subtitle">Your firm's AUSTRAC obligations — enrolment, AML/CTF program, and risk assessment.</p>
+          <p class="screen-subtitle">Your firm's compliance foundation — designated services, risk assessment, program and AUSTRAC enrolment.</p>
         </div>
         ${firmStatus}
       </div>
@@ -65,7 +65,7 @@ export function screen() {
         </div>
       ` : ''}
 
-      <!-- Firm details -->
+      <!-- 1. Firm details -->
       ${sectionCard('Firm details', 'details', `
         ${row('Firm name',   firm.firmName)}
         ${row('ABN',         firm.abn)}
@@ -75,21 +75,7 @@ export function screen() {
         ${row('Email',       firm.email)}
       `, !!firm.firmName)}
 
-      <!-- AUSTRAC enrolment -->
-      ${sectionCard('AUSTRAC enrolment', 'enrolment', enrolment.enrolmentId ? `
-        ${row('Enrolment ID',    enrolment.enrolmentId)}
-        ${row('Enrolment date',  fmtDate(enrolment.enrolmentDate))}
-        ${row('Status',          enrolment.status)}
-        ${row('Next confirmation', fmtDate(enrolment.nextConfirmationDate))}
-      ` : `
-        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AUSTRAC enrolment details not yet recorded.</p>
-        <div class="banner banner-warning" style="margin-top:var(--space-3);">
-          You must enrol with AUSTRAC before providing designated services.
-          <a href="https://www.austrac.gov.au/business/how-comply-guidance-and-resources/enrolment" target="_blank" style="color:var(--color-warning-text);font-weight:var(--font-weight-medium);display:block;margin-top:4px;">Visit AUSTRAC Online →</a>
-        </div>
-      `, !!enrolment.enrolmentId)}
-
-      <!-- Designated services -->
+      <!-- 2. Designated services -->
       ${sectionCard('Designated services', 'services', firmServices.length > 0 ? `
         <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">${inServices.length} designated service${inServices.length !== 1 ? 's' : ''} in scope for AML/CTF obligations.</p>
         ${inServices.slice(0, 5).map(s => `
@@ -105,7 +91,7 @@ export function screen() {
         <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No designated services recorded yet. Select the services your firm provides to determine your AML/CTF scope.</p>
       `, firmServices.length > 0)}
 
-      <!-- Risk assessment -->
+      <!-- 3. Risk assessment -->
       ${sectionCard('Firm risk assessment', 'risk', risk.rating ? `
         ${row('Overall rating',   risk.rating, risk.rating === 'High' ? 'var(--color-danger)' : risk.rating === 'Medium' ? 'var(--color-warning)' : 'var(--color-success)')}
         ${row('Assessed by',      risk.assessedBy)}
@@ -120,7 +106,7 @@ export function screen() {
         <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Firm risk assessment not yet completed.</p>
       `, !!risk.rating)}
 
-      <!-- AML/CTF Program -->
+      <!-- 4. AML/CTF Program -->
       ${sectionCard('AML/CTF Program', 'program', program.version ? `
         ${row('Version',          program.version)}
         ${row('Approved by',      program.approvedBy)}
@@ -130,6 +116,20 @@ export function screen() {
       ` : `
         <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AML/CTF Program not yet approved. Document your program and record the approval details here.</p>
       `, !!program.version)}
+
+      <!-- 5. AUSTRAC enrolment -->
+      ${sectionCard('AUSTRAC enrolment', 'enrolment', enrolment.enrolmentId ? `
+        ${row('Enrolment ID',       enrolment.enrolmentId)}
+        ${row('Enrolment date',     fmtDate(enrolment.enrolmentDate))}
+        ${row('Status',             enrolment.status)}
+        ${row('Next confirmation',  fmtDate(enrolment.nextConfirmationDate))}
+      ` : `
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AUSTRAC enrolment not yet confirmed. Complete your designated services, risk assessment and program first, then record your enrolment ID here.</p>
+        <div class="banner banner-warning" style="margin-top:var(--space-3);">
+          Need to enrol? Visit AUSTRAC Online to complete your enrolment.
+          <a href="https://www.austrac.gov.au/business/how-comply-guidance-and-resources/enrolment" target="_blank" style="color:var(--color-warning-text);font-weight:var(--font-weight-medium);display:block;margin-top:4px;">Visit AUSTRAC Online →</a>
+        </div>
+      `, !!enrolment.enrolmentId)}
 
       <!-- Subscription -->
       <div class="card">
