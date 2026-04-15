@@ -41,7 +41,7 @@ export function screen() {
       ${activeTab === 'details'   ? tabDetails(firm)   : ''}
       ${activeTab === 'enrolment' ? tabEnrolment(firm) : ''}
       ${activeTab === 'services'  ? tabServices(firm)  : ''}
-      ${activeTab === 'risk'      ? tabRisk(firm)      : ''}
+      ${activeTab === 'risk'      ? renderRiskTab()    : ''}
       ${activeTab === 'program'   ? tabProgram(firm)   : ''}
     </div>`;
 }
