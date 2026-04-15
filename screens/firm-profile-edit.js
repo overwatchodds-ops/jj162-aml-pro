@@ -177,7 +177,6 @@ function tabServices(firm) {
       </div>
     </div>`;
 }
-}
 
 // ─── TAB: RISK ────────────────────────────────────────────────────────────────
 function tabRisk(firm) {
