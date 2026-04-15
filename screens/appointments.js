@@ -159,6 +159,69 @@ window.saveAppointments = async function() {
   appointments.savedDate = today;
 
   try {
+    const { saveIndividual, saveLink, genId } = await import('../firebase/firestore.js');
+    const now = new Date().toISOString();
+
+    // Build unique persons — deduplicate by name
+    const roleLabels = {
+      amlco:     'AMLCO',
+      reporting: 'Reporting Officer',
+      senior:    'Senior Manager',
+      principal: 'Principal',
+      delegate:  'Delegate',
+    };
+
+    // Group roles by person name
+    const personMap = {};
+    for (const [key, label] of Object.entries(roleLabels)) {
+      const name = appointments[key]?.name;
+      if (!name) continue;
+      if (!personMap[name]) personMap[name] = [];
+      personMap[name].push({ role: key, label });
+    }
+
+    // For each unique person — find existing individual or create new one
+    for (const [fullName, roles] of Object.entries(personMap)) {
+      // Find existing individual by fullName
+      const existing = (S.individuals || []).find(i =>
+        (i.fullName || i.name || '').toLowerCase() === fullName.toLowerCase()
+      );
+
+      let individualId;
+      if (existing) {
+        individualId = existing.individualId;
+      } else {
+        // Create new individual
+        individualId = genId('ind');
+        const newInd = {
+          individualId,
+          firmId:    S.firmId,
+          fullName,
+          role:      roles[0].label,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await saveIndividual(individualId, newInd);
+        S.individuals = [...(S.individuals || []), newInd];
+      }
+
+      // Create/update links for each role
+      for (const { role, label } of roles) {
+        const linkId = `link_${individualId}_${role}`;
+        await saveLink(linkId, {
+          linkId,
+          individualId,
+          linkedObjectType: 'firm',
+          linkedObjectId:   S.firmId,
+          roleType:         label,
+          status:           'active',
+          startDate:        appointments[role]?.date || now,
+          createdAt:        now,
+        });
+      }
+    }
+
+    // Save appointments to firm profile
     await updateFirmProfile(S.firmId, { appointments });
     S.firm.appointments = appointments;
     window.toast('Appointments saved');
