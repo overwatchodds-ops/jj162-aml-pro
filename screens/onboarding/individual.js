@@ -22,12 +22,12 @@ export function screen() {
 
         <div class="form-row">
           <label class="label label-required">Email</label>
-          <input id="ob-ind-email" type="email" class="inp" value="${d.email || S.user?.email || ''}" placeholder="jane@firm.com.au">
+          <input id="ob-ind-email" type="email" class="inp" value="${d.email || S._onboardingFirm?.email || S.user?.email || ''}" placeholder="jane@firm.com.au">
         </div>
 
         <div class="form-row">
           <label class="label">Mobile</label>
-          <input id="ob-ind-phone" type="tel" class="inp" value="${d.phone||''}" placeholder="0412 345 678">
+          <input id="ob-ind-phone" type="tel" class="inp" value="${d.phone || S._onboardingFirm?.phone || ''}" placeholder="0412 345 678">
         </div>
 
       </div>
