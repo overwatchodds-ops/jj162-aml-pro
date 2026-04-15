@@ -10,10 +10,10 @@ export function screen() {
 
   const tabs = [
     { key: 'details',   label: 'Firm details'   },
-    { key: 'enrolment', label: 'AUSTRAC'         },
     { key: 'services',  label: 'Services'        },
     { key: 'risk',      label: 'Risk Assessment' },
     { key: 'program',   label: 'AML/CTF Program' },
+    { key: 'enrolment', label: 'AUSTRAC'         },
   ];
 
   return `
@@ -325,7 +325,8 @@ window.filterServices = function(query) {
     !(window._svcSelected || []).includes(m.id) &&
     (m.task.toLowerCase().includes(q) ||
      (m.category||'').toLowerCase().includes(q) ||
-     (m.table6||'').toLowerCase().includes(q))
+     (m.table6||'').toLowerCase().includes(q) ||
+     (m.synonyms||[]).some(s => s.toLowerCase().includes(q)))
   ).slice(0, 10);
 
   if (!matches.length) {
