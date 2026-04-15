@@ -28,23 +28,19 @@ import * as ScreenForgotPassword from './screens/auth/forgot-password.js';
 
 import * as ScreenOnboardingFirm       from './screens/onboarding/firm.js';
 import * as ScreenOnboardingIndividual from './screens/onboarding/individual.js';
-import * as ScreenOnboardingAustrac    from './screens/onboarding/austrac.js';
 import * as ScreenOnboardingComplete   from './screens/onboarding/complete.js';
 
+import * as ScreenSetup          from './screens/setup.js';
 import * as ScreenDashboard      from './screens/dashboard.js';
-
-import * as ScreenIndividuals    from './screens/individuals/list.js';
-import * as ScreenIndividual     from './screens/individuals/detail.js';
-import * as ScreenIndividualNew  from './screens/individuals/new.js';
-import * as ScreenIndividualEdit from './screens/individuals/edit.js';
-
-import * as ScreenEntities       from './screens/entities/list.js';
-import * as ScreenEntity         from './screens/entities/detail.js';
-import * as ScreenEntityNew      from './screens/entities/new.js';
-import * as ScreenEntityEdit     from './screens/entities/edit.js';
-
 import * as ScreenFirmProfile    from './screens/firm-profile.js';
 import * as ScreenFirmEdit       from './screens/firm-profile-edit.js';
+
+import * as ScreenClients        from './screens/clients/list.js';
+import * as ScreenClientNew      from './screens/clients/new.js';
+import * as ScreenClientDetail   from './screens/clients/detail.js';
+
+import * as ScreenStaff          from './screens/staff/list.js';
+import * as ScreenStaffNew       from './screens/staff/new.js';
 
 import * as ScreenSMR            from './screens/smr/list.js';
 import * as ScreenSMRDetail      from './screens/smr/detail.js';
@@ -53,103 +49,137 @@ import * as ScreenSMRNew         from './screens/smr/new.js';
 import * as ScreenAuditTrail     from './screens/audit/trail.js';
 import * as ScreenAuditReport    from './screens/audit/report.js';
 
-import * as ScreenBulkUpload     from './screens/bulk/upload.js';
-import * as ScreenBulkReview     from './screens/bulk/review.js';
-
 import * as ScreenReport         from './screens/report.js';
 
-import * as ScreenSettingsUsers  from './screens/settings/users.js';
+import * as ScreenSettingsUsers   from './screens/settings/users.js';
 import * as ScreenSettingsBilling from './screens/settings/billing.js';
-import * as ScreenSettingsBackup from './screens/settings/backup.js';
+import * as ScreenSettingsBackup  from './screens/settings/backup.js';
 import * as ScreenSettingsAccount from './screens/settings/account.js';
 
 // ─── SCREEN REGISTRY ──────────────────────────────────────────────────────────
 const Screens = {
   // Auth
-  login:                ScreenLogin.screen,
-  signup:               ScreenSignup.screen,
-  'forgot-password':    ScreenForgotPassword.screen,
+  login:              ScreenLogin.screen,
+  signup:             ScreenSignup.screen,
+  'forgot-password':  ScreenForgotPassword.screen,
 
-  // Onboarding
-  'onboarding-firm':        ScreenOnboardingFirm.screen,
-  'onboarding-individual':  ScreenOnboardingIndividual.screen,
-  'onboarding-austrac':     ScreenOnboardingAustrac.screen,
-  'onboarding-complete':    ScreenOnboardingComplete.screen,
+  // Onboarding (2 steps only — firm + principal)
+  'onboarding-firm':       ScreenOnboardingFirm.screen,
+  'onboarding-individual': ScreenOnboardingIndividual.screen,
+  'onboarding-complete':   ScreenOnboardingComplete.screen,
+
+  // Setup checklist (shown after onboarding + accessible from sidebar)
+  setup:              ScreenSetup.screen,
 
   // Main
-  dashboard:            ScreenDashboard.screen,
+  dashboard:          ScreenDashboard.screen,
 
-  // Individuals
-  individuals:          ScreenIndividuals.screen,
-  'individual-detail':  ScreenIndividual.screen,
-  'individual-new':     ScreenIndividualNew.screen,
-  'individual-edit':    ScreenIndividualEdit.screen,
+  // Firm
+  'firm-profile':     ScreenFirmProfile.screen,
+  'firm-profile-edit':ScreenFirmEdit.screen,
 
-  // Entities
-  entities:             ScreenEntities.screen,
-  'entity-detail':      ScreenEntity.screen,
-  'entity-new':         ScreenEntityNew.screen,
-  'entity-edit':        ScreenEntityEdit.screen,
+  // Clients (replaces entities + individual-as-client)
+  clients:            ScreenClients.screen,
+  'client-new':       ScreenClientNew.screen,
+  'client-detail':    ScreenClientDetail.screen,
 
-  // Firm Profile
-  'firm-profile':       ScreenFirmProfile.screen,
-  'firm-profile-edit':  ScreenFirmEdit.screen,
+  // Staff vetting (replaces individuals-as-staff)
+  staff:              ScreenStaff.screen,
+  'staff-new':        ScreenStaffNew.screen,
 
   // SMR
-  smr:                  ScreenSMR.screen,
-  'smr-detail':         ScreenSMRDetail.screen,
-  'smr-new':            ScreenSMRNew.screen,
+  smr:                ScreenSMR.screen,
+  'smr-detail':       ScreenSMRDetail.screen,
+  'smr-new':          ScreenSMRNew.screen,
 
-  // Audit
-  'audit-trail':        ScreenAuditTrail.screen,
-  'audit-report':       ScreenAuditReport.screen,
-
-  // Bulk
-  'bulk-upload':        ScreenBulkUpload.screen,
-  'bulk-review':        ScreenBulkReview.screen,
-
-  // Report
-  report:               ScreenReport.screen,
+  // Reports
+  'audit-trail':      ScreenAuditTrail.screen,
+  'audit-report':     ScreenAuditReport.screen,
+  report:             ScreenReport.screen,
 
   // Settings
-  'settings-users':     ScreenSettingsUsers.screen,
-  'settings-billing':   ScreenSettingsBilling.screen,
-  'settings-backup':    ScreenSettingsBackup.screen,
-  'settings-account':   ScreenSettingsAccount.screen,
+  'settings-users':   ScreenSettingsUsers.screen,
+  'settings-billing': ScreenSettingsBilling.screen,
+  'settings-backup':  ScreenSettingsBackup.screen,
+  'settings-account': ScreenSettingsAccount.screen,
 };
 
-// ─── AUTH SCREENS (no sidebar) ────────────────────────────────────────────────
-const AUTH_SCREENS = ['login','signup','forgot-password','reset-password'];
+// ─── SCREEN GROUPS ────────────────────────────────────────────────────────────
+const AUTH_SCREENS = [
+  'login', 'signup', 'forgot-password',
+];
 
-// ─── ONBOARDING SCREENS (no sidebar) ─────────────────────────────────────────
 const ONBOARDING_SCREENS = [
-  'onboarding-firm',
-  'onboarding-individual',
-  'onboarding-austrac',
-  'onboarding-complete'
+  'onboarding-firm', 'onboarding-individual', 'onboarding-complete',
 ];
 
-// ─── NAV ITEMS ────────────────────────────────────────────────────────────────
-const NAV = [
-  { screen: 'dashboard',       label: 'Dashboard'     },
-  { screen: 'individuals',     label: 'Individuals'   },
-  { screen: 'entities',        label: 'Entities'      },
-  { screen: 'firm-profile',    label: 'Firm Profile'  },
-  { screen: 'smr',             label: 'SMR'           },
-  { screen: 'audit-trail',     label: 'Audit Trail'   },
-  { screen: 'bulk-upload',     label: 'Bulk Upload'   },
-  { screen: 'report',          label: 'Report'        },
+// Screens that are part of the setup sequence — show setup banner
+const SETUP_SCREENS = [
+  'setup', 'firm-profile', 'firm-profile-edit',
 ];
 
-const SETTINGS_NAV = [
-  { screen: 'settings-users',   label: 'Users'        },
-  { screen: 'settings-billing', label: 'Billing'      },
-  { screen: 'settings-backup',  label: 'Backup'       },
-  { screen: 'settings-account', label: 'Account'      },
+// Screens that require setup to be complete
+const COMPLIANCE_SCREENS = [
+  'clients', 'client-new', 'client-detail',
+  'staff', 'staff-new',
+  'smr', 'smr-detail', 'smr-new',
+  'audit-trail', 'audit-report',
+  'report',
+];
+
+// ─── SETUP STATE ──────────────────────────────────────────────────────────────
+// Returns true if the firm has completed all 5 setup steps.
+function isSetupComplete() {
+  const f = S.firm || {};
+  return !!(
+    f.firmName &&
+    f.abn &&
+    f.designatedServices?.length &&
+    f.riskAssessment?.rating &&
+    f.amlProgram?.approvedBy &&
+    f.amlProgram?.approvedDate &&
+    (f.austracEnrolment?.enrolmentId || f.austracEnrolment?.enrolled)
+  );
+}
+
+// ─── NAV STRUCTURE ────────────────────────────────────────────────────────────
+// Each item: { screen, label, section, requiresSetup }
+// section label triggers a divider + heading in the sidebar
+const NAV_ITEMS = [
+  { screen: 'dashboard',    label: 'Dashboard' },
+
+  { section: 'FIRM SETUP' },
+  { screen: 'setup',        label: 'Firm Setup'    },
+  { screen: 'firm-profile', label: 'Firm Profile'  },
+
+  { section: 'COMPLIANCE' },
+  { screen: 'staff',        label: 'Staff Vetting', requiresSetup: true },
+  { screen: 'clients',      label: 'Clients',       requiresSetup: true },
+  { screen: 'smr',          label: 'SMR',           requiresSetup: true },
+
+  { section: 'REPORTS' },
+  { screen: 'audit-trail',  label: 'Audit Trail',  requiresSetup: true },
+  { screen: 'report',       label: 'Report',        requiresSetup: true },
+
+  { section: 'SETTINGS' },
+  { screen: 'settings-users',   label: 'Users'    },
+  { screen: 'settings-billing', label: 'Billing'  },
+  { screen: 'settings-backup',  label: 'Backup'   },
+  { screen: 'settings-account', label: 'Account'  },
 ];
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 window.go = function(screen, params = {}) {
+  // If setup not complete and user tries to access a locked screen,
+  // redirect to setup with a message
+  if (typeof screen === 'string') {
+    const navItem = NAV_ITEMS.find(n => n.screen === screen);
+    if (navItem?.requiresSetup && !isSetupComplete()) {
+      toast('Complete firm setup first to access this section.', 'err');
+      go('setup');
+      return;
+    }
+  }
   S.currentScreen = screen;
   S.currentParams = params;
   save();
@@ -159,15 +189,59 @@ window.go = function(screen, params = {}) {
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 function Sidebar() {
-  const cur = S.currentScreen;
-  const firm = S.firm || {};
-  const initials = (firm.name || 'SA').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const cur      = S.currentScreen;
+  const firm     = S.firm || {};
+  const setupDone = isSetupComplete();
+  const initials = (firm.firmName || firm.name || 'SA')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  const navItem = ({ screen, label }) => `
-    <button onclick="go('${screen}')" class="sidebar-item ${cur === screen ? 'active' : ''}">
-      <span class="sidebar-item-dot"></span>
-      ${label}
-    </button>`;
+  const rows = NAV_ITEMS.map(item => {
+    // Section divider
+    if (item.section) {
+      return `
+        <div style="
+          padding: 14px var(--space-4) 4px;
+          font-size: 9px;
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: .08em;
+        ">${item.section}</div>`;
+    }
+
+    const locked  = item.requiresSetup && !setupDone;
+    const active  = cur === item.screen ||
+      // Highlight Setup when on firm-profile too
+      (item.screen === 'setup' && cur === 'firm-profile-edit');
+
+    if (locked) {
+      return `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 7px var(--space-4);
+          font-size: var(--font-size-sm);
+          color: var(--color-text-muted);
+          opacity: 0.45;
+          cursor: default;
+          user-select: none;
+        ">
+          <span>${item.label}</span>
+          <span style="font-size:10px;">🔒</span>
+        </div>`;
+    }
+
+    return `
+      <button
+        onclick="go('${item.screen}')"
+        class="sidebar-item ${active ? 'active' : ''}"
+        style="${locked ? 'opacity:0.4;pointer-events:none;' : ''}"
+      >
+        <span class="sidebar-item-dot"></span>
+        ${item.label}
+      </button>`;
+  }).join('');
 
   return `
     <div class="sidebar">
@@ -180,17 +254,14 @@ function Sidebar() {
       </div>
 
       <nav class="sidebar-nav">
-        ${NAV.map(navItem).join('')}
-
-        <div class="sidebar-section-label" style="margin-top:var(--space-4);">Settings</div>
-        ${SETTINGS_NAV.map(navItem).join('')}
+        ${rows}
       </nav>
 
       <div class="sidebar-footer">
         <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);">
           <div class="avatar" style="width:24px;height:24px;font-size:9px;">${initials}</div>
           <div style="min-width:0;">
-            <div class="truncate" style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">${firm.name || 'My Firm'}</div>
+            <div class="truncate" style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">${firm.firmName || firm.name || 'My Firm'}</div>
             <div class="truncate" style="font-size:10px;color:var(--color-text-muted);">${S.user?.email || ''}</div>
           </div>
         </div>
@@ -199,15 +270,52 @@ function Sidebar() {
     </div>`;
 }
 
+// ─── SETUP BANNER ─────────────────────────────────────────────────────────────
+// Shows above content when user is inside a setup screen and setup is incomplete.
+function setupBanner() {
+  if (isSetupComplete()) return '';
+  if (!SETUP_SCREENS.includes(S.currentScreen)) return '';
+
+  const f = S.firm || {};
+  const doneCount = [
+    !!(f.firmName && f.abn),
+    !!(f.designatedServices?.length),
+    !!(f.riskAssessment?.rating),
+    !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
+    !!(f.austracEnrolment?.enrolmentId || f.austracEnrolment?.enrolled),
+  ].filter(Boolean).length;
+
+  return `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 200px;
+      right: 0;
+      z-index: 40;
+      background: #eef2ff;
+      border-bottom: 1px solid #c7d2fe;
+      padding: 8px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    ">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:11px;font-weight:700;color:#4f46e5;background:#c7d2fe;padding:2px 8px;border-radius:20px;">Setup</span>
+        <span style="font-size:12px;color:#4338ca;font-weight:500;">${doneCount} of 5 steps complete</span>
+      </div>
+      <button onclick="go('setup')" style="font-size:11px;color:#4f46e5;font-weight:600;background:none;border:none;cursor:pointer;text-decoration:underline;">← Back to checklist</button>
+    </div>`;
+}
+
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function render() {
-  const cur = S.currentScreen;
+  const cur      = S.currentScreen;
   const screenFn = Screens[cur] || Screens.dashboard;
-  const isAuth = AUTH_SCREENS.includes(cur);
-  const isOnboarding = ONBOARDING_SCREENS.includes(cur);
+  const isAuth   = AUTH_SCREENS.includes(cur);
+  const isOnb    = ONBOARDING_SCREENS.includes(cur);
 
+  // ── Auth screens — centred, no sidebar ──────────────────────────────────────
   if (isAuth) {
-    // Auth screens — centred, no sidebar
     document.getElementById('app').innerHTML = `
       <div style="min-height:100vh;background:var(--color-surface-alt);display:flex;align-items:center;justify-content:center;padding:var(--space-8);">
         <div style="width:100%;max-width:400px;">
@@ -221,15 +329,17 @@ function render() {
     return;
   }
 
-  if (isOnboarding) {
-    // Onboarding — centred, progress indicator, no sidebar
-    const steps = ['onboarding-firm','onboarding-individual','onboarding-austrac','onboarding-complete'];
-    const stepIdx = steps.indexOf(cur);
-    const stepLabels = ['Firm details','Your record','AUSTRAC','Done'];
+  // ── Onboarding — centred, 2-step progress, no sidebar ───────────────────────
+  if (isOnb) {
+    const steps     = ['onboarding-firm', 'onboarding-individual', 'onboarding-complete'];
+    const stepIdx   = steps.indexOf(cur);
+    const stepLabels= ['Firm details', 'Your details', 'Done'];
 
     document.getElementById('app').innerHTML = `
       <div style="min-height:100vh;background:var(--color-surface-alt);display:flex;flex-direction:column;align-items:center;padding:var(--space-8);">
-        <div style="width:100%;max-width:560px;">
+        <div style="width:100%;max-width:520px;">
+
+          <!-- Logo + step progress -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-8);">
             <div style="display:flex;align-items:center;gap:var(--space-2);">
               <div class="sidebar-logo-mark" style="width:32px;height:32px;font-size:12px;">SA</div>
@@ -238,28 +348,35 @@ function render() {
             <div style="display:flex;align-items:center;gap:var(--space-2);">
               ${stepLabels.map((label, i) => `
                 <div style="display:flex;align-items:center;gap:var(--space-1);">
-                  <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:var(--font-weight-bold);
+                  <div style="
+                    width:20px;height:20px;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:10px;font-weight:var(--font-weight-bold);
                     background:${i < stepIdx ? 'var(--color-success)' : i === stepIdx ? 'var(--color-primary)' : 'var(--color-border)'};
-                    color:${i <= stepIdx ? '#fff' : 'var(--color-text-muted)'};">
-                    ${i < stepIdx ? '✓' : i + 1}
-                  </div>
+                    color:${i <= stepIdx ? '#fff' : 'var(--color-text-muted)'};
+                  ">${i < stepIdx ? '✓' : i + 1}</div>
                   <span style="font-size:10px;color:${i === stepIdx ? 'var(--color-text-primary)' : 'var(--color-text-muted)'};">${label}</span>
                   ${i < stepLabels.length - 1 ? `<span style="color:var(--color-border);font-size:10px;margin:0 var(--space-1);">→</span>` : ''}
                 </div>
               `).join('')}
             </div>
           </div>
+
           ${screenFn()}
         </div>
       </div>`;
     return;
   }
 
-  // Main app — sidebar + content
+  // ── Main app — sidebar + content ─────────────────────────────────────────────
+  const banner = setupBanner();
+  const topPad = banner ? '44px' : '0';   // banner is 44px tall approx
+
   document.getElementById('app').innerHTML = `
     <div class="app-shell">
       ${Sidebar()}
-      <div class="main-content">
+      <div class="main-content" style="padding-top:${topPad};">
+        ${banner}
         <div class="screen">
           ${screenFn()}
         </div>
@@ -288,23 +405,24 @@ window.signOut = async function() {
   go('login');
 };
 
-// ─── FIREBASE AUTH STATE ───────────────────────────────────────────────────────
+// ─── FIREBASE AUTH STATE ──────────────────────────────────────────────────────
 const auth = getAuth(firebaseApp);
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Signed in — load their data
     S.user = { uid: user.uid, email: user.email };
     await load(user.uid);
 
-    // Route based on state
-    if (!S.firm?.name) {
+    if (!S.firm?.firmName && !S.firm?.name) {
+      // Brand new user — start onboarding
       go('onboarding-firm');
+    } else if (!isSetupComplete() && S.currentScreen === 'dashboard') {
+      // Returning user who hasn't finished setup — send to checklist
+      go('setup');
     } else {
       go(S.currentScreen || 'dashboard');
     }
   } else {
-    // Not signed in — go to login
     go('login');
   }
 });
