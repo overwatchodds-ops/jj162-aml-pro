@@ -8,12 +8,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 
 const firebaseConfig = {
-  apiKey:            "REPLACE_WITH_YOUR_API_KEY",
-  authDomain:        "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId:         "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket:     "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId:             "REPLACE_WITH_YOUR_APP_ID",
+  apiKey:            "AIzaSyAL9a1pfulYwhnaTXE1IpkYRbbahQkIiJE",
+  authDomain:        "simpleaml-pro.firebaseapp.com",
+  projectId:         "simpleaml-pro",
+  storageBucket:     "simpleaml-pro.firebasestorage.app",
+  messagingSenderId: "924984790086",
+  appId:             "1:924984790086:web:00e68ac756b620d4938e47"
 };
 
 export const app = initializeApp(firebaseConfig);
