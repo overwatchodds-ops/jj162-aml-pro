@@ -432,6 +432,9 @@ onAuthStateChanged(auth, async (user) => {
     if (!S.firm) {
       // Brand new user — no firm record exists yet
       go('onboarding-firm');
+    } else if (ONBOARDING_SCREENS.includes(S.currentScreen)) {
+      // Returning user with currentScreen stuck on an onboarding screen
+      go('setup');
     } else if (!isSetupComplete() && S.currentScreen === 'dashboard') {
       // Returning user who hasn't finished setup — send to checklist
       go('setup');
