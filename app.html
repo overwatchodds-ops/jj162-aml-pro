@@ -35,6 +35,11 @@ import * as ScreenDashboard      from './screens/dashboard.js';
 import * as ScreenFirmProfile    from './screens/firm-profile.js';
 import * as ScreenFirmEdit       from './screens/firm-profile-edit.js';
 
+import * as ScreenServiceRisk    from './screens/risk/serviceRisk.js';
+import * as ScreenCustomerRisk   from './screens/risk/customerRisk.js';
+import * as ScreenGeoRisk        from './screens/risk/geoRisk.js';
+import * as ScreenOverallRisk    from './screens/risk/overallRisk.js';
+
 import * as ScreenIndividuals    from './screens/individuals/list.js';
 import * as ScreenIndividual     from './screens/individuals/detail.js';
 import * as ScreenIndividualNew  from './screens/individuals/new.js';
@@ -80,6 +85,12 @@ const Screens = {
   // Firm
   'firm-profile':     ScreenFirmProfile.screen,
   'firm-profile-edit':ScreenFirmEdit.screen,
+
+  // Risk assessment sub-screens
+  servicerisk:        ScreenServiceRisk.screen,
+  customerrisk:       ScreenCustomerRisk.screen,
+  georisk:            ScreenGeoRisk.screen,
+  overallrisk:        ScreenOverallRisk.screen,
 
   // Clients (individuals + entities presented as client relationships)
   clients:              ScreenEntities.screen,
@@ -132,6 +143,7 @@ const ONBOARDING_SCREENS = [
 // Screens that are part of the setup sequence — show setup banner
 const SETUP_SCREENS = [
   'setup', 'firm-profile', 'firm-profile-edit',
+  'servicerisk', 'customerrisk', 'georisk', 'overallrisk',
 ];
 
 // Screens that require setup to be complete
