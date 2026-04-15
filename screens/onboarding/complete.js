@@ -3,6 +3,38 @@ import { S } from '../../state/index.js';
 export function screen() {
   const firm = S.firm || {};
 
+  const NEXT_STEPS = [
+    {
+      label:  'Complete your Firm Profile',
+      sub:    'Practice type, address and principal contact details.',
+      screen: 'firm-profile',
+    },
+    {
+      label:  'Select your Designated Services',
+      sub:    'Tell AUSTRAC which designated services your firm provides.',
+      screen: 'firm-profile',
+      params: { tab: 'services' },
+    },
+    {
+      label:  'Complete your Risk Assessment',
+      sub:    'Assess service risk, client risk, geographic risk and overall rating.',
+      screen: 'firm-profile',
+      params: { tab: 'risk' },
+    },
+    {
+      label:  'Approve your AML/CTF Program',
+      sub:    'Document and approve your firm\'s AML/CTF program.',
+      screen: 'firm-profile',
+      params: { tab: 'program' },
+    },
+    {
+      label:  'Confirm AUSTRAC Enrolment',
+      sub:    'Record your AUSTRAC enrolment ID before 1 July 2026.',
+      screen: 'firm-profile',
+      params: { tab: 'enrolment' },
+    },
+  ];
+
   return `
     <div class="card" style="text-align:center;padding:var(--space-8);">
 
@@ -12,30 +44,27 @@ export function screen() {
         </svg>
       </div>
 
-      <h1 class="screen-title" style="margin-bottom:var(--space-2);">${firm.name || 'Your firm'} is set up</h1>
+      <h1 class="screen-title" style="margin-bottom:var(--space-2);">Your firm is set up</h1>
       <p style="font-size:var(--font-size-sm);color:var(--color-text-secondary);margin-bottom:var(--space-6);line-height:var(--line-height-relaxed);">
-        Your compliance register is ready. Here's what to do next to complete your setup.
+        Account created. Now complete your compliance foundation before 1 July 2026 — each step below builds on the previous one.
       </p>
 
       <div style="text-align:left;margin-bottom:var(--space-6);">
-        <div class="section-heading">Recommended next steps</div>
+        <div class="section-heading">Complete in this order</div>
 
-        ${[
-          { label: 'Complete your own vetting record', sub: 'Police check, bankruptcy check, and AML training as firm owner', screen: 'individual-detail', badge: 'Outstanding' },
-          { label: 'Complete your AML/CTF Program',    sub: 'Document and approve your firm\'s AML/CTF program',             screen: 'firm-profile',    badge: 'Outstanding' },
-          { label: 'Complete your Risk Assessment',     sub: 'Assess your firm\'s designated services and overall risk',       screen: 'firm-profile',    badge: 'Outstanding' },
-          { label: 'Add your first client',             sub: 'Create an entity or individual client and complete their CDD',   screen: 'entity-new',      badge: null },
-        ].map(item => `
-          <div onclick="go('${item.screen}')" style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-4);border:0.5px solid var(--color-border);border-radius:var(--radius-lg);cursor:pointer;margin-bottom:var(--space-2);background:var(--color-surface);transition:background var(--transition-fast);"
-            onmouseover="this.style.background='var(--color-surface-alt)'" onmouseout="this.style.background='var(--color-surface)'">
-            <div>
-              <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);color:var(--color-text-primary);margin-bottom:2px;">${item.label}</div>
+        ${NEXT_STEPS.map((item, i) => `
+          <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:0.5px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-2);background:var(--color-surface);">
+            <div style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--color-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span style="font-size:10px;font-weight:var(--font-weight-bold);color:var(--color-text-muted);">${i + 1}</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-text-primary);margin-bottom:2px;">${item.label}</div>
               <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${item.sub}</div>
             </div>
-            ${item.badge ? `<span class="badge badge-warning" style="flex-shrink:0;margin-left:var(--space-3);">${item.badge}</span>` : `<span style="color:var(--color-text-muted);font-size:var(--font-size-xs);flex-shrink:0;">→</span>`}
           </div>`).join('')}
       </div>
 
-      <button onclick="go('dashboard')" class="btn btn-full">Go to dashboard →</button>
+      <button onclick="go('setup')" class="btn btn-full">Start firm setup →</button>
+
     </div>`;
 }
