@@ -6,6 +6,7 @@ export function computeSetup(firm) {
   const f = firm || {};
   return {
     firmProfile:       !!(f.firmName && f.abn),
+    appointments:      !!(f.appointments?.amlco?.name && f.appointments?.senior?.name),
     designatedServices:!!(f.designatedServices?.length),
     riskAssessment:    !!(f.riskAssessment?.rating),
     amlProgram:        !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
@@ -19,7 +20,7 @@ export function screen() {
   const steps = computeSetup(firm);
 
   const doneCount = Object.values(steps).filter(Boolean).length;
-  const allDone   = doneCount === 5;
+  const allDone   = doneCount === 6;
 
   const STEPS = [
     {
@@ -31,12 +32,19 @@ export function screen() {
       locked:  false,
     },
     {
+      key:     'appointments',
+      label:   'Appointments',
+      desc:    'Name your AMLCO, Reporting Officer, Senior Manager and Principal.',
+      screen:  'appointments',
+      locked:  !steps.firmProfile,
+    },
+    {
       key:     'designatedServices',
       label:   'Designated Services',
       desc:    'Select the AUSTRAC-designated services your firm provides.',
       screen:  'firm-profile-edit',
       params:  { tab: 'services' },
-      locked:  !steps.firmProfile,
+      locked:  !steps.appointments,
     },
     {
       key:     'riskAssessment',
@@ -111,10 +119,10 @@ export function screen() {
       <div style="background:var(--color-surface);border:0.5px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:2px;">Progress</div>
-          <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};">${doneCount} of 5 complete</div>
+          <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};">${doneCount} of 6 complete</div>
         </div>
         <div style="width:120px;height:6px;background:var(--color-border);border-radius:99px;overflow:hidden;">
-          <div style="height:100%;width:${(doneCount/5)*100}%;background:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};border-radius:99px;transition:width .3s;"></div>
+          <div style="height:100%;width:${(doneCount/6)*100}%;background:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};border-radius:99px;transition:width .3s;"></div>
         </div>
       </div>
 
