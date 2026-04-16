@@ -194,13 +194,19 @@ window.saveAppointments = async function() {
           firmId:    S.firmId,
           fullName,
           role:      roles[0],
+          isStaff:   true,
           createdAt: now,
           updatedAt: now,
         };
         await saveIndividual(individualId, newInd);
         S.individuals = [...(S.individuals || []), newInd];
+      } else if (!existing.isStaff) {
+        // Existing individual — mark as staff if not already
+        await import('../../firebase/firestore.js').then(({ updateIndividual }) =>
+          updateIndividual(existing.individualId, { isStaff: true })
+        );
+        existing.isStaff = true;
       }
-      // If existing — no action needed, they already have firmId
     }
 
     // Save appointments to firm profile
