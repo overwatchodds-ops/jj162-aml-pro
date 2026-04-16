@@ -281,6 +281,29 @@ function renderRiskTab() {
 // ─── TAB: PROGRAM ─────────────────────────────────────────────────────────────
 function tabProgram(firm) {
   const program = firm.amlProgram || {};
+  const appt    = firm.appointments || {};
+
+  // Build list of appointed persons for dropdown
+  const appointedPersons = [
+    appt.amlco?.name     ? { name: appt.amlco.name,     role: 'AMLCO' }              : null,
+    appt.senior?.name    ? { name: appt.senior.name,    role: 'Senior Manager' }      : null,
+    appt.principal?.name ? { name: appt.principal.name, role: 'Principal' }           : null,
+    appt.reporting?.name ? { name: appt.reporting.name, role: 'Reporting Officer' }   : null,
+    appt.delegate?.name  ? { name: appt.delegate.name,  role: 'Delegate' }            : null,
+  ].filter(Boolean).filter((p, i, arr) => arr.findIndex(x => x.name === p.name) === i);
+
+  // Default to AMLCO if not yet set
+  const defaultApprover = program.approvedBy || appt.amlco?.name || '';
+
+  const approverField = appointedPersons.length
+    ? `<select id="prog-approved-by" class="inp">
+        <option value="">— Select approver —</option>
+        ${appointedPersons.map(p =>
+          `<option value="${p.name}" ${defaultApprover === p.name ? 'selected' : ''}>${p.name} (${p.role})</option>`
+        ).join('')}
+       </select>`
+    : `<input id="prog-approved-by" type="text" class="inp" value="${defaultApprover}" placeholder="Name of approver (AMLCO or principal)">`;
+
   return `
     <div class="card">
       <div class="section-heading">AML/CTF Program</div>
@@ -294,7 +317,7 @@ function tabProgram(firm) {
         </div>
         <div class="form-row">
           <label class="label label-required">Approved by</label>
-          <input id="prog-approved-by" type="text" class="inp" value="${program.approvedBy||''}" placeholder="Name of approver (AMLCO or principal)">
+          ${approverField}
         </div>
         <div class="form-row">
           <label class="label label-required">Approved date</label>
