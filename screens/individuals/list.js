@@ -85,12 +85,9 @@ export function screen() {
 
   let individuals = [...(S.individuals || [])];
 
-  // In staff view — only show individuals linked to the firm
+  // In staff view — only show individuals belonging to this firm
   if (isStaffView) {
-    const firmLinkedIds = S.links
-      .filter(l => l.linkedObjectType === 'firm' && l.linkedObjectId === S.firmId && l.status === 'active')
-      .map(l => l.individualId);
-    individuals = individuals.filter(i => firmLinkedIds.includes(i.individualId));
+    individuals = individuals.filter(i => i.firmId === S.firmId);
   }
 
   // Search
