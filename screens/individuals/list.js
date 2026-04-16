@@ -1,5 +1,5 @@
 import { S }                                    from '../../state/index.js';
-import { getRequirements, getComplianceStatus, ROLE_LABELS } from '../../state/rules_matrix.js';
+import { getRequirements, getComplianceStatus } from '../../state/rules_matrix.js';
 import { fmtDate }                              from '../../firebase/firestore.js';
 
 // ─── STAFF ROLES ──────────────────────────────────────────────────────────────
@@ -61,19 +61,12 @@ function statusBadge(status) {
   }
 }
 
-// ─── CONNECTION SUMMARY ───────────────────────────────────────────────────────
-function connectionSummary(individualId) {
-  const links = S.links.filter(l => l.individualId === individualId && l.status === 'active');
-  if (!links.length) return '<span style="color:var(--color-text-muted);font-size:var(--font-size-xs);">No connections yet</span>';
-
-  return links.slice(0, 2).map(l => {
-    const label = ROLE_LABELS[l.roleType] || l.roleType;
-    if (l.linkedObjectType === 'firm') {
-      return `<span style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${label} — ${S.firm?.firmName || 'Firm'}</span>`;
-    }
-    const entity = S.entities.find(e => e.entityId === l.linkedObjectId);
-    return `<span style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${label} — ${entity?.entityName || 'Entity'}</span>`;
-  }).join('<br>') + (links.length > 2 ? `<br><span style="font-size:10px;color:var(--color-text-muted);">+${links.length - 2} more</span>` : '');
+// ─── ROLE SUMMARY ─────────────────────────────────────────────────────────────
+function roleSummary(ind) {
+  if (ind.role) {
+    return `<span style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${ind.role}</span>`;
+  }
+  return '<span style="color:var(--color-text-muted);font-size:var(--font-size-xs);">No role assigned</span>';
 }
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
@@ -210,7 +203,7 @@ export function screen() {
                       </div>
                     </div>
                   </td>
-                  <td>${connectionSummary(i.individualId)}</td>
+                  <td>${roleSummary(i)}</td>
                   <td>${statusBadge(i._status.status)}</td>
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${fmtDate(i.updatedAt)}</td>
                   <td style="text-align:right;">
