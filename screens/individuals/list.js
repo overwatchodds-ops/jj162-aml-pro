@@ -199,7 +199,6 @@ export function screen() {
                       <div class="avatar">${initials(i.fullName)}</div>
                       <div>
                         <div style="font-weight:var(--font-weight-medium);">${i.fullName || '—'}</div>
-                        <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${i.email || i.role || ''}</div>
                       </div>
                     </div>
                   </td>
