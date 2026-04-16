@@ -85,9 +85,9 @@ export function screen() {
 
   let individuals = [...(S.individuals || [])];
 
-  // In staff view — only show individuals belonging to this firm
+  // In staff view — only show individuals with isStaff:true
   if (isStaffView) {
-    individuals = individuals.filter(i => i.firmId === S.firmId);
+    individuals = individuals.filter(i => i.isStaff === true);
   }
 
   // Search
