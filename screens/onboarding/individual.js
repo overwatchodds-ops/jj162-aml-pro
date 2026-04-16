@@ -73,7 +73,7 @@ window.obIndNext = async function() {
 };
 
 async function commitOnboarding() {
-  const { saveFirmProfile, saveIndividual, saveLink, saveAuditEntry } = await import('../../firebase/firestore.js');
+  const { saveFirmProfile, saveIndividual, saveAuditEntry } = await import('../../firebase/firestore.js');
 
   const firmData = S._onboardingFirm       || {};
   const indData  = S._onboardingIndividual || {};
@@ -107,19 +107,9 @@ async function commitOnboarding() {
     email:     indData.email || S.user?.email || '',
     phone:     indData.phone || '',
     role:      'Principal',
+    isStaff:   true,
     createdAt: now,
     updatedAt: now,
-  });
-
-  await saveLink(linkId, {
-    linkId,
-    individualId,
-    linkedObjectType: 'firm',
-    linkedObjectId:   firmId,
-    roleType:         'Principal',
-    status:           'active',
-    startDate:        now,
-    createdAt:        now,
   });
 
   await saveAuditEntry({
