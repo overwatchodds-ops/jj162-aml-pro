@@ -90,37 +90,31 @@ function tabDetails(firm) {
 // ─── TAB: ENROLMENT ───────────────────────────────────────────────────────────
 function tabEnrolment(firm) {
   const enrolment = firm.austracEnrolment || {};
+  const enrolled  = !!(enrolment.enrolled || enrolment.enrolmentId);
+
   return `
     <div class="card">
-      <div class="section-heading">AUSTRAC enrolment</div>
-      <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="section-heading">AUSTRAC Enrolment</div>
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Your firm must be enrolled with AUSTRAC before providing designated services. Enrolment is a one-time requirement.</p>
 
-        <div class="form-row">
-          <label class="label">Enrolment ID</label>
-          <input id="enr-id" type="text" class="inp" value="${enrolment.enrolmentId||''}" placeholder="AUSTRAC-2026-XXXXX">
-        </div>
-        <div class="form-row">
-          <label class="label">Enrolment date</label>
-          <input id="enr-date" type="date" class="inp" value="${enrolment.enrolmentDate||''}">
-        </div>
-        <div class="form-row">
-          <label class="label">Status</label>
-          <select id="enr-status" class="inp">
-            <option value="active"   ${enrolment.status==='active'  ?'selected':''}>Active</option>
-            <option value="pending"  ${enrolment.status==='pending' ?'selected':''}>Pending</option>
-            <option value="inactive" ${enrolment.status==='inactive'?'selected':''}>Inactive</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label class="label">Next confirmation date</label>
-          <input id="enr-next" type="date" class="inp" value="${enrolment.nextConfirmationDate||''}">
-        </div>
+      <div class="banner banner-info" style="margin-bottom:var(--space-4);">
+        Not yet enrolled? Visit AUSTRAC Online to complete your enrolment — it takes about 10 minutes.
+        <a href="https://www.austrac.gov.au/business/how-comply-guidance-and-resources/enrolment" target="_blank" style="color:var(--color-info-text);font-weight:var(--font-weight-medium);display:block;margin-top:4px;">Enrol via AUSTRAC Online →</a>
+      </div>
 
+      <label style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-4);border:0.5px solid ${enrolled ? '#bbf7d0' : 'var(--color-border)'};border-radius:var(--radius-lg);background:${enrolled ? '#f0fdf4' : 'var(--color-surface)'};cursor:pointer;">
+        <input type="checkbox" id="enr-confirmed" ${enrolled ? 'checked' : ''} style="margin-top:2px;flex-shrink:0;">
+        <div>
+          <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">Yes, our firm is enrolled with AUSTRAC</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;">Tick this box to confirm your firm has completed AUSTRAC enrolment.</div>
+        </div>
+      </label>
+
+      <div class="form-row" style="margin-top:var(--space-4);">
+        <label class="label">Enrolment ID <span style="font-size:10px;color:var(--color-text-muted);">(optional — record for your files)</span></label>
+        <input id="enr-id" type="text" class="inp" value="${enrolment.enrolmentId||''}" placeholder="e.g. AUSTRAC-2026-XXXXX">
       </div>
-      <div class="banner banner-info" style="margin-top:var(--space-3);">
-        Don't have an enrolment ID yet?
-        <a href="https://www.austrac.gov.au/business/how-comply-guidance-and-resources/enrolment" target="_blank" style="color:var(--color-info-text);font-weight:var(--font-weight-medium);">Enrol via AUSTRAC Online →</a>
-      </div>
+
       <div id="enr-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
         <button onclick="go('firm-profile')" class="btn-sec" style="flex:1;">Cancel</button>
@@ -475,10 +469,8 @@ window.saveFirmEnrolment = async function() {
 
   const fields = {
     austracEnrolment: {
-      enrolmentId:          document.getElementById('enr-id')?.value?.trim()   || '',
-      enrolmentDate:        document.getElementById('enr-date')?.value         || '',
-      status:               document.getElementById('enr-status')?.value       || 'active',
-      nextConfirmationDate: document.getElementById('enr-next')?.value         || '',
+      enrolled:      document.getElementById('enr-confirmed')?.checked || false,
+      enrolmentId:   document.getElementById('enr-id')?.value?.trim() || '',
     }
   };
 
