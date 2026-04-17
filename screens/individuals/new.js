@@ -5,16 +5,16 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-// Handles both new and edit flows for individuals and staff.
-// Entry point determines the initial 'isStaff' context.
-// This file uses a 3-tab "Smart Flow" to ensure regulatory compliance.
+// Handles new and edit flows for individuals and staff.
+// Implements the "Gold Standard" logic: functional derivation, smart navigation,
+// and automatic renewal dates for training and vetting.
 
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   const ind    = isEdit ? S.individuals.find(i => i.individualId === individualId) : null;
   
-  // 1. Initialize draft state and enforce isStaff context
+  // 1. Initialize draft state and enforce context
   if (!S._draft) {
     S._draft = isEdit ? { ...ind } : { 
       isStaff: entryPoint === 'staff' || (ind?.isStaff ?? false),
@@ -26,14 +26,18 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 2. Logic Engine: Classification is derived from functions (The Gold Standard)
+  // 2. Logic Engine: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   const classification = hasKey ? 'Key Personnel' : hasStd ? 'Standard AML/CTF Staff' : 'No AML/CTF functions';
 
-  // 3. Tab Navigation Definitions
+  // 3. Auto-populate training type based on classification
+  if (!d.trainingType) {
+    d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
+  }
+
   const tabs = [
     { key: 'identity', label: '1. Identity' },
     { key: 'vetting',  label: '2. Vetting & Verification' },
@@ -92,7 +96,7 @@ export function screen() {
       <div class="tab-content">
         ${activeTab === 'identity' ? tabIdentity(d, classification) : ''}
         ${activeTab === 'vetting'  ? tabVettingMerged(d, classification) : ''}
-        ${activeTab === 'training' ? tabTraining(d) : ''}
+        ${activeTab === 'training' ? tabTraining(d, classification) : ''}
       </div>
 
       <div class="flex gap-3 mt-4" style="border-top: 0.5px solid var(--color-border); padding-top: var(--space-4);">
@@ -135,8 +139,6 @@ function tabIdentity(d, classification) {
       </div>
 
       <div class="section-heading">AML/CTF Functions</div>
-      <p class="text-xs text-muted mb-3">Recording everyone—including those with no AML functions—demonstrates regulatory consideration.</p>
-      
       ${FN_KEY.map(f => `
         <label class="check-row ${d.functions?.includes(f.id) ? (f.type === 'key' ? 'selected' : 'selected-primary') : ''}">
           <input type="checkbox" ${d.functions?.includes(f.id) ? 'checked' : ''} onchange="toggleFunction('${f.id}')">
@@ -151,7 +153,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">This person performs no regulated tasks. Assessment confirmed.</div>
+          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
         </div>
       </label>
 
@@ -165,7 +167,6 @@ function tabIdentity(d, classification) {
 // ─── TAB: VETTING & VERIFICATION ──────────────────────────────────────────────
 function tabVettingMerged(d, classification) {
   const isKey  = classification === 'Key Personnel';
-  const isStd  = classification === 'Standard AML/CTF Staff';
   const isNone = classification === 'No AML/CTF functions';
 
   return `
@@ -174,7 +175,8 @@ function tabVettingMerged(d, classification) {
       <div class="form-grid mb-4">
         <div class="form-row">
           <label class="label">ID Type</label>
-          <select id="ver-id-type" class="inp">
+          <select id="ver-id-type" class="inp" onchange="updateDraft('idType', this.value)">
+            <option value="">Select...</option>
             <option ${d.idType==='Passport'?'selected':''}>Passport</option>
             <option ${d.idType==='Driver Licence'?'selected':''}>Driver Licence</option>
             <option ${d.idType==='Medicare'?'selected':''}>Medicare</option>
@@ -202,6 +204,10 @@ function tabVettingMerged(d, classification) {
               <option ${d.nsResult==='Hit'?'selected':''}>Hit - Investigate</option>
             </select>
           </div>
+          <div class="form-row span-2">
+            <label class="label">Scan ID / Reference</label>
+            <input type="text" class="inp" value="${d.nsRef||''}" placeholder="e.g. NSC-2026-XXXXX" oninput="updateDraft('nsRef', this.value)">
+          </div>
         </div>
       ` : ''}
 
@@ -214,22 +220,54 @@ function tabVettingMerged(d, classification) {
             <input id="vet-police-date" type="date" class="inp" value="${d.policeDate||''}" oninput="updateDraft('policeDate', this.value)">
           </div>
           <div class="form-row">
+            <label class="label">Police Result</label>
+            <select class="inp" onchange="updateDraft('policeResult', this.value)">
+              <option value="">Select...</option>
+              <option ${d.policeResult==='Pass'?'selected':''}>Pass</option>
+              <option ${d.policeResult==='Fail'?'selected':''}>Fail</option>
+            </select>
+          </div>
+          <div class="form-row">
             <label class="label">Bankruptcy Check Date</label>
             <input id="vet-bankrupt-date" type="date" class="inp" value="${d.bankruptDate||''}" oninput="updateDraft('bankruptDate', this.value)">
+          </div>
+          <div class="form-row">
+            <label class="label">Bankruptcy Result</label>
+            <select class="inp" onchange="updateDraft('bankruptResult', this.value)">
+              <option value="">Select...</option>
+              <option ${d.bankruptResult==='Clear'?'selected':''}>Clear</option>
+              <option ${d.bankruptResult==='Finding'?'selected':''}>Finding</option>
+            </select>
           </div>
         </div>
       ` : ''}
 
-      ${isNone ? `
-        <div class="banner banner-success mt-4">
-          <strong>Assessment complete.</strong> No further background vetting or screening is required for roles with no AML functions.
+      ${!isNone ? `
+        <div class="divider"></div>
+        <div class="section-heading">4. Annual Declaration</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="label">Declaration Date</label>
+            <input id="vet-decl-date" type="date" class="inp" value="${d.declDate||''}" onchange="autoSetDeclNext(this.value)">
+          </div>
+          <div class="form-row">
+            <label class="label">Next Declaration Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
+            <input id="vet-decl-next" type="date" class="inp" value="${d.declNext||''}" oninput="updateDraft('declNext', this.value)">
+          </div>
         </div>
+        <label class="check-row ${d.declSigned ? 'selected' : ''}" style="margin-top:var(--space-2)">
+          <input type="checkbox" ${d.declSigned ? 'checked' : ''} onchange="updateDraft('declSigned', this.checked); render();">
+          <div>
+            <div class="check-row-label">Declaration Signed</div>
+            <div class="check-row-desc">Fit & proper suitability confirmed by staff member.</div>
+          </div>
+        </label>
       ` : ''}
     </div>`;
 }
 
 // ─── TAB: TRAINING ────────────────────────────────────────────────────────────
-function tabTraining(d) {
+function tabTraining(d, classification) {
   return `
     <div class="card">
       <div class="section-heading">Training Evidence</div>
@@ -243,9 +281,13 @@ function tabTraining(d) {
         </div>
         <div class="form-row">
           <label class="label">Completed Date</label>
-          <input id="trn-completed" type="date" class="inp" value="${d.trainingDate || new Date().toISOString().split('T')[0]}" oninput="updateDraft('trainingDate', this.value)">
+          <input id="trn-completed" type="date" class="inp" value="${d.trainingDate || new Date().toISOString().split('T')[0]}" onchange="autoSetTrainingExpiry(this.value)">
         </div>
         <div class="form-row">
+          <label class="label">Next Training Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
+          <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry||''}" oninput="updateDraft('trainingExpiry', this.value)">
+        </div>
+        <div class="form-row span-2">
           <label class="label">Provider</label>
           <input id="trn-provider" type="text" class="inp" value="${d.trainingProvider||''}" placeholder="e.g. CPA Australia" oninput="updateDraft('trainingProvider', this.value)">
         </div>
@@ -257,18 +299,41 @@ function tabTraining(d) {
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
+// Gold Standard +1 Year Logics
+window.autoSetTrainingExpiry = (val) => {
+  if (!val) return;
+  const date = new Date(val);
+  date.setFullYear(date.getFullYear() + 1);
+  const expiry = date.toISOString().split('T')[0];
+  S._draft.trainingDate = val;
+  S._draft.trainingExpiry = expiry;
+  render();
+};
+
+window.autoSetDeclNext = (val) => {
+  if (!val) return;
+  const date = new Date(val);
+  date.setFullYear(date.getFullYear() + 1);
+  const nextDue = date.toISOString().split('T')[0];
+  S._draft.declDate = val;
+  S._draft.declNext = nextDue;
+  render();
+};
+
 window.toggleFunction = (id) => {
   let fns = S._draft.functions || [];
   if (fns.includes(id)) fns = fns.filter(f => f !== id);
   else fns.push(id);
   S._draft.functions = fns;
   S._draft.noneSelected = (fns.length === 0);
+  delete S._draft.trainingType; 
   render();
 };
 
 window.toggleNone = () => {
   S._draft.noneSelected = !S._draft.noneSelected;
   if (S._draft.noneSelected) S._draft.functions = [];
+  delete S._draft.trainingType;
   render();
 };
 
@@ -284,9 +349,7 @@ window.cancelIndividual = () => {
 };
 
 window.handleSmartSave = async function(nextTab) {
-  // Pass false to the save record function to prevent it from navigating away immediately
   await saveIndividualRecord(false); 
-  
   if (nextTab === 'exit') {
     const isStaff = S._draft?.isStaff;
     delete S._draft;
