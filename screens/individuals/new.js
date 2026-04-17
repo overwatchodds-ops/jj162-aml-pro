@@ -5,23 +5,17 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-// Handles new and edit flows. 
-// Defaulting logic: All staff entries default to Key Personnel (highest safety).
-
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
-  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
@@ -36,19 +30,16 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 4. Logic Engine: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   
-  // Staff with nothing checked default to Key Personnel
   const classification = hasKey || (!hasStd && !d.noneSelected && d.isStaff) 
     ? 'Key Personnel' 
     : hasStd ? 'Standard AML/CTF Staff' 
     : 'No AML/CTF functions';
 
-  // 5. Auto-populate training type
   if (!d.trainingType && classification !== 'No AML/CTF functions') {
     d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
   }
@@ -59,7 +50,6 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 6. Smart Navigation
   let btnLabel = 'Save Record';
   let nextTab  = null;
 
@@ -99,12 +89,11 @@ export function screen() {
           const showDot = (t.key === 'vetting' || t.key === 'training') && 
                           classification !== 'No AML/CTF functions' && 
                           activeTab !== t.key;
-          
-          return `
-            <button onclick="indTab('${t.key}')" class="filter-tab ${activeTab === t.key ? 'active' : ''}" style="position:relative;">
-              ${t.label}
-              ${showDot ? `<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>` : ''}
-            </button>`;
+          return \`
+            <button onclick="indTab('\${t.key}')" class="filter-tab \${activeTab === t.key ? 'active' : ''}" style="position:relative;">
+              \${t.label}
+              \${showDot ? \`<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>\` : ''}
+            </button>\`;
         }).join('')}
       </div>
 
@@ -123,7 +112,6 @@ export function screen() {
     </div>`;
 }
 
-// ─── TAB: IDENTITY ────────────────────────────────────────────────────────────
 function tabIdentity(d, classification) {
   const FN_KEY = [
     { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility', type:'key' },
@@ -179,7 +167,6 @@ function tabIdentity(d, classification) {
     </div>`;
 }
 
-// ─── TAB: VETTING & VERIFICATION ──────────────────────────────────────────────
 function tabVettingMerged(d, classification) {
   const isKey  = classification === 'Key Personnel';
   const isNone = classification === 'No AML/CTF functions';
@@ -218,10 +205,6 @@ function tabVettingMerged(d, classification) {
               <option ${d.nsResult==='Clear'?'selected':''}>Clear</option>
               <option ${d.nsResult==='Hit'?'selected':''}>Hit - Investigate</option>
             </select>
-          </div>
-          <div class="form-row span-2">
-            <label class="label">Scan ID / Reference</label>
-            <input type="text" class="inp" value="${d.nsRef||''}" placeholder="e.g. NSC-2026-XXXXX" oninput="updateDraft('nsRef', this.value)">
           </div>
         </div>
       ` : ''}
@@ -266,7 +249,7 @@ function tabVettingMerged(d, classification) {
             <input id="vet-decl-date" type="date" class="inp" value="${d.declDate||''}" onchange="autoSetDeclNext(this.value)">
           </div>
           <div class="form-row">
-            <label class="label">Next Declaration Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
+            <label class="label">Next Declaration Due</label>
             <input id="vet-decl-next" type="date" class="inp" value="${d.declNext||''}" oninput="updateDraft('declNext', this.value)">
           </div>
         </div>
@@ -281,7 +264,6 @@ function tabVettingMerged(d, classification) {
     </div>`;
 }
 
-// ─── TAB: TRAINING ────────────────────────────────────────────────────────────
 function tabTraining(d, classification) {
   return `
     <div class="card">
@@ -299,18 +281,12 @@ function tabTraining(d, classification) {
           <input id="trn-completed" type="date" class="inp" value="${d.trainingDate || new Date().toISOString().split('T')[0]}" onchange="autoSetTrainingExpiry(this.value)">
         </div>
         <div class="form-row">
-          <label class="label">Next Training Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
+          <label class="label">Next Training Due</label>
           <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry||''}" oninput="updateDraft('trainingExpiry', this.value)">
-        </div>
-        <div class="form-row span-2">
-          <label class="label">Provider</label>
-          <input id="trn-provider" type="text" class="inp" value="${d.trainingProvider||''}" placeholder="e.g. CPA Australia" oninput="updateDraft('trainingProvider', this.value)">
         </div>
       </div>
     </div>`;
 }
-
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
@@ -318,9 +294,8 @@ window.autoSetTrainingExpiry = (val) => {
   if (!val) return;
   const date = new Date(val);
   date.setFullYear(date.getFullYear() + 1);
-  const expiry = date.toISOString().split('T')[0];
   S._draft.trainingDate = val;
-  S._draft.trainingExpiry = expiry;
+  S._draft.trainingExpiry = date.toISOString().split('T')[0];
   render();
 };
 
@@ -328,9 +303,8 @@ window.autoSetDeclNext = (val) => {
   if (!val) return;
   const date = new Date(val);
   date.setFullYear(date.getFullYear() + 1);
-  const nextDue = date.toISOString().split('T')[0];
   S._draft.declDate = val;
-  S._draft.declNext = nextDue;
+  S._draft.declNext = date.toISOString().split('T')[0];
   render();
 };
 
@@ -382,7 +356,8 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
   if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
 
-  const iid = isEdit ? individualId : genId('ind');
+  const iid = isEdit ? individualId : (d.individualId || genId('ind'));
+  d.individualId = iid;
   const now = new Date().toISOString();
 
   const indData = {
@@ -396,7 +371,14 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
 
   try {
     await saveIndividual(iid, indData);
-    addIndividualToState(indData);
+    
+    // UPDATED: Check for existing before pushing to state to avoid duplicates
+    const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
+    if (existingIdx > -1) {
+      S.individuals[existingIdx] = indData;
+    } else {
+      S.individuals.unshift(indData);
+    }
     
     await saveAuditEntry({
       firmId: S.firmId,
