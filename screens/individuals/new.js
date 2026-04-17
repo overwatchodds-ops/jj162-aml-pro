@@ -5,36 +5,41 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-// Handles new and edit flows for individuals and staff.
-// Implements the "Gold Standard" logic: functional derivation, smart navigation,
-// and automatic renewal dates for training and vetting.
-
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
-  const ind    = isEdit ? S.individuals.find(i => i.individualId === individualId) : null;
   
-  // 1. Initialize draft state and enforce context
+  // 1. HARD DATA PULL: Find the individual in state
+  const ind = S.individuals.find(i => i.individualId === individualId) || 
+              S.staff?.find(s => s.individualId === individualId);
+
+  // 2. STATE SYNC: Ensure the draft matches the record if editing
+  if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
+    S._draft = JSON.parse(JSON.stringify(ind)); 
+  } 
+  
+  // 3. FALLBACK: Initialize new record context
   if (!S._draft) {
-    S._draft = isEdit ? { ...ind } : { 
-      isStaff: entryPoint === 'staff' || (ind?.isStaff ?? false),
-      functions: ind?.functions || [],
-      noneSelected: ind?.noneSelected ?? (entryPoint !== 'staff'),
+    S._draft = { 
+      isStaff: entryPoint === 'staff',
+      functions: [],
+      noneSelected: (entryPoint !== 'staff'),
       status: 'Active'
     };
   }
+
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 2. Logic Engine: Classification derived from functions
+  // 4. LOGIC ENGINE: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   const classification = hasKey ? 'Key Personnel' : hasStd ? 'Standard AML/CTF Staff' : 'No AML/CTF functions';
 
-  // 3. Auto-populate training type based on classification
-  if (!d.trainingType) {
+  // 5. AUTO-POPULATE: Training type mapping
+  if (!d.trainingType && classification !== 'No AML/CTF functions') {
     d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
   }
 
@@ -44,7 +49,7 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 4. Smart Navigation Button Logic
+  // 6. SMART NAVIGATION: Button labels and targets
   let btnLabel = 'Save Record';
   let nextTab  = null;
 
@@ -72,7 +77,7 @@ export function screen() {
             ← ${d.isStaff ? 'Staff Register' : 'Back'}
           </button>
           <h1 class="screen-title">${isEdit ? 'Edit Record' : 'New Individual'}</h1>
-          <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${d.fullName || 'New Record Entry'}</p>
+          <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${d.fullName || d.name || 'New Record Entry'}</p>
         </div>
         <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">
           ${d.isStaff ? 'Staff Context' : 'Client Context'}
@@ -126,7 +131,7 @@ function tabIdentity(d, classification) {
       <div class="form-grid mb-4">
         <div class="form-row span-2">
           <label class="label label-required">Full legal name</label>
-          <input id="ind-name" type="text" class="inp" value="${d.fullName||''}" oninput="updateDraft('fullName', this.value)">
+          <input id="ind-name" type="text" class="inp" value="${d.fullName || d.name || ''}" oninput="updateDraft('fullName', this.value)">
         </div>
         <div class="form-row">
           <label class="label label-required">Date of birth</label>
@@ -159,7 +164,7 @@ function tabIdentity(d, classification) {
 
       <div class="card-inset" style="background:var(--color-surface-alt)">
         <span class="label">System Classification</span>
-        <div class="font-medium ${classification === 'Key Personnel' ? 'text-danger' : 'text-primary'}" style="color:${classification === 'Key Personnel' ? 'var(--color-danger-text)' : 'var(--color-primary)'}">${classification}</div>
+        <div class="font-medium" style="color:${classification === 'Key Personnel' ? 'var(--color-danger-text)' : 'var(--color-primary)'}">${classification}</div>
       </div>
     </div>`;
 }
@@ -214,7 +219,7 @@ function tabVettingMerged(d, classification) {
       ${isKey ? `
         <div class="divider"></div>
         <div class="section-heading">3. Background Checks (Fit & Proper)</div>
-        <div class="form-grid">
+        <div class="form-grid mb-4">
           <div class="form-row">
             <label class="label">Police Check Date</label>
             <input id="vet-police-date" type="date" class="inp" value="${d.policeDate||''}" oninput="updateDraft('policeDate', this.value)">
@@ -245,7 +250,7 @@ function tabVettingMerged(d, classification) {
       ${!isNone ? `
         <div class="divider"></div>
         <div class="section-heading">4. Annual Declaration</div>
-        <div class="form-grid">
+        <div class="form-grid mb-4">
           <div class="form-row">
             <label class="label">Declaration Date</label>
             <input id="vet-decl-date" type="date" class="inp" value="${d.declDate||''}" onchange="autoSetDeclNext(this.value)">
@@ -255,7 +260,7 @@ function tabVettingMerged(d, classification) {
             <input id="vet-decl-next" type="date" class="inp" value="${d.declNext||''}" oninput="updateDraft('declNext', this.value)">
           </div>
         </div>
-        <label class="check-row ${d.declSigned ? 'selected' : ''}" style="margin-top:var(--space-2)">
+        <label class="check-row ${d.declSigned ? 'selected' : ''}">
           <input type="checkbox" ${d.declSigned ? 'checked' : ''} onchange="updateDraft('declSigned', this.checked); render();">
           <div>
             <div class="check-row-label">Declaration Signed</div>
@@ -299,7 +304,6 @@ function tabTraining(d, classification) {
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
-// Gold Standard +1 Year Logics
 window.autoSetTrainingExpiry = (val) => {
   if (!val) return;
   const date = new Date(val);
@@ -365,13 +369,14 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   const isEdit = !!individualId;
   const d = S._draft;
 
-  if (!d.fullName) { toast('Full legal name is required', 'err'); return; }
+  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
 
   const iid = isEdit ? individualId : genId('ind');
   const now = new Date().toISOString();
 
   const indData = {
     ...d,
+    fullName: d.fullName || d.name, // Normalizing field names
     individualId: iid,
     firmId: S.firmId,
     updatedAt: now,
@@ -387,7 +392,7 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
       userId: S.individualId,
       action: isEdit ? 'individual_updated' : 'individual_created',
       targetId: iid,
-      targetName: d.fullName,
+      targetName: indData.fullName,
       timestamp: now
     });
 
