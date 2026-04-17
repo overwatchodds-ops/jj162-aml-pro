@@ -2,7 +2,6 @@ import { S } from '../../state/index.js';
 import { fmtDate } from '../../firebase/firestore.js';
 
 // ─── VETTING STATUS FOR STAFF VIEW ────────────────────────────────────────────
-// Driven by the classification derived from functional tasks
 function staffVettingStatus(ind) {
   const fns = ind.functions || [];
   const keyFns = ['director', 'amlco', 'senior'];
@@ -11,22 +10,21 @@ function staffVettingStatus(ind) {
   const hasKey = fns.some(f => keyFns.includes(f));
   const hasStd = fns.some(f => stdFns.includes(f));
 
-  // 1. Logic Gate: If NOTHING is selected but they are Staff (like Tim Wong)
-  // They are Key Personnel by default and therefore INCOMPLETE.
+  // Logic: Staff default to Key Personnel and stay Incomplete until data is entered
   if (!hasKey && !hasStd && ind.noneSelected !== true) {
     return 'incomplete'; 
   }
 
-  // 2. Assessed (Explicitly "No AML Functions")
+  // Explicit assessment of no regulated AML tasks
   if (ind.noneSelected === true) return 'complete'; 
 
-  // 3. Key Personnel Requirements
+  // Key Personnel requirements audit
   if (hasKey) {
     const isComplete = ind.policeResult && ind.bankruptResult && ind.nsResult && ind.declSigned;
     return isComplete ? 'complete' : 'incomplete';
   }
 
-  // 4. Standard Staff Requirements
+  // Standard Staff requirements audit
   if (hasStd) {
     const isComplete = ind.nsResult && ind.declSigned;
     return isComplete ? 'complete' : 'incomplete';
@@ -60,10 +58,13 @@ export function screen() {
   const search      = S.currentParams?.search || '';
 
   let individuals = [...(S.individuals || [])];
+  
+  // Strict Staff Context Filtering
   if (isStaffView) {
     individuals = individuals.filter(i => i.isStaff === true);
   }
 
+  // Search Logic
   if (search) {
     const q = search.toLowerCase();
     individuals = individuals.filter(i =>
@@ -72,6 +73,7 @@ export function screen() {
     );
   }
 
+  // Map individuals to their calculated status
   const withStatus = individuals.map(i => ({
     ...i,
     _status: staffVettingStatus(i)
@@ -79,30 +81,34 @@ export function screen() {
 
   const filtered = filter === 'all' ? withStatus : withStatus.filter(i => i._status === filter);
 
+  // Status counts for tab navigation
   const counts = {
     all:         withStatus.length,
     complete:    withStatus.filter(i => i._status === 'complete').length,
     incomplete:  withStatus.filter(i => i._status === 'incomplete').length,
-    not_started: withStatus.filter(i => i._status === 'not_started').length,
+    not_started: withStatus.filter(i => i._status === 'not_started').length
   };
 
-  const title    = isStaffView ? 'Staff Vetting' : 'Individuals';
+  // STRICT STAFF TEXT LOCKS
+  const title    = isStaffView ? 'Staff Register' : 'Individuals';
   const subtitle = isStaffView
-    ? 'Vetting records for all firm staff with AML/CTF responsibilities.'
-    : 'Every person connected to your firm — staff and clients.';
+    ? 'Vetting records and AML/CTF responsibilities for all firm personnel.'
+    : 'Every person connected to your firm — staff and client contacts.';
   const newBtn   = isStaffView ? '+ Add staff member' : '+ New individual';
   const newRoute = isStaffView ? 'staff-new' : 'individual-new';
-  const emptyMsg = isStaffView ? 'No staff members found.' : 'No individuals found.';
+  const emptyMsg = isStaffView ? 'No staff records found.' : 'No individual records found.';
 
   const filterTabs = [
     { key: 'all',         label: `All (${counts.all})` },
     { key: 'complete',    label: `Complete (${counts.complete})` },
     { key: 'incomplete',  label: `Incomplete (${counts.incomplete})` },
-    { key: 'not_started', label: `Not started (${counts.not_started})` },
+    { key: 'not_started', label: `Not started (${counts.not_started})` }
   ];
 
   const detailRoute = isStaffView ? 'staff-detail' : 'individual-detail';
-  const editRoute   = isStaffView ? 'staff-edit'   : 'individual-edit';
+  const editRoute   = isStaffRoute(isStaffView) ? 'staff-edit' : 'individual-edit';
+
+  function isStaffRoute(view) { return view === true; }
 
   return `
     <div>
@@ -146,8 +152,8 @@ export function screen() {
               <tr>
                 <th>Name</th>
                 <th>Role</th>
-                <th>Vetting status</th>
-                <th>Last updated</th>
+                <th>Vetting Status</th>
+                <th>Last Updated</th>
                 <th style="width:40px;"></th>
               </tr>
             </thead>
@@ -182,7 +188,7 @@ export function screen() {
 }
 
 function initials(name = '') {
-  return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() || '?';
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
 }
 
 window.individualsSearch = function(val) {
