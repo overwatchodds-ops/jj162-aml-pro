@@ -26,7 +26,6 @@ export function screen() {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
       isStaff: isStaff,
-      // DEFAULT: Key Personnel tasks pre-selected for safety
       functions: isStaff ? ['director', 'amlco', 'senior'] : [], 
       noneSelected: false, 
       role: ind?.role || '',
@@ -100,11 +99,12 @@ export function screen() {
           const showDot = (t.key === 'vetting' || t.key === 'training') && 
                           classification !== 'No AML/CTF functions' && 
                           activeTab !== t.key;
-          return \`
-            <button onclick="indTab('\${t.key}')" class="filter-tab \${activeTab === t.key ? 'active' : ''}" style="position:relative;">
-              \${t.label}
-              \${showDot ? \`<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>\` : ''}
-            </button>\`;
+          
+          return `
+            <button onclick="indTab('${t.key}')" class="filter-tab ${activeTab === t.key ? 'active' : ''}" style="position:relative;">
+              ${t.label}
+              ${showDot ? `<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>` : ''}
+            </button>`;
         }).join('')}
       </div>
 
@@ -154,8 +154,6 @@ function tabIdentity(d, classification) {
       </div>
 
       <div class="section-heading">AML/CTF Functions</div>
-      <p class="text-xs text-muted mb-3">Staff default to Key Personnel requirements unless reassessed.</p>
-      
       ${FN_KEY.map(f => `
         <label class="check-row ${d.functions?.includes(f.id) ? (f.type === 'key' ? 'selected' : 'selected-primary') : ''}">
           <input type="checkbox" ${d.functions?.includes(f.id) ? 'checked' : ''} onchange="toggleFunction('${f.id}')">
