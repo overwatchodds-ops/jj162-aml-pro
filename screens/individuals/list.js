@@ -4,27 +4,29 @@ import { fmtDate } from '../../firebase/firestore.js';
 // ─── VETTING STATUS FOR STAFF VIEW ────────────────────────────────────────────
 // Driven by the classification derived from functional tasks
 function staffVettingStatus(ind) {
-  // Classification Engine (Matches new.js logic)
+  const fns = ind.functions || [];
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   
-  const fns = ind.functions || [];
   const hasKey = fns.some(f => keyFns.includes(f));
   const hasStd = fns.some(f => stdFns.includes(f));
-  const isNone = ind.noneSelected === true || (!hasKey && !hasStd);
 
-  // 1. Assessed (No AML Functions)
-  if (isNone) return 'complete'; 
+  // 1. Logic Gate: If NOTHING is selected but they are Staff (like Tim Wong)
+  // They are Key Personnel by default and therefore INCOMPLETE.
+  if (!hasKey && !hasStd && ind.noneSelected !== true) {
+    return 'incomplete'; 
+  }
 
-  // 2. Key Personnel Requirements
-  // Requires: Police, Bankruptcy, NameScan, and Signed Declaration
+  // 2. Assessed (Explicitly "No AML Functions")
+  if (ind.noneSelected === true) return 'complete'; 
+
+  // 3. Key Personnel Requirements
   if (hasKey) {
     const isComplete = ind.policeResult && ind.bankruptResult && ind.nsResult && ind.declSigned;
     return isComplete ? 'complete' : 'incomplete';
   }
 
-  // 3. Standard Staff Requirements
-  // Requires: NameScan and Signed Declaration
+  // 4. Standard Staff Requirements
   if (hasStd) {
     const isComplete = ind.nsResult && ind.declSigned;
     return isComplete ? 'complete' : 'incomplete';
@@ -57,13 +59,11 @@ export function screen() {
   const filter      = S.currentParams?.filter || 'all';
   const search      = S.currentParams?.search || '';
 
-  // 1. Context Filtering: Staff View only shows isStaff:true records
   let individuals = [...(S.individuals || [])];
   if (isStaffView) {
     individuals = individuals.filter(i => i.isStaff === true);
   }
 
-  // 2. Search Logic
   if (search) {
     const q = search.toLowerCase();
     individuals = individuals.filter(i =>
@@ -72,16 +72,13 @@ export function screen() {
     );
   }
 
-  // 3. Compute Status based on the individual record properties
   const withStatus = individuals.map(i => ({
     ...i,
     _status: staffVettingStatus(i)
   }));
 
-  // 4. Filter by Computed Status
   const filtered = filter === 'all' ? withStatus : withStatus.filter(i => i._status === filter);
 
-  // 5. Counts for Tabs
   const counts = {
     all:         withStatus.length,
     complete:    withStatus.filter(i => i._status === 'complete').length,
@@ -89,16 +86,13 @@ export function screen() {
     not_started: withStatus.filter(i => i._status === 'not_started').length,
   };
 
-  // 6. UI Config
   const title    = isStaffView ? 'Staff Vetting' : 'Individuals';
   const subtitle = isStaffView
     ? 'Vetting records for all firm staff with AML/CTF responsibilities.'
     : 'Every person connected to your firm — staff and clients.';
   const newBtn   = isStaffView ? '+ Add staff member' : '+ New individual';
   const newRoute = isStaffView ? 'staff-new' : 'individual-new';
-  const emptyMsg = isStaffView
-    ? 'No staff members found.'
-    : 'No individuals found.';
+  const emptyMsg = isStaffView ? 'No staff members found.' : 'No individuals found.';
 
   const filterTabs = [
     { key: 'all',         label: `All (${counts.all})` },
@@ -187,7 +181,6 @@ export function screen() {
     </div>`;
 }
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
 function initials(name = '') {
   return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() || '?';
 }
