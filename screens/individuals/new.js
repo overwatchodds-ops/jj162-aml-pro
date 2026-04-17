@@ -9,13 +9,16 @@ export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
+  // 1. Find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
+  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
+  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
@@ -75,6 +78,7 @@ export function screen() {
     nextTab  = 'exit';
   }
 
+  // Use standard string construction for buttons to avoid template literal nesting errors
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
@@ -131,7 +135,7 @@ function tabIdentity(d, classification) {
     { id:'cdd',      label:'Processes CDD / KYC', desc:'Identity verification tasks', type:'std' },
     { id:'screen',   label:'Screens clients', desc:'PEP/Sanctions checks', type:'std' },
     { id:'monitor',  label:'Transaction monitoring', desc:'Reviews unusual activity', type:'std' },
-    { id:'smr',      label:'SMR Reporting', desc:'Suspicious matter support', type:'std' },
+    { id:'smr',      label:'SMR Reporting', desc:'Suspicious matter support', type:'std' }
   ];
 
   return `
@@ -144,11 +148,11 @@ function tabIdentity(d, classification) {
         </div>
         <div class="form-row">
           <label class="label label-required">Date of birth</label>
-          <input id="ind-dob" type="date" class="inp" value="${d.dateOfBirth||''}" oninput="updateDraft('dateOfBirth', this.value)">
+          <input id="ind-dob" type="date" class="inp" value="${d.dateOfBirth || ''}" oninput="updateDraft('dateOfBirth', this.value)">
         </div>
         <div class="form-row">
           <label class="label label-required">Job Title / Role</label>
-          <input id="ind-role" type="text" class="inp" value="${d.role||''}" oninput="updateDraft('role', this.value)">
+          <input id="ind-role" type="text" class="inp" value="${d.role || ''}" oninput="updateDraft('role', this.value)">
         </div>
       </div>
 
@@ -167,7 +171,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
+          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
         </div>
       </label>
 
@@ -179,7 +183,7 @@ function tabIdentity(d, classification) {
 }
 
 function tabVettingMerged(d, classification) {
-  const isKey  = classification === 'Key Personnel';
+  const isKey = classification === 'Key Personnel';
   const isNone = classification === 'No AML/CTF functions';
 
   return `
@@ -190,14 +194,14 @@ function tabVettingMerged(d, classification) {
           <label class="label">ID Type</label>
           <select id="ver-id-type" class="inp" onchange="updateDraft('idType', this.value)">
             <option value="">Select...</option>
-            <option ${d.idType==='Passport'?'selected':''}>Passport</option>
-            <option ${d.idType==='Driver Licence'?'selected':''}>Driver Licence</option>
-            <option ${d.idType==='Medicare'?'selected':''}>Medicare</option>
+            <option ${d.idType === 'Passport' ? 'selected' : ''}>Passport</option>
+            <option ${d.idType === 'Driver Licence' ? 'selected' : ''}>Driver Licence</option>
+            <option ${d.idType === 'Medicare' ? 'selected' : ''}>Medicare</option>
           </select>
         </div>
         <div class="form-row">
           <label class="label">ID Number</label>
-          <input id="ver-id-number" type="text" class="inp" value="${d.idNumber||''}" oninput="updateDraft('idNumber', this.value)">
+          <input id="ver-id-number" type="text" class="inp" value="${d.idNumber || ''}" oninput="updateDraft('idNumber', this.value)">
         </div>
       </div>
 
@@ -213,8 +217,8 @@ function tabVettingMerged(d, classification) {
             <label class="label">Result</label>
             <select id="scr-result" class="inp" onchange="updateDraft('nsResult', this.value)">
               <option value="">Select...</option>
-              <option ${d.nsResult==='Clear'?'selected':''}>Clear</option>
-              <option ${d.nsResult==='Hit'?'selected':''}>Hit - Investigate</option>
+              <option ${d.nsResult === 'Clear' ? 'selected' : ''}>Clear</option>
+              <option ${d.nsResult === 'Hit' ? 'selected' : ''}>Hit - Investigate</option>
             </select>
           </div>
         </div>
@@ -226,26 +230,26 @@ function tabVettingMerged(d, classification) {
         <div class="form-grid mb-4">
           <div class="form-row">
             <label class="label">Police Check Date</label>
-            <input id="vet-police-date" type="date" class="inp" value="${d.policeDate||''}" oninput="updateDraft('policeDate', this.value)">
+            <input id="vet-police-date" type="date" class="inp" value="${d.policeDate || ''}" oninput="updateDraft('policeDate', this.value)">
           </div>
           <div class="form-row">
             <label class="label">Police Result</label>
             <select class="inp" onchange="updateDraft('policeResult', this.value)">
               <option value="">Select...</option>
-              <option ${d.policeResult==='Pass'?'selected':''}>Pass</option>
-              <option ${d.policeResult==='Fail'?'selected':''}>Fail</option>
+              <option ${d.policeResult === 'Pass' ? 'selected' : ''}>Pass</option>
+              <option ${d.policeResult === 'Fail' ? 'selected' : ''}>Fail</option>
             </select>
           </div>
           <div class="form-row">
             <label class="label">Bankruptcy Check Date</label>
-            <input id="vet-bankrupt-date" type="date" class="inp" value="${d.bankruptDate||''}" oninput="updateDraft('bankruptDate', this.value)">
+            <input id="vet-bankrupt-date" type="date" class="inp" value="${d.bankruptDate || ''}" oninput="updateDraft('bankruptDate', this.value)">
           </div>
           <div class="form-row">
             <label class="label">Bankruptcy Result</label>
             <select class="inp" onchange="updateDraft('bankruptResult', this.value)">
               <option value="">Select...</option>
-              <option ${d.bankruptResult==='Clear'?'selected':''}>Clear</option>
-              <option ${d.bankruptResult==='Finding'?'selected':''}>Finding</option>
+              <option ${d.bankruptResult === 'Clear' ? 'selected' : ''}>Clear</option>
+              <option ${d.bankruptResult === 'Finding' ? 'selected' : ''}>Finding</option>
             </select>
           </div>
         </div>
@@ -257,11 +261,11 @@ function tabVettingMerged(d, classification) {
         <div class="form-grid mb-4">
           <div class="form-row">
             <label class="label">Declaration Date</label>
-            <input id="vet-decl-date" type="date" class="inp" value="${d.declDate||''}" onchange="autoSetDeclNext(this.value)">
+            <input id="vet-decl-date" type="date" class="inp" value="${d.declDate || ''}" onchange="autoSetDeclNext(this.value)">
           </div>
           <div class="form-row">
             <label class="label">Next Declaration Due</label>
-            <input id="vet-decl-next" type="date" class="inp" value="${d.declNext||''}" oninput="updateDraft('declNext', this.value)">
+            <input id="vet-decl-next" type="date" class="inp" value="${d.declNext || ''}" oninput="updateDraft('declNext', this.value)">
           </div>
         </div>
         <label class="check-row ${d.declSigned ? 'selected' : ''}">
@@ -283,8 +287,8 @@ function tabTraining(d, classification) {
         <div class="form-row span-2">
           <label class="label">Training Type</label>
           <select id="trn-type" class="inp" onchange="updateDraft('trainingType', this.value)">
-            <option value="standard" ${d.trainingType==='standard'?'selected':''}>Standard AML/CTF training</option>
-            <option value="enhanced" ${d.trainingType==='enhanced'?'selected':''}>Enhanced (Key Personnel)</option>
+            <option value="standard" ${d.trainingType === 'standard' ? 'selected' : ''}>Standard AML/CTF training</option>
+            <option value="enhanced" ${d.trainingType === 'enhanced' ? 'selected' : ''}>Enhanced (Key Personnel)</option>
           </select>
         </div>
         <div class="form-row">
@@ -293,7 +297,7 @@ function tabTraining(d, classification) {
         </div>
         <div class="form-row">
           <label class="label">Next Training Due</label>
-          <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry||''}" oninput="updateDraft('trainingExpiry', this.value)">
+          <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry || ''}" oninput="updateDraft('trainingExpiry', this.value)">
         </div>
       </div>
     </div>`;
@@ -354,3 +358,60 @@ window.handleSmartSave = async function(nextTab) {
   if (nextTab === 'exit') {
     const isStaff = S._draft?.isStaff;
     delete S._draft;
+    go(isStaff ? 'staff' : 'individuals');
+  } else {
+    indTab(nextTab);
+    window.scrollTo(0,0);
+  }
+};
+
+window.saveIndividualRecord = async function(shouldRedirect = true) {
+  const { individualId } = S.currentParams || {};
+  const isEdit = !!individualId;
+  const d = S._draft;
+
+  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
+  if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
+
+  const iid = isEdit ? individualId : (d.individualId || genId('ind'));
+  d.individualId = iid;
+  
+  const now = new Date().toISOString();
+
+  const indData = {
+    ...d,
+    fullName: d.fullName || d.name,
+    individualId: iid,
+    firmId: S.firmId,
+    updatedAt: now,
+    createdAt: isEdit ? (d.createdAt || now) : now
+  };
+
+  try {
+    await saveIndividual(iid, indData);
+    
+    const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
+    if (existingIdx > -1) {
+      S.individuals[existingIdx] = indData;
+    } else {
+      S.individuals.unshift(indData);
+    }
+    
+    await saveAuditEntry({
+      firmId: S.firmId,
+      userId: S.individualId,
+      action: isEdit ? 'individual_updated' : 'individual_created',
+      targetId: iid,
+      targetName: indData.fullName,
+      timestamp: now
+    });
+
+    if (shouldRedirect) {
+      delete S._draft;
+      go(d.isStaff ? 'staff' : 'individual-detail', { individualId: iid });
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Save failed', 'err');
+  }
+};
