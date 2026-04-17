@@ -4,26 +4,27 @@ import {
   saveTrainingRecord, saveVettingRecord, saveAuditEntry, genId 
 } from '../../firebase/firestore.js';
 
+// ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Timing Fix: Detect context immediately from screen state
+  // 1. Precise Context Detection
   const isStaffView = entryPoint === 'staff' || S.currentScreen === 'staff' || S.currentScreen === 'staff-new';
 
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               (S.staff || []).find(s => s.individualId === individualId);
 
-  // 2. Sync Logic: Ensure draft matches ID
+  // 2. Draft Synchronization
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Sequencing Fix: Force staff context if arriving from Staff Vetting
+  // 3. Initialization: Staff Context with Empty Functions
   if (!S._draft) {
     S._draft = { 
       isStaff: isStaffView,
-      functions: [], // Start with zero boxes as requested
+      functions: [], 
       noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
@@ -35,14 +36,14 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 4. Logic: Context-aware labels
+  // 4. UI Strings and Context Badge
   const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
   const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
 
-  // 5. Classification Logic
+  // 5. Classification Engine
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -59,7 +60,7 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 6. Syntax Fix: Use concatenation for buttons to avoid nested backtick errors
+  // 6. Navigation Tabs (Using concatenation to prevent Syntax Errors)
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
@@ -82,9 +83,7 @@ export function screen() {
           <h1 class="screen-title">${isEdit ? 'Edit ' + contextLabel : 'New ' + contextLabel}</h1>
           <p class="screen-subtitle">${contextSubtitle}</p>
         </div>
-        <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">
-          ${contextBadge}
-        </span>
+        <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">${contextBadge}</span>
       </div>
 
       <div class="filter-tabs mb-4">${tabButtons}</div>
@@ -92,7 +91,7 @@ export function screen() {
       <div class="tab-content">
         ${activeTab === 'identity' ? tabIdentity(d, classification) : ''}
         ${activeTab === 'vetting'  ? tabVettingMerged(d, classification) : ''}
-        ${activeTab === 'training' ? tabTraining(d, classification) : ''}
+        ${activeTab === 'training' ? tabTraining(d) : ''}
       </div>
 
       <div class="flex gap-3 mt-4" style="border-top: 0.5px solid var(--color-border); padding-top: var(--space-4);">
@@ -104,7 +103,7 @@ export function screen() {
     </div>`;
 }
 
-// ─── TAB CONTENT FUNCTIONS ───────────────────────────────────────────────────
+// ─── TAB CONTENT FUNCTIONS ────────────────────────────────────────────────────
 
 function tabIdentity(d, classification) {
   const FN_KEY = [
@@ -122,15 +121,15 @@ function tabIdentity(d, classification) {
       <div class="section-heading">Core identity</div>
       <div class="form-grid mb-4">
         <div class="form-row span-2">
-          <label class="label label-required">Full legal name</label>
+          <label class="label label-required">Full legal name *</label>
           <input id="ind-name" type="text" class="inp" value="${d.fullName || d.name || ''}" oninput="updateDraft('fullName', this.value)">
         </div>
         <div class="form-row">
-          <label class="label label-required">Date of birth</label>
+          <label class="label label-required">Date of birth *</label>
           <input type="date" class="inp" value="${d.dateOfBirth || ''}" oninput="updateDraft('dateOfBirth', this.value)">
         </div>
         <div class="form-row">
-          <label class="label label-required">Job Title / Role</label>
+          <label class="label label-required">Job Title / Role *</label>
           <input type="text" class="inp" value="${d.role || ''}" oninput="updateDraft('role', this.value)">
         </div>
       </div>
@@ -211,7 +210,7 @@ window.cancelIndividual = () => {
   go(isStaff ? 'staff' : 'individuals');
 };
 
-// 7. Sequencing Logic: Validation Gate
+// Logic Gate: Validation must pass before screen change
 window.handleSmartSave = async function(nextTab) {
   const success = await saveIndividualRecord(false); 
   if (!success) return; 
@@ -228,5 +227,29 @@ window.handleSmartSave = async function(nextTab) {
 
 window.saveIndividualRecord = async function(shouldRedirect = true) {
   const d = S._draft;
+  // Validation Check
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return false; }
-  if (!d.role) { toast('Job Title / Role is required',
+  if (!d.role) { toast('Job Title / Role is required', 'err'); return false; }
+
+  const iid = d.individualId || genId('ind');
+  d.individualId = iid;
+  const now = new Date().toISOString();
+  const indData = { ...d, fullName: d.fullName || d.name, individualId: iid, firmId: S.firmId, updatedAt: now };
+
+  try {
+    await saveIndividual(iid, indData);
+    const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
+    if (existingIdx > -1) S.individuals[existingIdx] = indData;
+    else S.individuals.unshift(indData);
+    
+    if (shouldRedirect) {
+      const isStaffContext = d.isStaff === true;
+      delete S._draft;
+      go(isStaffContext ? 'staff' : 'individual-detail', { individualId: iid });
+    }
+    return true;
+  } catch (err) {
+    toast('Save failed', 'err');
+    return false;
+  }
+};
