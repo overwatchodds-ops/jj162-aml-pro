@@ -9,21 +9,24 @@ export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. HARD DATA PULL: Find the individual in state
+  // 1. Force find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
-  // 2. STATE SYNC: Ensure the draft matches the record if editing
+  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. FALLBACK: Initialize new record context
+  // 3. Logic: If coming from Appointments or Staff Register, default to Key Personnel
   if (!S._draft) {
+    const isStaff = entryPoint === 'staff';
     S._draft = { 
-      isStaff: entryPoint === 'staff',
-      functions: [],
-      noneSelected: (entryPoint !== 'staff'),
+      isStaff: isStaff,
+      // Defaulting to Key Personnel tasks for the highest safety standard
+      functions: isStaff ? ['director', 'amlco', 'senior'] : [], 
+      noneSelected: !isStaff,
+      role: ind?.role || '',
       status: 'Active'
     };
   }
@@ -31,14 +34,14 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 4. LOGIC ENGINE: Classification derived from functions
+  // 4. Logic Engine: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   const classification = hasKey ? 'Key Personnel' : hasStd ? 'Standard AML/CTF Staff' : 'No AML/CTF functions';
 
-  // 5. AUTO-POPULATE: Training type mapping
+  // 5. Auto-populate training type
   if (!d.trainingType && classification !== 'No AML/CTF functions') {
     d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
   }
@@ -49,7 +52,7 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 6. SMART NAVIGATION: Button labels and targets
+  // 6. Smart Navigation
   let btnLabel = 'Save Record';
   let nextTab  = null;
 
@@ -89,7 +92,6 @@ export function screen() {
           const showDot = (t.key === 'vetting' || t.key === 'training') && 
                           classification !== 'No AML/CTF functions' && 
                           activeTab !== t.key;
-          
           return `
             <button onclick="indTab('${t.key}')" class="filter-tab ${activeTab === t.key ? 'active' : ''}" style="position:relative;">
               ${t.label}
@@ -138,7 +140,7 @@ function tabIdentity(d, classification) {
           <input id="ind-dob" type="date" class="inp" value="${d.dateOfBirth||''}" oninput="updateDraft('dateOfBirth', this.value)">
         </div>
         <div class="form-row">
-          <label class="label">Job Title / Role</label>
+          <label class="label label-required">Job Title / Role</label>
           <input id="ind-role" type="text" class="inp" value="${d.role||''}" oninput="updateDraft('role', this.value)">
         </div>
       </div>
@@ -218,7 +220,7 @@ function tabVettingMerged(d, classification) {
 
       ${isKey ? `
         <div class="divider"></div>
-        <div class="section-heading">3. Background Checks (Fit & Proper)</div>
+        <div class="section-heading">3. Background Checks</div>
         <div class="form-grid mb-4">
           <div class="form-row">
             <label class="label">Police Check Date</label>
@@ -370,13 +372,14 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   const d = S._draft;
 
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
+  if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
 
   const iid = isEdit ? individualId : genId('ind');
   const now = new Date().toISOString();
 
   const indData = {
     ...d,
-    fullName: d.fullName || d.name, // Normalizing field names
+    fullName: d.fullName || d.name,
     individualId: iid,
     firmId: S.firmId,
     updatedAt: now,
