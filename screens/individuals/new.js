@@ -9,34 +9,44 @@ export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  const ind = S.individuals.find(i => i.individualId === individualId) || 
-              S.staff?.find(s => s.individualId === individualId);
+  // 1. Context Detection
+  const isStaffView = entryPoint === 'staff' || S.currentScreen === 'staff' || S.currentScreen === 'staff-new';
 
+  // 2. Find the individual in state
+  const ind = S.individuals.find(i => i.individualId === individualId) || 
+              (S.staff || []).find(s => s.individualId === individualId);
+
+  // 3. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
+  // 4. Initialization Logic: Force isStaff based on the current screen context
   if (!S._draft) {
-    const isStaff = entryPoint === 'staff';
     S._draft = { 
-      isStaff: isStaff,
-      functions: isStaff ? ['director', 'amlco', 'senior'] : [], 
+      isStaff: isStaffView,
+      // Default to Key Personnel tasks if it's a staff view
+      functions: isStaffView ? ['director', 'amlco', 'senior'] : [], 
       noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
     };
+  } else {
+    // Safety check: If we are in staff view, the draft MUST be marked as staff
+    if (isStaffView) S._draft.isStaff = true;
   }
 
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // FIXED: Strict context locking for Headings and Badges
+  // 5. Context UI Strings
   const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
   const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
 
+  // 6. Classification Engine
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -96,7 +106,7 @@ export function screen() {
             ← ${d.isStaff ? 'Staff Register' : 'Back'}
           </button>
           <h1 class="screen-title">${isEdit ? 'Edit ' + contextLabel : 'New ' + contextLabel}</h1>
-          <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${contextSubtitle}</p>
+          <p class="screen-subtitle">${contextSubtitle}</p>
         </div>
         <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">
           ${contextBadge}
@@ -168,7 +178,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
+          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
         </div>
       </label>
 
