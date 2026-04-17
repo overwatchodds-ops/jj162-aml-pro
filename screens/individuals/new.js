@@ -21,18 +21,17 @@ export function screen() {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 4. Initialization Logic: Force isStaff based on the current screen context
+  // 4. Initialization Logic: Force isStaff but start with ZERO boxes
   if (!S._draft) {
     S._draft = { 
       isStaff: isStaffView,
-      // Default to Key Personnel tasks if it's a staff view
-      functions: isStaffView ? ['director', 'amlco', 'senior'] : [], 
+      functions: [], // Zero boxes ticked by default as requested
       noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
     };
   } else {
-    // Safety check: If we are in staff view, the draft MUST be marked as staff
+    // Safety check: Maintain staff context if in staff view
     if (isStaffView) S._draft.isStaff = true;
   }
 
@@ -52,6 +51,7 @@ export function screen() {
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   
+  // Logic: Staff default to Key Personnel if nothing is checked
   const classification = hasKey || (!hasStd && !d.noneSelected && d.isStaff) 
     ? 'Key Personnel' 
     : hasStd ? 'Standard AML/CTF Staff' 
@@ -178,7 +178,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
+          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
         </div>
       </label>
 
