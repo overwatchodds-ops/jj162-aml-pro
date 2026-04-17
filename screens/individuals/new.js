@@ -9,16 +9,13 @@ export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
-  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
@@ -33,8 +30,9 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // STRICT STAFF CONTEXT LOGIC
-  const contextTitle = d.isStaff ? 'Staff Member' : 'Individual';
+  // FIXED: Strict context locking for Headings and Badges
+  const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
+  const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
@@ -78,7 +76,6 @@ export function screen() {
     nextTab  = 'exit';
   }
 
-  // Use standard string construction for buttons to avoid template literal nesting errors
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
@@ -98,11 +95,11 @@ export function screen() {
           <button onclick="cancelIndividual()" class="btn-ghost" style="padding:0;">
             ← ${d.isStaff ? 'Staff Register' : 'Back'}
           </button>
-          <h1 class="screen-title">${isEdit ? 'Edit ' + contextTitle : 'New ' + contextTitle}</h1>
+          <h1 class="screen-title">${isEdit ? 'Edit ' + contextLabel : 'New ' + contextLabel}</h1>
           <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${contextSubtitle}</p>
         </div>
         <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">
-          ${d.isStaff ? 'Staff Context' : 'Client Context'}
+          ${contextBadge}
         </span>
       </div>
 
@@ -299,6 +296,10 @@ function tabTraining(d, classification) {
           <label class="label">Next Training Due</label>
           <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry || ''}" oninput="updateDraft('trainingExpiry', this.value)">
         </div>
+        <div class="form-row span-2">
+          <label class="label">Training Provider</label>
+          <input id="trn-provider" type="text" class="inp" value="${d.trainingProvider || ''}" placeholder="e.g. CPA Australia" oninput="updateDraft('trainingProvider', this.value)">
+        </div>
       </div>
     </div>`;
 }
@@ -407,8 +408,9 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
     });
 
     if (shouldRedirect) {
+      const isStaffContext = d.isStaff === true;
       delete S._draft;
-      go(d.isStaff ? 'staff' : 'individual-detail', { individualId: iid });
+      go(isStaffContext ? 'staff' : 'individual-detail', { individualId: iid });
     }
   } catch (err) {
     console.error(err);
