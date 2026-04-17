@@ -4,46 +4,32 @@ import {
   saveTrainingRecord, saveVettingRecord, saveAuditEntry, genId 
 } from '../../firebase/firestore.js';
 
-// ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
-  
-  // 1. Precise Context Detection
   const isStaffView = entryPoint === 'staff' || S.currentScreen === 'staff' || S.currentScreen === 'staff-new';
 
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               (S.staff || []).find(s => s.individualId === individualId);
 
-  // 2. Draft Synchronization
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Initialization: Staff Context with Empty Functions
   if (!S._draft) {
-    S._draft = { 
-      isStaff: isStaffView,
-      functions: [], 
-      noneSelected: false, 
-      role: ind?.role || '',
-      status: 'Active'
-    };
+    S._draft = { isStaff: isStaffView, functions: [], noneSelected: false, role: ind?.role || '', status: 'Active' };
   } else if (isStaffView) {
     S._draft.isStaff = true;
   }
 
   const d = S._draft;
   const activeTab = tab || 'identity';
-
-  // 4. UI Strings and Context Badge
   const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
   const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
 
-  // 5. Classification Engine
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -60,40 +46,30 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 6. Navigation Tabs (Using concatenation to prevent Syntax Errors)
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
-                    classification !== 'No AML/CTF functions' && 
-                    activeTab !== t.key;
+                    classification !== 'No AML/CTF functions' && activeTab !== t.key;
     const dotHtml = showDot ? '<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>' : '';
-    
-    return '<button onclick="indTab(\'' + t.key + '\')" class="filter-tab ' + isActive + '" style="position:relative;">' + 
-             t.label + dotHtml + 
-           '</button>';
+    return '<button onclick="indTab(\'' + t.key + '\')" class="filter-tab ' + isActive + '" style="position:relative;">' + t.label + dotHtml + '</button>';
   }).join('');
 
   return `
     <div class="screen-narrow">
       <div class="screen-header">
         <div>
-          <button onclick="cancelIndividual()" class="btn-ghost" style="padding:0;">
-            ← ${d.isStaff ? 'Staff Register' : 'Back'}
-          </button>
+          <button onclick="cancelIndividual()" class="btn-ghost" style="padding:0;">← ${d.isStaff ? 'Staff Register' : 'Back'}</button>
           <h1 class="screen-title">${isEdit ? 'Edit ' + contextLabel : 'New ' + contextLabel}</h1>
           <p class="screen-subtitle">${contextSubtitle}</p>
         </div>
         <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">${contextBadge}</span>
       </div>
-
       <div class="filter-tabs mb-4">${tabButtons}</div>
-
       <div class="tab-content">
         ${activeTab === 'identity' ? tabIdentity(d, classification) : ''}
         ${activeTab === 'vetting'  ? tabVettingMerged(d, classification) : ''}
         ${activeTab === 'training' ? tabTraining(d) : ''}
       </div>
-
       <div class="flex gap-3 mt-4" style="border-top: 0.5px solid var(--color-border); padding-top: var(--space-4);">
         <button onclick="cancelIndividual()" class="btn-sec flex-1">Cancel</button>
         <button onclick="handleSmartSave('${activeTab === 'training' || (activeTab === 'identity' && classification === 'No AML/CTF functions') ? 'exit' : (activeTab === 'identity' ? 'vetting' : 'training')}')" class="btn flex-2">
@@ -102,8 +78,6 @@ export function screen() {
       </div>
     </div>`;
 }
-
-// ─── TAB CONTENT FUNCTIONS ────────────────────────────────────────────────────
 
 function tabIdentity(d, classification) {
   const FN_KEY = [
@@ -137,19 +111,14 @@ function tabIdentity(d, classification) {
       ${FN_KEY.map(f => `
         <label class="check-row">
           <input type="checkbox" ${d.functions?.includes(f.id) ? 'checked' : ''} onchange="toggleFunction('${f.id}')">
-          <div>
-            <div class="check-row-label">${f.label}</div>
-            <div class="check-row-desc">${f.desc}</div>
-          </div>
-        </label>
-      `).join('')}
+          <div><div class="check-row-label">${f.label}</div><div class="check-row-desc">${f.desc}</div></div>
+        </label>`).join('')}
       <div class="card-inset" style="background:var(--color-surface-alt)">
         <span class="label">System Classification</span>
         <div class="font-medium">${classification}</div>
       </div>
     </div>`;
 }
-
 function tabVettingMerged(d, classification) {
   const isKey = classification === 'Key Personnel';
   return `
@@ -168,7 +137,22 @@ function tabVettingMerged(d, classification) {
         <div class="divider"></div>
         <div class="section-heading">Background Checks</div>
         <div class="form-grid mb-4">
-          <div class="form-row"><label class="label">Police Check</label><select class="inp" onchange="updateDraft('policeResult', this.value)"><option value="">Select...</option><option ${d.policeResult==='Pass'?'selected':''}>Pass</option></select></div>
+          <div class="form-row">
+            <label class="label">Police Check</label>
+            <select class="inp" onchange="updateDraft('policeResult', this.value)">
+              <option value="">Select...</option>
+              <option ${d.policeResult==='Pass'?'selected':''}>Pass</option>
+              <option ${d.policeResult==='Fail'?'selected':''}>Fail</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="label">Bankruptcy Check</label>
+            <select class="inp" onchange="updateDraft('bankruptResult', this.value)">
+              <option value="">Select...</option>
+              <option ${d.bankruptResult==='Clear'?'selected':''}>Clear</option>
+              <option ${d.bankruptResult==='Found'?'selected':''}>Found</option>
+            </select>
+          </div>
         </div>
       ` : ''}
     </div>`;
@@ -187,10 +171,7 @@ function tabTraining(d) {
     </div>`;
 }
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
-
 window.updateDraft = (key, val) => { S._draft[key] = val; };
-
 window.toggleFunction = (id) => {
   let fns = S._draft.functions || [];
   if (fns.includes(id)) fns = fns.filter(f => f !== id);
@@ -198,23 +179,12 @@ window.toggleFunction = (id) => {
   S._draft.functions = fns;
   render();
 };
+window.indTab = (tab) => { S.currentParams.tab = tab; render(); };
+window.cancelIndividual = () => { const isStaff = S._draft?.isStaff; delete S._draft; go(isStaff ? 'staff' : 'individuals'); };
 
-window.indTab = (tab) => {
-  S.currentParams.tab = tab;
-  render();
-};
-
-window.cancelIndividual = () => {
-  const isStaff = S._draft?.isStaff;
-  delete S._draft;
-  go(isStaff ? 'staff' : 'individuals');
-};
-
-// Logic Gate: Validation must pass before screen change
 window.handleSmartSave = async function(nextTab) {
   const success = await saveIndividualRecord(false); 
   if (!success) return; 
-
   if (nextTab === 'exit') {
     const isStaff = S._draft?.isStaff;
     delete S._draft;
@@ -227,7 +197,6 @@ window.handleSmartSave = async function(nextTab) {
 
 window.saveIndividualRecord = async function(shouldRedirect = true) {
   const d = S._draft;
-  // Validation Check
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return false; }
   if (!d.role) { toast('Job Title / Role is required', 'err'); return false; }
 
@@ -241,7 +210,6 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
     const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
     if (existingIdx > -1) S.individuals[existingIdx] = indData;
     else S.individuals.unshift(indData);
-    
     if (shouldRedirect) {
       const isStaffContext = d.isStaff === true;
       delete S._draft;
