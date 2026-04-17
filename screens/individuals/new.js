@@ -30,6 +30,12 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
+  // STRICT STAFF CONTEXT LOGIC
+  const contextTitle = d.isStaff ? 'Staff Member' : 'Individual';
+  const contextSubtitle = d.isStaff 
+    ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
+    : 'Manage identity verification and onboarding requirements.';
+
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -69,7 +75,6 @@ export function screen() {
     nextTab  = 'exit';
   }
 
-  // FIXED: Standard map without nested backticks to prevent SyntaxErrors
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
@@ -89,8 +94,8 @@ export function screen() {
           <button onclick="cancelIndividual()" class="btn-ghost" style="padding:0;">
             ← ${d.isStaff ? 'Staff Register' : 'Back'}
           </button>
-          <h1 class="screen-title">${isEdit ? 'Edit Record' : 'New Individual'}</h1>
-          <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${d.fullName || d.name || 'New Record Entry'}</p>
+          <h1 class="screen-title">${isEdit ? 'Edit ' + contextTitle : 'New ' + contextTitle}</h1>
+          <p class="screen-subtitle" style="font-size:var(--font-size-sm); color:var(--color-text-muted);">${contextSubtitle}</p>
         </div>
         <span class="badge ${d.isStaff ? 'badge-primary' : 'badge-neutral'}">
           ${d.isStaff ? 'Staff Context' : 'Client Context'}
@@ -116,7 +121,8 @@ export function screen() {
     </div>`;
 }
 
-// ─── TABS ───
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+
 function tabIdentity(d, classification) {
   const FN_KEY = [
     { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility', type:'key' },
@@ -161,7 +167,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
+          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
         </div>
       </label>
 
@@ -293,7 +299,8 @@ function tabTraining(d, classification) {
     </div>`;
 }
 
-// ─── ACTIONS ───
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
 window.autoSetTrainingExpiry = (val) => {
@@ -347,62 +354,3 @@ window.handleSmartSave = async function(nextTab) {
   if (nextTab === 'exit') {
     const isStaff = S._draft?.isStaff;
     delete S._draft;
-    go(isStaff ? 'staff' : 'individuals');
-  } else {
-    indTab(nextTab);
-    window.scrollTo(0,0);
-  }
-};
-
-window.saveIndividualRecord = async function(shouldRedirect = true) {
-  const { individualId } = S.currentParams || {};
-  const isEdit = !!individualId;
-  const d = S._draft;
-
-  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
-  if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
-
-  // RE-USE EXISTING ID IF IT EXISTS
-  const iid = isEdit ? individualId : (d.individualId || genId('ind'));
-  d.individualId = iid;
-  
-  const now = new Date().toISOString();
-
-  const indData = {
-    ...d,
-    fullName: d.fullName || d.name,
-    individualId: iid,
-    firmId: S.firmId,
-    updatedAt: now,
-    createdAt: isEdit ? (d.createdAt || now) : now
-  };
-
-  try {
-    await saveIndividual(iid, indData);
-    
-    // UPSERT LOGIC
-    const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
-    if (existingIdx > -1) {
-      S.individuals[existingIdx] = indData;
-    } else {
-      S.individuals.unshift(indData);
-    }
-    
-    await saveAuditEntry({
-      firmId: S.firmId,
-      userId: S.individualId,
-      action: isEdit ? 'individual_updated' : 'individual_created',
-      targetId: iid,
-      targetName: indData.fullName,
-      timestamp: now
-    });
-
-    if (shouldRedirect) {
-      delete S._draft;
-      go(d.isStaff ? 'staff' : 'individual-detail', { individualId: iid });
-    }
-  } catch (err) {
-    console.error(err);
-    toast('Save failed', 'err');
-  }
-};
