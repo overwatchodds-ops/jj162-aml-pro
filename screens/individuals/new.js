@@ -4,41 +4,45 @@ import {
   saveTrainingRecord, saveVettingRecord, saveAuditEntry, genId 
 } from '../../firebase/firestore.js';
 
-// ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
+  // 1. Timing Fix: Detect context immediately from screen state
   const isStaffView = entryPoint === 'staff' || S.currentScreen === 'staff' || S.currentScreen === 'staff-new';
 
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               (S.staff || []).find(s => s.individualId === individualId);
 
+  // 2. Sync Logic: Ensure draft matches ID
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
+  // 3. Sequencing Fix: Force staff context if arriving from Staff Vetting
   if (!S._draft) {
     S._draft = { 
       isStaff: isStaffView,
-      functions: [], 
+      functions: [], // Start with zero boxes as requested
       noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
     };
-  } else {
-    if (isStaffView) S._draft.isStaff = true;
+  } else if (isStaffView) {
+    S._draft.isStaff = true;
   }
 
   const d = S._draft;
   const activeTab = tab || 'identity';
 
+  // 4. Logic: Context-aware labels
   const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
   const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
 
+  // 5. Classification Logic
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -49,35 +53,13 @@ export function screen() {
     : hasStd ? 'Standard AML/CTF Staff' 
     : 'No AML/CTF functions';
 
-  if (!d.trainingType && classification !== 'No AML/CTF functions') {
-    d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
-  }
-
   const tabs = [
     { key: 'identity', label: '1. Identity' },
     { key: 'vetting',  label: '2. Vetting & Verification' },
     { key: 'training', label: '3. Training' }
   ];
 
-  let btnLabel = 'Save Record';
-  let nextTab  = null;
-
-  if (activeTab === 'identity') {
-    if (classification === 'No AML/CTF functions') {
-      btnLabel = 'Save & Finish';
-      nextTab  = 'exit'; 
-    } else {
-      btnLabel = 'Save & Continue to Vetting';
-      nextTab  = 'vetting';
-    }
-  } else if (activeTab === 'vetting') {
-    btnLabel = 'Save & Continue to Training';
-    nextTab  = 'training';
-  } else {
-    btnLabel = 'Complete Onboarding';
-    nextTab  = 'exit';
-  }
-
+  // 6. Syntax Fix: Use concatenation for buttons to avoid nested backtick errors
   const tabButtons = tabs.map(t => {
     const isActive = activeTab === t.key ? 'active' : '';
     const showDot = (t.key === 'vetting' || t.key === 'training') && 
@@ -105,9 +87,7 @@ export function screen() {
         </span>
       </div>
 
-      <div class="filter-tabs mb-4">
-        ${tabButtons}
-      </div>
+      <div class="filter-tabs mb-4">${tabButtons}</div>
 
       <div class="tab-content">
         ${activeTab === 'identity' ? tabIdentity(d, classification) : ''}
@@ -117,24 +97,24 @@ export function screen() {
 
       <div class="flex gap-3 mt-4" style="border-top: 0.5px solid var(--color-border); padding-top: var(--space-4);">
         <button onclick="cancelIndividual()" class="btn-sec flex-1">Cancel</button>
-        <button onclick="handleSmartSave('${nextTab}')" class="btn flex-2">
-          ${btnLabel}
+        <button onclick="handleSmartSave('${activeTab === 'training' || (activeTab === 'identity' && classification === 'No AML/CTF functions') ? 'exit' : (activeTab === 'identity' ? 'vetting' : 'training')}')" class="btn flex-2">
+          ${activeTab === 'training' || (activeTab === 'identity' && classification === 'No AML/CTF functions') ? 'Complete Onboarding' : 'Save & Continue'}
         </button>
       </div>
     </div>`;
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ─── TAB CONTENT FUNCTIONS ───────────────────────────────────────────────────
 
 function tabIdentity(d, classification) {
   const FN_KEY = [
-    { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility', type:'key' },
-    { id:'amlco',    label:'AMLCO or delegate', desc:'Formal AML responsibility', type:'key' },
-    { id:'senior',   label:'Senior manager', desc:'Approval authority', type:'key' },
-    { id:'cdd',      label:'Processes CDD / KYC', desc:'Identity verification tasks', type:'std' },
-    { id:'screen',   label:'Screens clients', desc:'PEP/Sanctions checks', type:'std' },
-    { id:'monitor',  label:'Transaction monitoring', desc:'Reviews unusual activity', type:'std' },
-    { id:'smr',      label:'SMR Reporting', desc:'Suspicious matter support', type:'std' }
+    { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility' },
+    { id:'amlco',    label:'AMLCO or delegate', desc:'Formal AML responsibility' },
+    { id:'senior',   label:'Senior manager', desc:'Approval authority' },
+    { id:'cdd',      label:'Processes CDD / KYC', desc:'Identity verification tasks' },
+    { id:'screen',   label:'Screens clients', desc:'PEP/Sanctions checks' },
+    { id:'monitor',  label:'Transaction monitoring', desc:'Reviews unusual activity' },
+    { id:'smr',      label:'SMR Reporting', desc:'Suspicious matter support' }
   ];
 
   return `
@@ -147,17 +127,16 @@ function tabIdentity(d, classification) {
         </div>
         <div class="form-row">
           <label class="label label-required">Date of birth</label>
-          <input id="ind-dob" type="date" class="inp" value="${d.dateOfBirth || ''}" oninput="updateDraft('dateOfBirth', this.value)">
+          <input type="date" class="inp" value="${d.dateOfBirth || ''}" oninput="updateDraft('dateOfBirth', this.value)">
         </div>
         <div class="form-row">
           <label class="label label-required">Job Title / Role</label>
-          <input id="ind-role" type="text" class="inp" value="${d.role || ''}" oninput="updateDraft('role', this.value)">
+          <input type="text" class="inp" value="${d.role || ''}" oninput="updateDraft('role', this.value)">
         </div>
       </div>
-
       <div class="section-heading">AML/CTF Functions</div>
       ${FN_KEY.map(f => `
-        <label class="check-row ${d.functions?.includes(f.id) ? (f.type === 'key' ? 'selected' : 'selected-primary') : ''}">
+        <label class="check-row">
           <input type="checkbox" ${d.functions?.includes(f.id) ? 'checked' : ''} onchange="toggleFunction('${f.id}')">
           <div>
             <div class="check-row-label">${f.label}</div>
@@ -165,142 +144,45 @@ function tabIdentity(d, classification) {
           </div>
         </label>
       `).join('')}
-
-      <label class="check-row ${d.noneSelected ? 'selected' : ''}" style="margin-top:var(--space-3)">
-        <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
-        <div>
-          <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
-        </div>
-      </label>
-
       <div class="card-inset" style="background:var(--color-surface-alt)">
         <span class="label">System Classification</span>
-        <div class="font-medium" style="color:${classification === 'Key Personnel' ? 'var(--color-danger-text)' : 'var(--color-primary)'}">${classification}</div>
+        <div class="font-medium">${classification}</div>
       </div>
     </div>`;
 }
 
 function tabVettingMerged(d, classification) {
   const isKey = classification === 'Key Personnel';
-  const isNone = classification === 'No AML/CTF functions';
-
   return `
     <div class="card">
-      <div class="section-heading">1. Identity Verification</div>
+      <div class="section-heading">Identity Verification</div>
       <div class="form-grid mb-4">
-        <div class="form-row">
-          <label class="label">ID Type</label>
-          <select id="ver-id-type" class="inp" onchange="updateDraft('idType', this.value)">
-            <option value="">Select...</option>
-            <option ${d.idType === 'Passport' ? 'selected' : ''}>Passport</option>
-            <option ${d.idType === 'Driver Licence' ? 'selected' : ''}>Driver Licence</option>
-            <option ${d.idType === 'Medicare' ? 'selected' : ''}>Medicare</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label class="label">ID Number</label>
-          <input id="ver-id-number" type="text" class="inp" value="${d.idNumber || ''}" oninput="updateDraft('idNumber', this.value)">
-        </div>
+        <div class="form-row"><label class="label">ID Type</label><input type="text" class="inp" value="${d.idType || ''}" oninput="updateDraft('idType', this.value)"></div>
+        <div class="form-row"><label class="label">ID Number</label><input type="text" class="inp" value="${d.idNumber || ''}" oninput="updateDraft('idNumber', this.value)"></div>
       </div>
-
-      ${!isNone ? `
-        <div class="divider"></div>
-        <div class="section-heading">2. NameScan Screening</div>
-        <div class="form-grid mb-4">
-          <div class="form-row">
-            <label class="label">Screening Date</label>
-            <input id="scr-date" type="date" class="inp" value="${d.nsDate || new Date().toISOString().split('T')[0]}" oninput="updateDraft('nsDate', this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Result</label>
-            <select id="scr-result" class="inp" onchange="updateDraft('nsResult', this.value)">
-              <option value="">Select...</option>
-              <option ${d.nsResult === 'Clear' ? 'selected' : ''}>Clear</option>
-              <option ${d.nsResult === 'Hit' ? 'selected' : ''}>Hit - Investigate</option>
-            </select>
-          </div>
-        </div>
-      ` : ''}
-
+      <div class="divider"></div>
+      <div class="section-heading">NameScan Screening</div>
+      <div class="form-grid mb-4">
+        <div class="form-row"><label class="label">Result</label><select class="inp" onchange="updateDraft('nsResult', this.value)"><option value="">Select...</option><option ${d.nsResult==='Clear'?'selected':''}>Clear</option><option ${d.nsResult==='Hit'?'selected':''}>Hit</option></select></div>
+      </div>
       ${isKey ? `
         <div class="divider"></div>
-        <div class="section-heading">3. Background Checks</div>
+        <div class="section-heading">Background Checks</div>
         <div class="form-grid mb-4">
-          <div class="form-row">
-            <label class="label">Police Check Date</label>
-            <input id="vet-police-date" type="date" class="inp" value="${d.policeDate || ''}" oninput="updateDraft('policeDate', this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Police Result</label>
-            <select class="inp" onchange="updateDraft('policeResult', this.value)">
-              <option value="">Select...</option>
-              <option ${d.policeResult === 'Pass' ? 'selected' : ''}>Pass</option>
-              <option ${d.policeResult === 'Fail' ? 'selected' : ''}>Fail</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label class="label">Bankruptcy Check Date</label>
-            <input id="vet-bankrupt-date" type="date" class="inp" value="${d.bankruptDate || ''}" oninput="updateDraft('bankruptDate', this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Bankruptcy Result</label>
-            <select class="inp" onchange="updateDraft('bankruptResult', this.value)">
-              <option value="">Select...</option>
-              <option ${d.bankruptResult === 'Clear' ? 'selected' : ''}>Clear</option>
-              <option ${d.bankruptResult === 'Finding' ? 'selected' : ''}>Finding</option>
-            </select>
-          </div>
+          <div class="form-row"><label class="label">Police Check</label><select class="inp" onchange="updateDraft('policeResult', this.value)"><option value="">Select...</option><option ${d.policeResult==='Pass'?'selected':''}>Pass</option></select></div>
         </div>
-      ` : ''}
-
-      ${!isNone ? `
-        <div class="divider"></div>
-        <div class="section-heading">4. Annual Declaration</div>
-        <div class="form-grid mb-4">
-          <div class="form-row">
-            <label class="label">Declaration Date</label>
-            <input id="vet-decl-date" type="date" class="inp" value="${d.declDate || ''}" onchange="autoSetDeclNext(this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Next Declaration Due</label>
-            <input id="vet-decl-next" type="date" class="inp" value="${d.declNext || ''}" oninput="updateDraft('declNext', this.value)">
-          </div>
-        </div>
-        <label class="check-row ${d.declSigned ? 'selected' : ''}">
-          <input type="checkbox" ${d.declSigned ? 'checked' : ''} onchange="updateDraft('declSigned', this.checked); render();">
-          <div>
-            <div class="check-row-label">Declaration Signed</div>
-            <div class="check-row-desc">Fit & proper suitability confirmed.</div>
-          </div>
-        </label>
       ` : ''}
     </div>`;
 }
 
-function tabTraining(d, classification) {
+function tabTraining(d) {
   return `
     <div class="card">
       <div class="section-heading">Training Evidence</div>
       <div class="form-grid">
         <div class="form-row span-2">
-          <label class="label">Training Type</label>
-          <select id="trn-type" class="inp" onchange="updateDraft('trainingType', this.value)">
-            <option value="standard" ${d.trainingType === 'standard' ? 'selected' : ''}>Standard AML/CTF training</option>
-            <option value="enhanced" ${d.trainingType === 'enhanced' ? 'selected' : ''}>Enhanced (Key Personnel)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label class="label">Completed Date</label>
-          <input id="trn-completed" type="date" class="inp" value="${d.trainingDate || new Date().toISOString().split('T')[0]}" onchange="autoSetTrainingExpiry(this.value)">
-        </div>
-        <div class="form-row">
-          <label class="label">Next Training Due</label>
-          <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry || ''}" oninput="updateDraft('trainingExpiry', this.value)">
-        </div>
-        <div class="form-row span-2">
           <label class="label">Training Provider</label>
-          <input id="trn-provider" type="text" class="inp" value="${d.trainingProvider || ''}" placeholder="e.g. CPA Australia" oninput="updateDraft('trainingProvider', this.value)">
+          <input type="text" class="inp" value="${d.trainingProvider || ''}" oninput="updateDraft('trainingProvider', this.value)">
         </div>
       </div>
     </div>`;
@@ -310,4 +192,41 @@ function tabTraining(d, classification) {
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
-window.autoSetTrainingExpiry = (val
+window.toggleFunction = (id) => {
+  let fns = S._draft.functions || [];
+  if (fns.includes(id)) fns = fns.filter(f => f !== id);
+  else fns.push(id);
+  S._draft.functions = fns;
+  render();
+};
+
+window.indTab = (tab) => {
+  S.currentParams.tab = tab;
+  render();
+};
+
+window.cancelIndividual = () => {
+  const isStaff = S._draft?.isStaff;
+  delete S._draft;
+  go(isStaff ? 'staff' : 'individuals');
+};
+
+// 7. Sequencing Logic: Validation Gate
+window.handleSmartSave = async function(nextTab) {
+  const success = await saveIndividualRecord(false); 
+  if (!success) return; 
+
+  if (nextTab === 'exit') {
+    const isStaff = S._draft?.isStaff;
+    delete S._draft;
+    go(isStaff ? 'staff' : 'individuals');
+  } else {
+    indTab(nextTab);
+    window.scrollTo(0,0);
+  }
+};
+
+window.saveIndividualRecord = async function(shouldRedirect = true) {
+  const d = S._draft;
+  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return false; }
+  if (!d.role) { toast('Job Title / Role is required',
