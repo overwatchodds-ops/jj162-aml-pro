@@ -5,23 +5,17 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-// Handles new and edit flows. 
-// Prevents duplicates by checking for existing individualId before saving.
-
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Force find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
-  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
@@ -36,7 +30,6 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 4. Logic Engine: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -47,7 +40,6 @@ export function screen() {
     : hasStd ? 'Standard AML/CTF Staff' 
     : 'No AML/CTF functions';
 
-  // 5. Auto-populate training type
   if (!d.trainingType && classification !== 'No AML/CTF functions') {
     d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
   }
@@ -58,7 +50,6 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
-  // 6. Smart Navigation
   let btnLabel = 'Save Record';
   let nextTab  = null;
 
@@ -78,6 +69,19 @@ export function screen() {
     nextTab  = 'exit';
   }
 
+  // FIXED: Standard map without nested backticks to prevent SyntaxErrors
+  const tabButtons = tabs.map(t => {
+    const isActive = activeTab === t.key ? 'active' : '';
+    const showDot = (t.key === 'vetting' || t.key === 'training') && 
+                    classification !== 'No AML/CTF functions' && 
+                    activeTab !== t.key;
+    const dotHtml = showDot ? '<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>' : '';
+    
+    return '<button onclick="indTab(\'' + t.key + '\')" class="filter-tab ' + isActive + '" style="position:relative;">' + 
+             t.label + dotHtml + 
+           '</button>';
+  }).join('');
+
   return `
     <div class="screen-narrow">
       <div class="screen-header">
@@ -94,17 +98,7 @@ export function screen() {
       </div>
 
       <div class="filter-tabs mb-4">
-        ${tabs.map(t => {
-          const showDot = (t.key === 'vetting' || t.key === 'training') && 
-                          classification !== 'No AML/CTF functions' && 
-                          activeTab !== t.key;
-          
-          return \`
-            <button onclick="indTab('\${t.key}')" class="filter-tab \${activeTab === t.key ? 'active' : ''}" style="position:relative;">
-              \${t.label}
-              \${showDot ? \`<span class="status-dot status-dot-action" style="position:absolute; top:4px; right:4px; width:6px; height:6px;"></span>\` : ''}
-            </button>\`;
-        }).join('')}
+        ${tabButtons}
       </div>
 
       <div class="tab-content">
@@ -122,7 +116,7 @@ export function screen() {
     </div>`;
 }
 
-// ─── TAB: IDENTITY ────────────────────────────────────────────────────────────
+// ─── TABS ───
 function tabIdentity(d, classification) {
   const FN_KEY = [
     { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility', type:'key' },
@@ -178,7 +172,6 @@ function tabIdentity(d, classification) {
     </div>`;
 }
 
-// ─── TAB: VETTING & VERIFICATION ──────────────────────────────────────────────
 function tabVettingMerged(d, classification) {
   const isKey  = classification === 'Key Personnel';
   const isNone = classification === 'No AML/CTF functions';
@@ -276,7 +269,6 @@ function tabVettingMerged(d, classification) {
     </div>`;
 }
 
-// ─── TAB: TRAINING ────────────────────────────────────────────────────────────
 function tabTraining(d, classification) {
   return `
     <div class="card">
@@ -301,8 +293,7 @@ function tabTraining(d, classification) {
     </div>`;
 }
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
-
+// ─── ACTIONS ───
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
 window.autoSetTrainingExpiry = (val) => {
@@ -371,8 +362,7 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
   if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
 
-  // ─── UPSERT LOGIC ───
-  // Re-use existing ID if it exists in draft to prevent duplicates
+  // RE-USE EXISTING ID IF IT EXISTS
   const iid = isEdit ? individualId : (d.individualId || genId('ind'));
   d.individualId = iid;
   
@@ -390,7 +380,7 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   try {
     await saveIndividual(iid, indData);
     
-    // Sync local state: Replace if exists, unshift if new
+    // UPSERT LOGIC
     const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
     if (existingIdx > -1) {
       S.individuals[existingIdx] = indData;
