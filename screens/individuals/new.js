@@ -5,11 +5,14 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
+// Handles new and edit flows. 
+// Defaulting logic: All staff entries default to Key Personnel (highest safety).
+
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Force find the individual in state
+  // 1. Find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
@@ -18,14 +21,14 @@ export function screen() {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 3. Logic: If coming from Appointments or Staff Register, default to Key Personnel
+  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
       isStaff: isStaff,
-      // Defaulting to Key Personnel tasks for the highest safety standard
+      // DEFAULT: Key Personnel tasks pre-selected for safety
       functions: isStaff ? ['director', 'amlco', 'senior'] : [], 
-      noneSelected: !isStaff,
+      noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
     };
@@ -39,7 +42,12 @@ export function screen() {
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
-  const classification = hasKey ? 'Key Personnel' : hasStd ? 'Standard AML/CTF Staff' : 'No AML/CTF functions';
+  
+  // If no boxes are checked and 'noneSelected' is false, it stays Key Personnel
+  const classification = hasKey || (!hasStd && !d.noneSelected && d.isStaff) 
+    ? 'Key Personnel' 
+    : hasStd ? 'Standard AML/CTF Staff' 
+    : 'No AML/CTF functions';
 
   // 5. Auto-populate training type
   if (!d.trainingType && classification !== 'No AML/CTF functions') {
@@ -146,6 +154,8 @@ function tabIdentity(d, classification) {
       </div>
 
       <div class="section-heading">AML/CTF Functions</div>
+      <p class="text-xs text-muted mb-3">Staff default to Key Personnel requirements unless reassessed.</p>
+      
       ${FN_KEY.map(f => `
         <label class="check-row ${d.functions?.includes(f.id) ? (f.type === 'key' ? 'selected' : 'selected-primary') : ''}">
           <input type="checkbox" ${d.functions?.includes(f.id) ? 'checked' : ''} onchange="toggleFunction('${f.id}')">
@@ -213,198 +223,4 @@ function tabVettingMerged(d, classification) {
           </div>
           <div class="form-row span-2">
             <label class="label">Scan ID / Reference</label>
-            <input type="text" class="inp" value="${d.nsRef||''}" placeholder="e.g. NSC-2026-XXXXX" oninput="updateDraft('nsRef', this.value)">
-          </div>
-        </div>
-      ` : ''}
-
-      ${isKey ? `
-        <div class="divider"></div>
-        <div class="section-heading">3. Background Checks</div>
-        <div class="form-grid mb-4">
-          <div class="form-row">
-            <label class="label">Police Check Date</label>
-            <input id="vet-police-date" type="date" class="inp" value="${d.policeDate||''}" oninput="updateDraft('policeDate', this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Police Result</label>
-            <select class="inp" onchange="updateDraft('policeResult', this.value)">
-              <option value="">Select...</option>
-              <option ${d.policeResult==='Pass'?'selected':''}>Pass</option>
-              <option ${d.policeResult==='Fail'?'selected':''}>Fail</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label class="label">Bankruptcy Check Date</label>
-            <input id="vet-bankrupt-date" type="date" class="inp" value="${d.bankruptDate||''}" oninput="updateDraft('bankruptDate', this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Bankruptcy Result</label>
-            <select class="inp" onchange="updateDraft('bankruptResult', this.value)">
-              <option value="">Select...</option>
-              <option ${d.bankruptResult==='Clear'?'selected':''}>Clear</option>
-              <option ${d.bankruptResult==='Finding'?'selected':''}>Finding</option>
-            </select>
-          </div>
-        </div>
-      ` : ''}
-
-      ${!isNone ? `
-        <div class="divider"></div>
-        <div class="section-heading">4. Annual Declaration</div>
-        <div class="form-grid mb-4">
-          <div class="form-row">
-            <label class="label">Declaration Date</label>
-            <input id="vet-decl-date" type="date" class="inp" value="${d.declDate||''}" onchange="autoSetDeclNext(this.value)">
-          </div>
-          <div class="form-row">
-            <label class="label">Next Declaration Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
-            <input id="vet-decl-next" type="date" class="inp" value="${d.declNext||''}" oninput="updateDraft('declNext', this.value)">
-          </div>
-        </div>
-        <label class="check-row ${d.declSigned ? 'selected' : ''}">
-          <input type="checkbox" ${d.declSigned ? 'checked' : ''} onchange="updateDraft('declSigned', this.checked); render();">
-          <div>
-            <div class="check-row-label">Declaration Signed</div>
-            <div class="check-row-desc">Fit & proper suitability confirmed by staff member.</div>
-          </div>
-        </label>
-      ` : ''}
-    </div>`;
-}
-
-// ─── TAB: TRAINING ────────────────────────────────────────────────────────────
-function tabTraining(d, classification) {
-  return `
-    <div class="card">
-      <div class="section-heading">Training Evidence</div>
-      <div class="form-grid">
-        <div class="form-row span-2">
-          <label class="label">Training Type</label>
-          <select id="trn-type" class="inp" onchange="updateDraft('trainingType', this.value)">
-            <option value="standard" ${d.trainingType==='standard'?'selected':''}>Standard AML/CTF training</option>
-            <option value="enhanced" ${d.trainingType==='enhanced'?'selected':''}>Enhanced (Key Personnel)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label class="label">Completed Date</label>
-          <input id="trn-completed" type="date" class="inp" value="${d.trainingDate || new Date().toISOString().split('T')[0]}" onchange="autoSetTrainingExpiry(this.value)">
-        </div>
-        <div class="form-row">
-          <label class="label">Next Training Due <span style="color:var(--color-primary)">(Auto +1 Year)</span></label>
-          <input id="trn-expiry" type="date" class="inp" value="${d.trainingExpiry||''}" oninput="updateDraft('trainingExpiry', this.value)">
-        </div>
-        <div class="form-row span-2">
-          <label class="label">Provider</label>
-          <input id="trn-provider" type="text" class="inp" value="${d.trainingProvider||''}" placeholder="e.g. CPA Australia" oninput="updateDraft('trainingProvider', this.value)">
-        </div>
-      </div>
-    </div>`;
-}
-
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
-
-window.updateDraft = (key, val) => { S._draft[key] = val; };
-
-window.autoSetTrainingExpiry = (val) => {
-  if (!val) return;
-  const date = new Date(val);
-  date.setFullYear(date.getFullYear() + 1);
-  const expiry = date.toISOString().split('T')[0];
-  S._draft.trainingDate = val;
-  S._draft.trainingExpiry = expiry;
-  render();
-};
-
-window.autoSetDeclNext = (val) => {
-  if (!val) return;
-  const date = new Date(val);
-  date.setFullYear(date.getFullYear() + 1);
-  const nextDue = date.toISOString().split('T')[0];
-  S._draft.declDate = val;
-  S._draft.declNext = nextDue;
-  render();
-};
-
-window.toggleFunction = (id) => {
-  let fns = S._draft.functions || [];
-  if (fns.includes(id)) fns = fns.filter(f => f !== id);
-  else fns.push(id);
-  S._draft.functions = fns;
-  S._draft.noneSelected = (fns.length === 0);
-  delete S._draft.trainingType; 
-  render();
-};
-
-window.toggleNone = () => {
-  S._draft.noneSelected = !S._draft.noneSelected;
-  if (S._draft.noneSelected) S._draft.functions = [];
-  delete S._draft.trainingType;
-  render();
-};
-
-window.indTab = (tab) => {
-  S.currentParams.tab = tab;
-  render();
-};
-
-window.cancelIndividual = () => {
-  const isStaff = S._draft?.isStaff;
-  delete S._draft;
-  go(isStaff ? 'staff' : 'individuals');
-};
-
-window.handleSmartSave = async function(nextTab) {
-  await saveIndividualRecord(false); 
-  if (nextTab === 'exit') {
-    const isStaff = S._draft?.isStaff;
-    delete S._draft;
-    go(isStaff ? 'staff' : 'individuals');
-  } else {
-    indTab(nextTab);
-    window.scrollTo(0,0);
-  }
-};
-
-window.saveIndividualRecord = async function(shouldRedirect = true) {
-  const { individualId } = S.currentParams || {};
-  const isEdit = !!individualId;
-  const d = S._draft;
-
-  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
-  if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
-
-  const iid = isEdit ? individualId : genId('ind');
-  const now = new Date().toISOString();
-
-  const indData = {
-    ...d,
-    fullName: d.fullName || d.name,
-    individualId: iid,
-    firmId: S.firmId,
-    updatedAt: now,
-    createdAt: isEdit ? (d.createdAt || now) : now
-  };
-
-  try {
-    await saveIndividual(iid, indData);
-    addIndividualToState(indData);
-    
-    await saveAuditEntry({
-      firmId: S.firmId,
-      userId: S.individualId,
-      action: isEdit ? 'individual_updated' : 'individual_created',
-      targetId: iid,
-      targetName: indData.fullName,
-      timestamp: now
-    });
-
-    if (shouldRedirect) {
-      delete S._draft;
-      go(d.isStaff ? 'staff' : 'individual-detail', { individualId: iid });
-    }
-  } catch (err) {
-    console.error(err);
-    toast('Save failed', 'err');
-  }
-};
+            <input type="text
