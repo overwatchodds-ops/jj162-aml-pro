@@ -1,72 +1,26 @@
-import { S } from '../../state/index.js';
-import { fmtDate } from '../../firebase/firestore.js';
-
-export function screen() {
-  const isStaffView = S.currentScreen === 'staff';
-  // Filter only for staff context
-  const staffMembers = (S.individuals || []).filter(i => i.isStaff === true);
-
-  return `
-    <div>
-      <div class="screen-header">
-        <div>
-          <h1 class="screen-title">Staff Register</h1>
-          <p class="screen-subtitle">Vetting and training records for firm personnel.</p>
-        </div>
-        <button onclick="go('staff-new')" class="btn btn-sm">+ Add Staff Member</button>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Last Updated</th>
-              <th style="width:100px;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${staffMembers.map(i => `
-              <tr>
-                <td>
-                  <div style="font-weight:var(--font-weight-medium);">${i.fullName || i.name}</div>
-                  <div style="font-size:var(--font-size-xs); color:var(--color-text-muted);">${i.email || ''}</div>
-                </td>
-                <td><span class="label">${i.role || '—'}</span></td>
-                <td>${renderStatusBadge(i.vettingStatus)}</td>
-                <td style="font-size:var(--font-size-xs);">${fmtDate(i.updatedAt)}</td>
-                <td style="text-align:right;">
-                  <button onclick="resumeOnboarding('${i.individualId}', '${i.vettingStatus}')" class="btn-ghost">
-                    ${i.vettingStatus === 'Complete' ? 'Edit' : 'Resume'}
-                  </button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function renderStatusBadge(status) {
-  const cls = status === 'Complete' ? 'badge-success' : 'badge-warning';
-  return `<span class="badge ${cls}">${status || 'Incomplete'}</span>`;
-}
-
-// ─── SMART ROUTING ACTION ─────────────────────────────────────────────────────
-
-window.resumeOnboarding = (id, status) => {
-  // Logic: If incomplete, skip Identity and go straight to where they left off
-  const targetTab = status === 'Complete' ? 'identity' : 'vetting';
+window.resumeOnboarding = (id) => {
+  // 1. Find the existing staff member in the global state
+  const person = S.individuals.find(i => i.individualId === id);
   
-  // Set the global state so the new modules know which ID to load
+  if (!person) {
+    toast("Error: Could not find staff record.", "err");
+    return;
+  }
+
+  // 2. HYDRATION: Place their data into the 'scratchpad'
+  // We use JSON.parse/stringify to create a clean copy that doesn't 
+  // mess up the main list until we hit 'Save'.
+  S._draft = JSON.parse(JSON.stringify(person));
+  
+  // 3. Set the routing parameters
+  // If status is 'Incomplete', we go to vetting. If they want to edit ID, they can click the tab.
+  const targetTab = person.vettingStatus === 'Complete' ? 'identity' : 'vetting';
+  
   S.currentParams = { 
     individualId: id, 
-    tab: targetTab, 
-    entryPoint: 'staff' 
+    tab: targetTab 
   };
   
+  // 4. Navigate to the edit screen
   go('staff-edit');
 };
