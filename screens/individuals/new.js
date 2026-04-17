@@ -5,17 +5,23 @@ import {
 } from '../../firebase/firestore.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
+// Handles new and edit flows. 
+// Prevents duplicates by checking for existing individualId before saving.
+
 export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
+  // 1. Force find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               S.staff?.find(s => s.individualId === individualId);
 
+  // 2. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
+  // 3. Logic: All staff default to Key Personnel tasks upon entry
   if (!S._draft) {
     const isStaff = entryPoint === 'staff';
     S._draft = { 
@@ -30,6 +36,7 @@ export function screen() {
   const d = S._draft;
   const activeTab = tab || 'identity';
 
+  // 4. Logic Engine: Classification derived from functions
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
@@ -40,6 +47,7 @@ export function screen() {
     : hasStd ? 'Standard AML/CTF Staff' 
     : 'No AML/CTF functions';
 
+  // 5. Auto-populate training type
   if (!d.trainingType && classification !== 'No AML/CTF functions') {
     d.trainingType = (classification === 'Key Personnel') ? 'enhanced' : 'standard';
   }
@@ -50,6 +58,7 @@ export function screen() {
     { key: 'training', label: '3. Training' }
   ];
 
+  // 6. Smart Navigation
   let btnLabel = 'Save Record';
   let nextTab  = null;
 
@@ -89,6 +98,7 @@ export function screen() {
           const showDot = (t.key === 'vetting' || t.key === 'training') && 
                           classification !== 'No AML/CTF functions' && 
                           activeTab !== t.key;
+          
           return \`
             <button onclick="indTab('\${t.key}')" class="filter-tab \${activeTab === t.key ? 'active' : ''}" style="position:relative;">
               \${t.label}
@@ -112,6 +122,7 @@ export function screen() {
     </div>`;
 }
 
+// ─── TAB: IDENTITY ────────────────────────────────────────────────────────────
 function tabIdentity(d, classification) {
   const FN_KEY = [
     { id:'director', label:'Director / owner / beneficial owner', desc:'Governance responsibility', type:'key' },
@@ -167,6 +178,7 @@ function tabIdentity(d, classification) {
     </div>`;
 }
 
+// ─── TAB: VETTING & VERIFICATION ──────────────────────────────────────────────
 function tabVettingMerged(d, classification) {
   const isKey  = classification === 'Key Personnel';
   const isNone = classification === 'No AML/CTF functions';
@@ -264,6 +276,7 @@ function tabVettingMerged(d, classification) {
     </div>`;
 }
 
+// ─── TAB: TRAINING ────────────────────────────────────────────────────────────
 function tabTraining(d, classification) {
   return `
     <div class="card">
@@ -287,6 +300,8 @@ function tabTraining(d, classification) {
       </div>
     </div>`;
 }
+
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
@@ -356,8 +371,11 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
   if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
 
+  // ─── UPSERT LOGIC ───
+  // Re-use existing ID if it exists in draft to prevent duplicates
   const iid = isEdit ? individualId : (d.individualId || genId('ind'));
   d.individualId = iid;
+  
   const now = new Date().toISOString();
 
   const indData = {
@@ -372,7 +390,7 @@ window.saveIndividualRecord = async function(shouldRedirect = true) {
   try {
     await saveIndividual(iid, indData);
     
-    // UPDATED: Check for existing before pushing to state to avoid duplicates
+    // Sync local state: Replace if exists, unshift if new
     const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
     if (existingIdx > -1) {
       S.individuals[existingIdx] = indData;
