@@ -9,49 +9,41 @@ export function screen() {
   const { individualId, tab, entryPoint } = S.currentParams || {};
   const isEdit = !!individualId;
   
-  // 1. Context Detection
   const isStaffView = entryPoint === 'staff' || S.currentScreen === 'staff' || S.currentScreen === 'staff-new';
 
-  // 2. Find the individual in state
   const ind = S.individuals.find(i => i.individualId === individualId) || 
               (S.staff || []).find(s => s.individualId === individualId);
 
-  // 3. State Sync: Ensure the draft matches the record if editing
   if (isEdit && ind && (!S._draft || S._draft.individualId !== individualId)) {
     S._draft = JSON.parse(JSON.stringify(ind)); 
   } 
   
-  // 4. Initialization Logic: Force isStaff but start with ZERO boxes
   if (!S._draft) {
     S._draft = { 
       isStaff: isStaffView,
-      functions: [], // Zero boxes ticked by default as requested
+      functions: [], 
       noneSelected: false, 
       role: ind?.role || '',
       status: 'Active'
     };
   } else {
-    // Safety check: Maintain staff context if in staff view
     if (isStaffView) S._draft.isStaff = true;
   }
 
   const d = S._draft;
   const activeTab = tab || 'identity';
 
-  // 5. Context UI Strings
   const contextLabel = d.isStaff ? 'Staff Member' : 'Individual';
   const contextBadge = d.isStaff ? 'Staff Context' : 'Client Context';
   const contextSubtitle = d.isStaff 
     ? 'Manage vetting, background checks, and AML/CTF training for firm personnel.' 
     : 'Manage identity verification and onboarding requirements.';
 
-  // 6. Classification Engine
   const keyFns = ['director', 'amlco', 'senior'];
   const stdFns = ['cdd', 'screen', 'monitor', 'smr'];
   const hasKey = d.functions?.some(f => keyFns.includes(f));
   const hasStd = d.functions?.some(f => stdFns.includes(f));
   
-  // Logic: Staff default to Key Personnel if nothing is checked
   const classification = hasKey || (!hasStd && !d.noneSelected && d.isStaff) 
     ? 'Key Personnel' 
     : hasStd ? 'Standard AML/CTF Staff' 
@@ -178,7 +170,7 @@ function tabIdentity(d, classification) {
         <input type="checkbox" ${d.noneSelected ? 'checked' : ''} onchange="toggleNone()">
         <div>
           <div class="check-row-label">No AML/CTF functions</div>
-          <div class="check-row-desc">Individual performs no regulated tasks. Assessment confirmed.</div>
+          <div class="check-row-desc">Assessment confirmed: personnel has no regulated duties.</div>
         </div>
       </label>
 
@@ -318,112 +310,4 @@ function tabTraining(d, classification) {
 
 window.updateDraft = (key, val) => { S._draft[key] = val; };
 
-window.autoSetTrainingExpiry = (val) => {
-  if (!val) return;
-  const date = new Date(val);
-  date.setFullYear(date.getFullYear() + 1);
-  S._draft.trainingDate = val;
-  S._draft.trainingExpiry = date.toISOString().split('T')[0];
-  render();
-};
-
-window.autoSetDeclNext = (val) => {
-  if (!val) return;
-  const date = new Date(val);
-  date.setFullYear(date.getFullYear() + 1);
-  S._draft.declDate = val;
-  S._draft.declNext = date.toISOString().split('T')[0];
-  render();
-};
-
-window.toggleFunction = (id) => {
-  let fns = S._draft.functions || [];
-  if (fns.includes(id)) fns = fns.filter(f => f !== id);
-  else fns.push(id);
-  S._draft.functions = fns;
-  S._draft.noneSelected = false; 
-  delete S._draft.trainingType; 
-  render();
-};
-
-window.toggleNone = () => {
-  S._draft.noneSelected = !S._draft.noneSelected;
-  if (S._draft.noneSelected) S._draft.functions = [];
-  delete S._draft.trainingType;
-  render();
-};
-
-window.indTab = (tab) => {
-  S.currentParams.tab = tab;
-  render();
-};
-
-window.cancelIndividual = () => {
-  const isStaff = S._draft?.isStaff;
-  delete S._draft;
-  go(isStaff ? 'staff' : 'individuals');
-};
-
-window.handleSmartSave = async function(nextTab) {
-  await saveIndividualRecord(false); 
-  if (nextTab === 'exit') {
-    const isStaff = S._draft?.isStaff;
-    delete S._draft;
-    go(isStaff ? 'staff' : 'individuals');
-  } else {
-    indTab(nextTab);
-    window.scrollTo(0,0);
-  }
-};
-
-window.saveIndividualRecord = async function(shouldRedirect = true) {
-  const { individualId } = S.currentParams || {};
-  const isEdit = !!individualId;
-  const d = S._draft;
-
-  if (!d.fullName && !d.name) { toast('Full legal name is required', 'err'); return; }
-  if (!d.role) { toast('Job Title / Role is required', 'err'); return; }
-
-  const iid = isEdit ? individualId : (d.individualId || genId('ind'));
-  d.individualId = iid;
-  
-  const now = new Date().toISOString();
-
-  const indData = {
-    ...d,
-    fullName: d.fullName || d.name,
-    individualId: iid,
-    firmId: S.firmId,
-    updatedAt: now,
-    createdAt: isEdit ? (d.createdAt || now) : now
-  };
-
-  try {
-    await saveIndividual(iid, indData);
-    
-    const existingIdx = S.individuals.findIndex(i => i.individualId === iid);
-    if (existingIdx > -1) {
-      S.individuals[existingIdx] = indData;
-    } else {
-      S.individuals.unshift(indData);
-    }
-    
-    await saveAuditEntry({
-      firmId: S.firmId,
-      userId: S.individualId,
-      action: isEdit ? 'individual_updated' : 'individual_created',
-      targetId: iid,
-      targetName: indData.fullName,
-      timestamp: now
-    });
-
-    if (shouldRedirect) {
-      const isStaffContext = d.isStaff === true;
-      delete S._draft;
-      go(isStaffContext ? 'staff' : 'individual-detail', { individualId: iid });
-    }
-  } catch (err) {
-    console.error(err);
-    toast('Save failed', 'err');
-  }
-};
+window.autoSetTrainingExpiry = (val
