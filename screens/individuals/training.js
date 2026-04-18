@@ -1,99 +1,101 @@
 import { S } from '../../state/index.js';
-import { saveIndividual } from '../../firebase/firestore.js';
+
+// Legacy compatibility wrapper.
+// The live Staff add/edit flow is now handled in screens/individuals/new.js.
+// This file is kept only so nobody accidentally edits outdated training logic.
+
+function esc(v = '') {
+  return String(v)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function screeningRequired(classification) {
+  return classification === 'key' || classification === 'standard';
+}
+
+function trainingRequired(classification) {
+  return classification === 'key' || classification === 'standard';
+}
 
 export function renderTrainingTab() {
-  const d = S._draft;
-  
-  // Logic: Check if training is required based on their functions
-  const isNone = d.noneSelected === true;
+  const d = S._draft || {};
+  const classification = d.staffClassification || 'none';
 
-  if (isNone) {
+  if (!trainingRequired(classification)) {
     return `
       <div class="card empty-state">
         <div class="empty-state-title">No Training Required</div>
-        <p>This individual has no regulated AML/CTF functions. No training evidence is required for this record.</p>
+        <p>This staff member has no AML/CTF functions requiring training evidence.</p>
       </div>`;
   }
 
   return `
     <div class="card">
-      <div class="section-heading">AML/CTF Training Evidence</div>
-      <p class="screen-subtitle mb-4">Record the most recent training completed by this staff member.</p>
-      
+      <div class="section-heading">Training</div>
+      <p class="screen-subtitle mb-4">
+        This tab is now driven by <strong>screens/individuals/new.js</strong>.
+        Keep future staff training changes there to avoid duplicate logic.
+      </p>
+
       <div class="form-grid">
         <div class="form-row span-2">
-          <label class="label label-required">Training Provider</label>
-          <input type="text" class="inp" 
-            value="${d.trainingProvider || ''}" 
-            placeholder="e.g. GRC Solutions, CPA Australia, Internal"
-            oninput="updateDraft('trainingProvider', this.value)">
-        </div>
-        
-        <div class="form-row">
-          <label class="label label-required">Date Completed</label>
-          <input type="date" class="inp" 
-            value="${d.trainingDate || ''}" 
-            onchange="handleTrainingDateChange(this.value)">
+          <label class="label">Training provider</label>
+          <input
+            type="text"
+            class="inp"
+            value="${esc(d.trainingProvider || '')}"
+            placeholder="e.g. CPA Australia, internal"
+            oninput="updateDraft('trainingProvider', this.value)"
+          >
         </div>
 
         <div class="form-row">
-          <label class="label">Next Training Due</label>
-          <input type="date" class="inp" 
-            value="${d.trainingExpiry || ''}" 
-            oninput="updateDraft('trainingExpiry', this.value)">
+          <label class="label">Completed date</label>
+          <input
+            type="date"
+            class="inp"
+            value="${esc(d.trainingCompletedDate || '')}"
+            oninput="updateDraft('trainingCompletedDate', this.value)"
+          >
+        </div>
+
+        <div class="form-row">
+          <label class="label">Expiry date</label>
+          <input
+            type="date"
+            class="inp"
+            value="${esc(d.trainingExpiryDate || '')}"
+            oninput="updateDraft('trainingExpiryDate', this.value)"
+          >
         </div>
 
         <div class="form-row span-2">
-          <label class="label">Training Type</label>
+          <label class="label">Training type</label>
           <select class="inp" onchange="updateDraft('trainingType', this.value)">
             <option value="standard" ${d.trainingType === 'standard' ? 'selected' : ''}>Standard AML/CTF Awareness</option>
-            <option value="enhanced" ${d.trainingType === 'enhanced' ? 'selected' : ''}>Enhanced (Key Personnel/AMLCO)</option>
+            <option value="enhanced" ${d.trainingType === 'enhanced' ? 'selected' : ''}>Enhanced (Key Personnel / AMLCO)</option>
           </select>
+        </div>
+
+        <div class="form-row span-2">
+          <label class="label">Certificate link</label>
+          <input
+            type="text"
+            class="inp"
+            value="${esc(d.trainingCertificateLink || '')}"
+            placeholder="Optional URL"
+            oninput="updateDraft('trainingCertificateLink', this.value)"
+          >
         </div>
       </div>
     </div>`;
 }
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
-
-window.handleTrainingDateChange = (val) => {
-  if (!val) return;
-  // Logic: Auto-calculate 1 year expiry for the user's convenience
-  const date = new Date(val);
-  date.setFullYear(date.getFullYear() + 1);
-  
-  updateDraft('trainingDate', val);
-  updateDraft('trainingExpiry', date.toISOString().split('T')[0]);
-  render();
-};
-
 export async function handleFinalSave() {
-  const d = S._draft;
-  const iid = d.individualId;
-  const now = new Date().toISOString();
-
-  // 1. Calculate final compliance status
-  // Logic: They are only "Complete" if Identity, Vetting, and Training are all present.
-  const isVettingDone = d.idType && d.nsResult && (d.isStaff ? d.declSigned : true);
-  const isTrainingDone = d.noneSelected ? true : (d.trainingDate && d.trainingProvider);
-  
-  const finalStatus = (isVettingDone && isTrainingDone) ? 'Complete' : 'Incomplete';
-
-  const updatedRecord = {
-    ...d,
-    vettingStatus: finalStatus,
-    updatedAt: now
-  };
-
-  try {
-    await saveIndividual(iid, updatedRecord);
-    
-    // 2. Clean up and redirect
-    delete S._draft;
-    toast("Staff onboarding complete.", "success");
-    go('staff'); // Back to the main Register
-  } catch (err) {
-    console.error(err);
-    toast("Final save failed.", "err");
-  }
+  // Do not save staff records from this legacy file.
+  // The source of truth save flow is now in screens/individuals/new.js.
+  return true;
 }
