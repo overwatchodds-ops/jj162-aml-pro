@@ -1,16 +1,23 @@
 import { S } from '../state/index.js';
 
 // ─── SETUP COMPUTE ────────────────────────────────────────────────────────────
+const REQUIRED_APPOINTMENT_KEYS = ['amlco', 'reporting', 'senior', 'principal'];
+
+function appointmentsComplete(firm) {
+  const appt = firm?.appointments || {};
+  return REQUIRED_APPOINTMENT_KEYS.every(k => appt[k]?.name && appt[k]?.date);
+}
+
 // Determines which setup steps are complete based on firm state.
 export function computeSetup(firm) {
   const f = firm || {};
   return {
-    firmProfile:       !!(f.firmName && f.abn),
-    appointments:      !!(f.appointments?.amlco?.name && f.appointments?.senior?.name),
-    designatedServices:!!(f.designatedServices?.length),
-    riskAssessment:    !!(f.riskAssessment?.rating),
-    amlProgram:        !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
-    austracEnrolment:  !!(f.austracEnrolment?.enrolmentId || f.austracEnrolment?.enrolled),
+    firmProfile:        !!(f.firmName && f.abn),
+    appointments:       appointmentsComplete(f),
+    designatedServices: !!(f.designatedServices?.length),
+    riskAssessment:     !!(f.riskAssessment?.rating),
+    amlProgram:         !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
+    austracEnrolment:   !!(f.austracEnrolment?.enrolled || f.austracEnrolment?.enrolmentId),
   };
 }
 
@@ -75,7 +82,6 @@ export function screen() {
   const stepRow = (step, index) => {
     const done   = steps[step.key];
     const locked = step.locked && !done;
-    const status = done ? 'done' : locked ? 'locked' : 'todo';
 
     const icon = done
       ? `<div style="width:28px;height:28px;border-radius:50%;background:var(--color-success);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -112,7 +118,7 @@ export function screen() {
       <!-- Header -->
       <div style="margin-bottom:var(--space-6);">
         <h1 class="screen-title">Firm Setup</h1>
-        <p style="font-size:var(--font-size-sm);color:var(--color-text-secondary);">Complete these five steps before 1 July 2026 to meet your AUSTRAC obligations. Each step builds on the previous one.</p>
+        <p style="font-size:var(--font-size-sm);color:var(--color-text-secondary);">Complete these six steps before 1 July 2026 to meet your AUSTRAC obligations. Each step builds on the previous one.</p>
       </div>
 
       <!-- Progress -->
