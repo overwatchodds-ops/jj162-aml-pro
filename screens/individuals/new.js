@@ -361,7 +361,7 @@ function renderIdentityTab() {
 
         <div class="form-row span-2">
           <label class="label label-required">Job title / role *</label>
-          <input type="text" class="inp" value="${esc(d.role || '')}" onchange="updateRole(this.value)">
+          <input   type="text"   class="inp"   value="${esc(d.role || '')}"   oninput="updateDraft('role', this.value)"   onchange="updateRole(this.value)" >
         </div>
 
         <div class="form-row">
