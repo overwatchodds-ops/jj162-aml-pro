@@ -361,7 +361,13 @@ function renderIdentityTab() {
 
         <div class="form-row span-2">
           <label class="label label-required">Job title / role *</label>
-          <input   type="text"   class="inp"   value="${esc(d.role || '')}"   oninput="updateDraft('role', this.value)"   onchange="updateRole(this.value)" >
+          <input
+            type="text"
+            class="inp"
+            value="${esc(d.role || '')}"
+            oninput="updateDraft('role', this.value)"
+            onchange="updateRole(this.value)"
+          >
         </div>
 
         <div class="form-row">
@@ -928,18 +934,30 @@ window.updateDraft = function(field, value) {
 window.updateRole = function(value) {
   if (!S._draft) ensureDraft();
 
-  const previousFunctions = Array.isArray(S._draft.staffFunctions) ? [...S._draft.staffFunctions] : [];
+  const previousFunctions = Array.isArray(S._draft.staffFunctions)
+    ? [...S._draft.staffFunctions]
+    : [];
   const hadNoFunctions = previousFunctions.length === 0;
 
   S._draft.role = value;
 
-  if (hadNoFunctions) {
-    const derived = normaliseFunctions(deriveFunctionsFromRole(value));
-    S._draft.staffFunctions = derived;
-    S._draft.staffClassification = classificationFromFunctions(derived);
+  if (!hadNoFunctions) {
+    return;
   }
 
-  window.render();
+  const derived = normaliseFunctions(deriveFunctionsFromRole(value));
+  const nextClassification = classificationFromFunctions(derived);
+
+  const functionsChanged =
+    JSON.stringify(previousFunctions) !== JSON.stringify(derived) ||
+    S._draft.staffClassification !== nextClassification;
+
+  S._draft.staffFunctions = derived;
+  S._draft.staffClassification = nextClassification;
+
+  if (functionsChanged) {
+    window.render();
+  }
 };
 
 window.toggleStaffFunction = function(code, checked) {
