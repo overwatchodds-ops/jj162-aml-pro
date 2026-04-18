@@ -149,12 +149,6 @@ function classificationFromFunctions(functions = []) {
   return 'none';
 }
 
-function classificationLabel(classification) {
-  if (classification === 'key') return 'Key Personnel';
-  if (classification === 'standard') return 'Standard Staff';
-  return 'No AML functions';
-}
-
 function classificationBadge(classification) {
   if (classification === 'key') return softBadge('Key Personnel', 'key');
   if (classification === 'standard') return softBadge('Standard Staff', 'standard');
@@ -222,21 +216,18 @@ function hydrateDraftFromIndividual(ind) {
     staffFunctions: functions,
     staffClassification: classification,
 
-    // screening
     screeningProvider: latestScr?.provider || '',
     screeningDate: latestScr?.date || '',
     screeningResult: latestScr?.result || '',
     screeningReferenceId: latestScr?.referenceId || '',
     screeningNextDueDate: latestScr?.nextDueDate || '',
 
-    // training
     trainingType: latestTrn?.type || (classification === 'key' ? 'enhanced' : 'standard'),
     trainingProvider: latestTrn?.provider || '',
     trainingCompletedDate: latestTrn?.completedDate || '',
     trainingExpiryDate: latestTrn?.expiryDate || '',
     trainingCertificateLink: latestTrn?.certificateLink || '',
 
-    // vetting
     policeCheckDate: latestVet?.policeCheckDate || '',
     policeCheckResult: latestVet?.policeCheckResult || '',
     policeCheckRef: latestVet?.policeCheckRef || '',
@@ -370,7 +361,7 @@ function renderIdentityTab() {
 
         <div class="form-row span-2">
           <label class="label label-required">Job title / role *</label>
-          <input type="text" class="inp" value="${esc(d.role || '')}" oninput="updateRole(this.value)">
+          <input type="text" class="inp" value="${esc(d.role || '')}" onchange="updateRole(this.value)">
         </div>
 
         <div class="form-row">
@@ -831,7 +822,6 @@ async function handleSave(redirectAfter = true) {
     const record = await saveCoreIndividual(d);
     await saveEvidenceRecords(record);
 
-    // refresh individual status after evidence save
     record.vettingStatus = staffStatusFromDraft(S._draft);
     await saveIndividual(record.individualId, record);
     upsertById(S.individuals, 'individualId', record);
@@ -938,12 +928,15 @@ window.updateDraft = function(field, value) {
 window.updateRole = function(value) {
   if (!S._draft) ensureDraft();
 
-  const hadNoFunctions = !Array.isArray(S._draft.staffFunctions) || S._draft.staffFunctions.length === 0;
+  const previousFunctions = Array.isArray(S._draft.staffFunctions) ? [...S._draft.staffFunctions] : [];
+  const hadNoFunctions = previousFunctions.length === 0;
+
   S._draft.role = value;
 
   if (hadNoFunctions) {
-    S._draft.staffFunctions = normaliseFunctions(deriveFunctionsFromRole(value));
-    S._draft.staffClassification = classificationFromFunctions(S._draft.staffFunctions);
+    const derived = normaliseFunctions(deriveFunctionsFromRole(value));
+    S._draft.staffFunctions = derived;
+    S._draft.staffClassification = classificationFromFunctions(derived);
   }
 
   window.render();
@@ -969,7 +962,6 @@ window.toggleStaffFunction = function(code, checked) {
   S._draft.staffFunctions = selected;
   S._draft.staffClassification = classificationFromFunctions(selected);
 
-  // helpful defaults
   if (S._draft.staffClassification === 'key' && !S._draft.trainingType) {
     S._draft.trainingType = 'enhanced';
   } else if (S._draft.staffClassification === 'standard' && !S._draft.trainingType) {
