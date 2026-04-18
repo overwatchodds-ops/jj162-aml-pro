@@ -138,7 +138,7 @@ export function screen() {
           <input
             type="text"
             class="search-inp"
-            placeholder="Search entities..."
+            placeholder="Search clients..."
             value="${search}"
             oninput="entitiesSearch(this.value)"
           >
