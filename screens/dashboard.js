@@ -173,16 +173,6 @@ export function screen() {
             </div>
           ` : ''}
 
-          <!-- No links -->
-          ${noLinks.length > 0 ? `
-            <div class="card">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-                <div class="section-heading" style="margin:0;">No connections</div>
-                <button onclick="go('staff',{filter:'no_links'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View all</button>
-              </div>
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${noLinks.length} individual${noLinks.length!==1?'s':''} not yet linked to a firm role or client.</p>
-            </div>
-          ` : ''}
 
         </div>
 
@@ -196,7 +186,7 @@ export function screen() {
               <button onclick="go('clients')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">All entities</button>
             </div>
             ${upcoming.length === 0 ? `
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No entity reviews due in the next 90 days.</p>
+              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No client reviews due in the next 90 days.</p>
             ` : upcoming.map(e => {
               const daysLeft = Math.ceil((new Date(e.riskNextReviewDate) - today) / (1000 * 60 * 60 * 24));
               const urgent   = daysLeft <= 30;
