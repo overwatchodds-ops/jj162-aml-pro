@@ -34,6 +34,8 @@ export function screen() {
   const risk          = firm.riskAssessment      || {};
   const subscription  = firm.subscription        || {};
 
+  const austracConfirmed = !!(enrolment.enrolled || enrolment.enrolmentId);
+
   // Designated services — from MATRIX
   const firmServices  = firm.designatedServices  || [];
   const inServices    = MATRIX.filter(m => firmServices.includes(m.id) && m.status === 'IN');
@@ -41,10 +43,10 @@ export function screen() {
   // Overall firm compliance health
   const gaps = [];
   if (!firm.appointments?.principal?.name) gaps.push('Principal appointment not recorded');
-  if (!firmServices.length)      gaps.push('Designated services not recorded');
-  if (!risk.rating)              gaps.push('Firm risk assessment not completed');
-  if (!program.version)          gaps.push('AML/CTF Program not approved');
-  if (!enrolment.enrolmentId)    gaps.push('AUSTRAC enrolment ID not recorded');
+  if (!firmServices.length)                gaps.push('Designated services not recorded');
+  if (!risk.rating)                        gaps.push('Firm risk assessment not completed');
+  if (!program.version)                    gaps.push('AML/CTF Program not approved');
+  if (!austracConfirmed)                   gaps.push('AUSTRAC enrolment not confirmed');
 
   const firmStatus = gaps.length === 0
     ? `<span class="badge badge-success">All firm obligations recorded</span>`
@@ -79,11 +81,9 @@ export function screen() {
 
       <!-- 1.1 Appointments -->
       ${sectionCard('Appointments', 'appointments', `
-        ${row('Principal',           firm.appointments?.principal?.name)}
-        ${row('AML/CTF Compliance',  firm.appointments?.amlco?.name)}
-      `, !!firm.appointments?.principal?.name)}
-
-
+        ${row('Principal',           appointments?.principal?.name)}
+        ${row('AML/CTF Compliance',  appointments?.amlco?.name)}
+      `, !!appointments?.principal?.name)}
 
       <!-- 2. Designated services -->
       ${sectionCard('Designated services', 'services', firmServices.length > 0 ? `
@@ -128,18 +128,23 @@ export function screen() {
       `, !!program.version)}
 
       <!-- 5. AUSTRAC enrolment -->
-      ${sectionCard('AUSTRAC enrolment', 'enrolment', enrolment.enrolmentId ? `
-        ${row('Enrolment ID',       enrolment.enrolmentId)}
-        ${row('Enrolment date',     fmtDate(enrolment.enrolmentDate))}
-        ${row('Status',             enrolment.status)}
-        ${row('Next confirmation',  fmtDate(enrolment.nextConfirmationDate))}
+      ${sectionCard('AUSTRAC enrolment', 'enrolment', austracConfirmed ? `
+        ${row('Status', enrolment.enrolled ? 'Confirmed' : (enrolment.status || 'Confirmed'))}
+        ${enrolment.enrolmentId ? row('Enrolment ID', enrolment.enrolmentId) : ''}
+        ${row('Enrolment date', fmtDate(enrolment.enrolmentDate))}
+        ${row('Next confirmation', fmtDate(enrolment.nextConfirmationDate))}
+        ${!enrolment.enrolmentId ? `
+          <div style="margin-top:var(--space-3);font-size:var(--font-size-xs);color:var(--color-text-muted);">
+            Enrolment ID is optional and has not been recorded.
+          </div>
+        ` : ''}
       ` : `
-        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AUSTRAC enrolment not yet confirmed. Complete your designated services, risk assessment and program first, then record your enrolment ID here.</p>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AUSTRAC enrolment not yet confirmed. Complete your designated services, risk assessment and program first, then confirm your enrolment here.</p>
         <div class="banner banner-warning" style="margin-top:var(--space-3);">
           Need to enrol? Visit AUSTRAC Online to complete your enrolment.
           <a href="https://www.austrac.gov.au/business/how-comply-guidance-and-resources/enrolment" target="_blank" style="color:var(--color-warning-text);font-weight:var(--font-weight-medium);display:block;margin-top:4px;">Visit AUSTRAC Online →</a>
         </div>
-      `, !!enrolment.enrolmentId)}
+      `, austracConfirmed)}
 
       <!-- Subscription -->
       <div class="card">
