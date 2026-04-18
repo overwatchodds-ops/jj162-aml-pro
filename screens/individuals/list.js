@@ -126,9 +126,9 @@ export function screen() {
     not_started: withStatus.filter(i => i._status.status === 'not_started').length,
   };
 
-  const title    = isStaffView ? 'Staff Vetting' : 'Individuals';
+  const title    = isStaffView ? 'Staff' : 'Individuals';
   const subtitle = isStaffView
-    ? 'Vetting records for all firm staff with AML/CTF responsibilities.'
+    ? 'Staff records for your firm.'
     : 'Every person connected to your firm — staff, owners, and client representatives.';
 
   const newBtn   = isStaffView ? '+ Add staff member' : '+ New individual';
