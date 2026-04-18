@@ -28,6 +28,7 @@ function sectionCard(title, editTab, content, hasData) {
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
   const firm = S.firm || {};
+  const appointments  = firm.appointments        || {};
   const enrolment     = firm.austracEnrolment    || {};
   const program       = firm.amlProgram          || {};
   const risk          = firm.riskAssessment      || {};
@@ -39,6 +40,7 @@ export function screen() {
 
   // Overall firm compliance health
   const gaps = [];
+  if (!firm.appointments?.principal?.name) gaps.push('Principal appointment not recorded');
   if (!firmServices.length)      gaps.push('Designated services not recorded');
   if (!risk.rating)              gaps.push('Firm risk assessment not completed');
   if (!program.version)          gaps.push('AML/CTF Program not approved');
@@ -74,6 +76,14 @@ export function screen() {
         ${row('Phone',       firm.phone)}
         ${row('Email',       firm.email)}
       `, !!firm.firmName)}
+
+      <!-- 1.1 Appointments -->
+      ${sectionCard('Appointments', 'appointments', `
+        ${row('Principal',           firm.appointments?.principal?.name)}
+        ${row('AML/CTF Compliance',  firm.appointments?.amlco?.name)}
+      `, !!firm.appointments?.principal?.name)}
+
+
 
       <!-- 2. Designated services -->
       ${sectionCard('Designated services', 'services', firmServices.length > 0 ? `
