@@ -161,7 +161,7 @@ const COMPLIANCE_SCREENS = [
 
 // ─── SETUP STATE ──────────────────────────────────────────────────────────────
 // Returns true if the firm has completed all 5 setup steps.
-function isSetupComplete() {
+  window.isSetupComplete = function() {
   const f = S.firm || {};
   return !!(
     f.firmName &&
@@ -186,7 +186,7 @@ const NAV_ITEMS = [
   { screen: 'firm-profile', label: 'Firm Profile'  },
 
   { section: 'COMPLIANCE' },
-  { screen: 'staff',        label: 'Staff Vetting', requiresSetup: true },
+  { screen: 'staff',        label: 'Staff',         requiresSetup: true },
   { screen: 'clients',      label: 'Clients',       requiresSetup: true },
   { screen: 'smr',          label: 'SMR',           requiresSetup: true },
 
@@ -312,7 +312,7 @@ function setupBanner() {
   const f = S.firm || {};
   const doneCount = [
     !!(f.firmName && f.abn),
-    !!(f.appointments?.amlco?.name && f.appointments?.senior?.name),
+    !!(f.appointments?.amlco?.name),
     !!(f.designatedServices?.length),
     !!(f.riskAssessment?.rating),
     !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
