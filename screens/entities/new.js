@@ -5,14 +5,14 @@ import {
   genId, fmtDate,
 } from '../../firebase/firestore.js';
 
-// ─── ENTITY TYPES ─────────────────────────────────────────────────────────────
+// ─── ENTITY OR CLIENT BUSINESS TYPES ─────────────────────────────────────────────────────────────
 const ENTITY_TYPES = [
   'Private Company',
   'Trust',
   'SMSF',
   'Partnership',
-  'Individual / Sole Trader',
-  'Other',
+  'Sole Trader',
+  'Individual',
 ];
 
 // Maps entity type to ENTITY_ROLES key
@@ -22,8 +22,8 @@ function entitySubtype(entityType) {
     'Trust':                    'trust',
     'SMSF':                     'smsf',
     'Partnership':              'partnership',
-    'Individual / Sole Trader': 'individual',
-    'Other':                    'other',
+    'Sole Trader':              'soletrader',
+    'Individual':                    'individual',
   };
   return map[entityType] || 'other';
 }
@@ -48,9 +48,9 @@ export function screen() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);">
         <div>
           <button onclick="cancelEntity()" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">
-            ← ${isEdit ? 'Entity' : 'Back'}
+            ← ${isEdit ? 'Client' : 'Back'}
           </button>
-          <h1 class="screen-title" style="margin-top:var(--space-2);">${isEdit ? 'Edit — ' + (entity?.entityName || '') : 'New entity'}</h1>
+          <h1 class="screen-title" style="margin-top:var(--space-2);">${isEdit ? 'Edit — ' + (entity?.entityName || '') : 'New client'}</h1>
         </div>
         ${isEdit ? `<span style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-warning-text);background:var(--color-warning-light);border:0.5px solid var(--color-warning-border);padding:2px 10px;border-radius:var(--radius-pill);">Editing — previous version preserved</span>` : ''}
       </div>
@@ -78,7 +78,7 @@ export function screen() {
         <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
           <button onclick="cancelEntity()" class="btn-sec" style="flex:1;">Cancel</button>
           <button onclick="saveEntityRecord()" class="btn" style="flex:2;">
-            ${isEdit ? 'Save changes' : 'Save entity'}
+            ${isEdit ? 'Save changes' : 'Save client'}
           </button>
         </div>
       ` : ''}
@@ -91,16 +91,16 @@ function tabDetails(d, isEdit) {
 
   return `
     <div class="card">
-      <div class="section-heading">Entity details</div>
+      <div class="section-heading">Client details</div>
       <div class="form-grid" style="grid-template-columns:1fr;">
 
         <div class="form-row">
-          <label class="label label-required">Entity name</label>
+          <label class="label label-required">Client name</label>
           <input id="ent-name" type="text" class="inp" value="${d.entityName||''}" placeholder="e.g. Acme Pty Ltd">
         </div>
 
         <div class="form-row">
-          <label class="label label-required">Entity type</label>
+          <label class="label label-required">Client type</label>
           <select id="ent-type" class="inp" onchange="entityTypeChange()">
             <option value="">Select...</option>
             ${ENTITY_TYPES.map(t => `<option value="${t}" ${etype===t?'selected':''}>${t}</option>`).join('')}
@@ -154,7 +154,7 @@ function tabRisk(d, isEdit, entityId) {
   return `
     <div class="card">
       <div class="section-heading">Client risk assessment</div>
-      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Assess the risk of this client relationship. Risk rating determines review cadence and drives compliance requirements for high-risk entities.</p>
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Assess the risk of this client relationship. Risk rating determines review cadence and drives compliance requirements for high-risk clients.</p>
 
       <div class="form-grid" style="grid-template-columns:1fr;">
 
@@ -467,8 +467,8 @@ window.saveEntityRecord = async function() {
   const errEl = document.getElementById('ent-error');
   errEl.style.display = 'none';
 
-  if (!name)  { errEl.textContent = 'Entity name is required.'; errEl.style.display='block'; return; }
-  if (!etype) { errEl.textContent = 'Entity type is required.'; errEl.style.display='block'; return; }
+  if (!name)  { errEl.textContent = 'Client name is required.'; errEl.style.display='block'; return; }
+  if (!etype) { errEl.textContent = 'Client type is required.'; errEl.style.display='block'; return; }
 
   const now = new Date().toISOString();
   const eid = isEdit ? entityId : genId('ent');
@@ -505,12 +505,12 @@ window.saveEntityRecord = async function() {
       userName: S.individuals.find(i=>i.individualId===S.individualId)?.fullName || 'User',
       action: isEdit ? 'entity_updated' : 'entity_created',
       targetType: 'entity', targetId: eid, targetName: name,
-      detail: isEdit ? `Entity record updated — ${name}` : `Entity created — ${name} (${etype})`,
+      detail: isEdit ? `Client record updated — ${name}` : `Client created — ${name} (${etype})`,
       timestamp: now,
     });
 
     delete S._draft;
-    toast(isEdit ? 'Entity updated — previous version preserved' : 'Entity saved');
+    toast(isEdit ? 'Client updated — previous version preserved' : 'Client saved');
     go('entity-detail', { entityId: eid });
   } catch (err) {
     errEl.textContent = 'Failed to save. Please try again.';
