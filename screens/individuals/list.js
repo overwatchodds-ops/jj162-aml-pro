@@ -2,7 +2,91 @@ import { S }                                    from '../../state/index.js';
 import { getRequirements, getComplianceStatus } from '../../state/rules_matrix.js';
 import { fmtDate }                              from '../../firebase/firestore.js';
 
-// ─── COMPLIANCE STATUS PER INDIVIDUAL ─────────────────────────────────────────
+// ─── STAFF FUNCTION MODEL ─────────────────────────────────────────────────────
+const KEY_CODES = [
+  'director_owner_beneficial_owner',
+  'amlco_delegate',
+  'senior_manager_aml_authority',
+  'reporting_officer',
+];
+
+const STANDARD_CODES = [
+  'processes_client_cdd_kyc_checks',
+  'screens_clients_namescan',
+  'supports_transaction_monitoring',
+  'assists_smr_compliance_reporting',
+];
+
+function deriveFunctionsFromRole(role = '') {
+  const r = String(role || '').toLowerCase();
+  const out = [];
+
+  if (
+    r.includes('principal') ||
+    r.includes('managing partner') ||
+    r.includes('partner') ||
+    r.includes('director') ||
+    r.includes('owner')
+  ) {
+    out.push('director_owner_beneficial_owner');
+  }
+
+  if (r.includes('amlco')) {
+    out.push('amlco_delegate');
+  }
+
+  if (r.includes('senior manager')) {
+    out.push('senior_manager_aml_authority');
+  }
+
+  if (r.includes('reporting officer')) {
+    out.push('reporting_officer');
+  }
+
+  return [...new Set(out)];
+}
+
+function normaliseFunctions(arr = []) {
+  let selected = Array.isArray(arr) ? [...arr] : [];
+  selected = selected.filter(Boolean);
+
+  if (selected.includes('none_of_the_above') && selected.length > 1) {
+    selected = selected.filter(code => code !== 'none_of_the_above');
+  }
+
+  return [...new Set(selected)];
+}
+
+function classificationFromFunctions(functions = []) {
+  if (!functions.length || functions.includes('none_of_the_above')) return 'none';
+  if (functions.some(code => KEY_CODES.includes(code))) return 'key';
+  if (functions.some(code => STANDARD_CODES.includes(code))) return 'standard';
+  return 'none';
+}
+
+function classificationLabel(classification) {
+  if (classification === 'key') return 'Key Personnel';
+  if (classification === 'standard') return 'Standard Staff';
+  return 'No AML functions';
+}
+
+function screeningRequired(classification) {
+  return classification === 'key' || classification === 'standard';
+}
+
+function trainingRequired(classification) {
+  return classification === 'key' || classification === 'standard';
+}
+
+function vettingRequired(classification) {
+  return classification === 'key';
+}
+
+function latestBy(items = [], field) {
+  return [...items].sort((a, b) => (b?.[field] || '').localeCompare(a?.[field] || ''))[0];
+}
+
+// ─── COMPLIANCE STATUS PER INDIVIDUAL (NON-STAFF / LEGACY) ───────────────────
 function individualStatus(ind) {
   const links = (S.links || []).filter(l => l.individualId === ind.individualId && l.status === 'active');
   if (!links.length) return { status: 'no_links', missing: [], satisfied: [] };
@@ -27,21 +111,60 @@ function individualStatus(ind) {
   });
 }
 
-// ─── VETTING STATUS FOR STAFF VIEW ────────────────────────────────────────────
-// Keep current simple list logic for now.
-// We will align it later with classification-based detail/edit logic.
+// ─── STAFF STATUS (CLASSIFICATION-BASED) ──────────────────────────────────────
 function staffVettingStatus(ind) {
-  const vetting   = (S.vetting   || []).filter(v => v.individualId === ind.individualId);
-  const training  = (S.training  || []).filter(t => t.individualId === ind.individualId);
-  const screening = (S.screenings || []).filter(s => s.individualId === ind.individualId);
+  let functions = ind.staffFunctions || ind.amlFunctions || ind.functions || [];
+  if (!Array.isArray(functions) || !functions.length) {
+    functions = deriveFunctionsFromRole(ind.role);
+  }
+  functions = normaliseFunctions(functions);
 
-  const hasVetting   = vetting.length > 0 && vetting.some(v => v.policeCheckDate);
-  const hasTraining  = training.length > 0 && training.some(t => t.completedDate);
-  const hasScreening = screening.length > 0 && screening.some(s => s.result);
+  const classification = ind.staffClassification || classificationFromFunctions(functions);
 
-  if (hasVetting && hasTraining && hasScreening) return 'complete';
-  if (!hasVetting && !hasTraining && !hasScreening) return 'not_started';
-  return 'incomplete';
+  const screenings = (S.screenings || []).filter(s => s.individualId === ind.individualId);
+  const training   = (S.training   || []).filter(t => t.individualId === ind.individualId);
+  const vetting    = (S.vetting    || []).filter(v => v.individualId === ind.individualId);
+
+  const latestScr = latestBy(screenings, 'date');
+  const latestTrn = latestBy(training, 'completedDate');
+  const latestVet = latestBy(vetting, 'policeCheckDate');
+
+  const required = [];
+  const satisfied = [];
+
+  if (screeningRequired(classification)) {
+    required.push('screening');
+    if (latestScr?.result) satisfied.push('screening');
+  }
+
+  if (trainingRequired(classification)) {
+    required.push('training');
+    if (latestTrn?.completedDate && latestTrn?.provider) satisfied.push('training');
+  }
+
+  if (vettingRequired(classification)) {
+    required.push('police');
+    required.push('bankruptcy');
+    if (latestVet?.policeCheckDate) satisfied.push('police');
+    if (latestVet?.bankruptcyCheckDate) satisfied.push('bankruptcy');
+  }
+
+  let status = 'not_required';
+  if (!required.length) {
+    status = 'not_required';
+  } else if (!satisfied.length) {
+    status = 'not_started';
+  } else if (satisfied.length === required.length) {
+    status = 'complete';
+  } else {
+    status = 'incomplete';
+  }
+
+  return {
+    status,
+    classification,
+    functions,
+  };
 }
 
 // ─── STATUS BADGE ─────────────────────────────────────────────────────────────
@@ -50,6 +173,8 @@ function statusBadge(status) {
     case 'compliant':
     case 'complete':
       return `<span class="badge badge-success">Complete</span>`;
+    case 'not_required':
+      return `<span class="badge badge-neutral">No checks required</span>`;
     case 'action_required':
     case 'incomplete':
       return `<span class="badge badge-danger">Incomplete</span>`;
@@ -63,10 +188,21 @@ function statusBadge(status) {
 }
 
 // ─── ROLE SUMMARY ─────────────────────────────────────────────────────────────
-function roleSummary(ind) {
+function roleSummary(ind, isStaffView, classification) {
+  if (isStaffView) {
+    const role = ind.role || 'No role assigned';
+    const cls  = classificationLabel(classification);
+    return `
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${role}</span>
+        <span style="font-size:10px;color:var(--color-text-muted);">${cls}</span>
+      </div>`;
+  }
+
   if (ind.role) {
     return `<span style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${ind.role}</span>`;
   }
+
   return '<span style="color:var(--color-text-muted);font-size:var(--font-size-xs);">No role assigned</span>';
 }
 
@@ -82,30 +218,29 @@ export function screen() {
 
   let individuals = [...(S.individuals || [])];
 
-  // Staff view = only staff records
   if (isStaffView) {
     individuals = individuals.filter(i => i.isStaff === true);
   }
 
-  // Search
   if (search) {
     const q = search.toLowerCase();
     individuals = individuals.filter(i =>
       i.fullName?.toLowerCase().includes(q) ||
-      i.email?.toLowerCase().includes(q)
+      i.email?.toLowerCase().includes(q) ||
+      i.role?.toLowerCase().includes(q)
     );
   }
 
-  // Compute status
   const withStatus = individuals.map(i => ({
     ...i,
-    _status: isStaffView ? { status: staffVettingStatus(i) } : individualStatus(i),
+    _status: isStaffView ? staffVettingStatus(i) : individualStatus(i),
   }));
 
-  // Filter by status
   const filtered = filter === 'all' ? withStatus : withStatus.filter(i => {
     if (filter === 'complete' || filter === 'compliant') {
-      return i._status.status === 'complete' || i._status.status === 'compliant';
+      return i._status.status === 'complete' ||
+             i._status.status === 'compliant' ||
+             i._status.status === 'not_required';
     }
     if (filter === 'incomplete' || filter === 'action') {
       return i._status.status === 'incomplete' || i._status.status === 'action_required';
@@ -121,8 +256,15 @@ export function screen() {
 
   const counts = {
     all:         withStatus.length,
-    complete:    withStatus.filter(i => i._status.status === 'complete' || i._status.status === 'compliant').length,
-    incomplete:  withStatus.filter(i => i._status.status === 'incomplete' || i._status.status === 'action_required').length,
+    complete:    withStatus.filter(i =>
+      i._status.status === 'complete' ||
+      i._status.status === 'compliant' ||
+      i._status.status === 'not_required'
+    ).length,
+    incomplete:  withStatus.filter(i =>
+      i._status.status === 'incomplete' ||
+      i._status.status === 'action_required'
+    ).length,
     not_started: withStatus.filter(i => i._status.status === 'not_started').length,
   };
 
@@ -214,7 +356,7 @@ export function screen() {
                       </div>
                     </div>
                   </td>
-                  <td>${roleSummary(i)}</td>
+                  <td>${roleSummary(i, isStaffView, i._status.classification)}</td>
                   <td>${statusBadge(i._status.status)}</td>
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${fmtDate(i.updatedAt)}</td>
                   <td style="text-align:right;">
