@@ -2,7 +2,7 @@ import { S }        from '../../state/index.js';
 import { fmtDate }  from '../../firebase/firestore.js';
 
 // ─── ENTITY COMPLIANCE STATUS ─────────────────────────────────────────────────
-// An entity is compliant when all its active members satisfy their requirements.
+// An Entity is also known as a Client. It is compliant when all its active members satisfy their requirements.
 // Derived from the links + compliance engine in state.
 
 function entityStatus(entity) {
@@ -126,10 +126,10 @@ export function screen() {
     <div>
       <div class="screen-header">
         <div>
-          <h1 class="screen-title">Entities</h1>
+          <h1 class="screen-title">Clients</h1>
           <p class="screen-subtitle">Legal structures — companies, trusts, partnerships, and sole traders.</p>
         </div>
-        <button onclick="go('entity-new')" class="btn btn-sm">+ New entity</button>
+        <button onclick="go('entity-new')" class="btn btn-sm">+ New Client</button>
       </div>
 
       <div class="toolbar">
@@ -160,8 +160,8 @@ export function screen() {
 
       ${filtered.length === 0 ? `
         <div class="empty-state">
-          <div class="empty-state-title">${search ? 'No entities match your search.' : 'No entities yet.'}</div>
-          <div class="empty-state-sub">${search ? 'Try a different search term.' : 'Click "New entity" to add your first client entity.'}</div>
+          <div class="empty-state-title">${search ? 'No clients match your search.' : 'No Clients yet.'}</div>
+          <div class="empty-state-sub">${search ? 'Try a different search term.' : 'Click "New Client" to add your first client entity.'}</div>
         </div>
       ` : `
         <div class="table-wrap">
