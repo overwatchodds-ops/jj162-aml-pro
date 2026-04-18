@@ -83,6 +83,40 @@ function latestBy(items = [], field) {
   return [...items].sort((a, b) => (b?.[field] || '').localeCompare(a?.[field] || ''))[0];
 }
 
+function normaliseDateValue(value = '') {
+  if (!value) return '';
+
+  const v = String(value).trim();
+
+  // already ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+
+  // dd/mm/yyyy -> yyyy-mm-dd
+  const au = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (au) {
+    const dd = au[1].padStart(2, '0');
+    const mm = au[2].padStart(2, '0');
+    const yyyy = au[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return '';
+}
+
+function addOneYearISO(value = '') {
+  const iso = normaliseDateValue(value);
+  if (!iso) return '';
+
+  const [yyyy, mm, dd] = iso.split('-').map(Number);
+  const nextYear = yyyy + 1;
+
+  // preserve date safely, including leap-year edge cases
+  const lastDayOfMonth = new Date(nextYear, mm, 0).getDate();
+  const safeDay = Math.min(dd, lastDayOfMonth);
+
+  return `${nextYear}-${String(mm).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+}
+
 function softBadge(text, tone = 'neutral') {
   const styles = {
     success: 'background:#dcfce7;color:#166534;',
@@ -224,8 +258,8 @@ function hydrateDraftFromIndividual(ind) {
 
     trainingType: latestTrn?.type || (classification === 'key' ? 'enhanced' : 'standard'),
     trainingProvider: latestTrn?.provider || '',
-    trainingCompletedDate: latestTrn?.completedDate || '',
-    trainingExpiryDate: latestTrn?.expiryDate || '',
+    trainingCompletedDate: normaliseDateValue(latestTrn?.completedDate || ''),
+    trainingExpiryDate: normaliseDateValue(latestTrn?.expiryDate || ''),
     trainingCertificateLink: latestTrn?.certificateLink || '',
 
     policeCheckDate: latestVet?.policeCheckDate || '',
@@ -517,15 +551,15 @@ function renderTrainingTab() {
         <div class="form-row">
           <label class="label">Completed date</label>
           <input type="date" class="inp"
-            value="${esc(d.trainingCompletedDate || '')}"
+            value="${esc(normaliseDateValue(d.trainingCompletedDate || ''))}"
             onchange="handleTrainingDateChange(this.value)">
         </div>
 
         <div class="form-row">
           <label class="label">Expiry date</label>
           <input type="date" class="inp"
-            value="${esc(d.trainingExpiryDate || '')}"
-            oninput="updateDraft('trainingExpiryDate', this.value)">
+            value="${esc(normaliseDateValue(d.trainingExpiryDate || ''))}"
+            onchange="handleTrainingExpiryChange(this.value)">
         </div>
 
         <div class="form-row span-2">
@@ -706,15 +740,15 @@ function screeningPayloadChanged(d, existing) {
 function trainingPayloadChanged(d, existing) {
   const next = {
     provider: d.trainingProvider || '',
-    completedDate: d.trainingCompletedDate || '',
-    expiryDate: d.trainingExpiryDate || '',
+    completedDate: normaliseDateValue(d.trainingCompletedDate || ''),
+    expiryDate: normaliseDateValue(d.trainingExpiryDate || ''),
     type: d.trainingType || '',
     certificateLink: d.trainingCertificateLink || '',
   };
   const prev = {
     provider: existing?.provider || '',
-    completedDate: existing?.completedDate || '',
-    expiryDate: existing?.expiryDate || '',
+    completedDate: normaliseDateValue(existing?.completedDate || ''),
+    expiryDate: normaliseDateValue(existing?.expiryDate || ''),
     type: existing?.type || '',
     certificateLink: existing?.certificateLink || '',
   };
@@ -783,8 +817,8 @@ async function saveEvidenceRecords(record) {
         firmId: S.firmId,
         individualId,
         provider: d.trainingProvider || '',
-        completedDate: d.trainingCompletedDate || '',
-        expiryDate: d.trainingExpiryDate || '',
+        completedDate: normaliseDateValue(d.trainingCompletedDate || ''),
+        expiryDate: normaliseDateValue(d.trainingExpiryDate || ''),
         type: d.trainingType || '',
         certificateLink: d.trainingCertificateLink || '',
       };
@@ -976,14 +1010,30 @@ window.staffSetTab = function(tab) {
 
 window.handleTrainingDateChange = function(value) {
   if (!S._draft) ensureDraft();
-  S._draft.trainingCompletedDate = value;
 
-  if (value && !S._draft.trainingExpiryDate) {
-    const date = new Date(value);
-    date.setFullYear(date.getFullYear() + 1);
-    S._draft.trainingExpiryDate = date.toISOString().split('T')[0];
+  const previousCompleted = normaliseDateValue(S._draft.trainingCompletedDate || '');
+  const previousExpiry = normaliseDateValue(S._draft.trainingExpiryDate || '');
+  const previousAutoExpiry = addOneYearISO(previousCompleted);
+
+  const normalised = normaliseDateValue(value);
+  S._draft.trainingCompletedDate = normalised;
+
+  // Auto-update expiry if it was blank or if it matched the old auto-calculated expiry
+  if (normalised) {
+    const shouldAutoUpdate = !previousExpiry || previousExpiry === previousAutoExpiry;
+    if (shouldAutoUpdate) {
+      S._draft.trainingExpiryDate = addOneYearISO(normalised);
+    }
+  } else {
+    S._draft.trainingExpiryDate = '';
   }
 
+  window.render();
+};
+
+window.handleTrainingExpiryChange = function(value) {
+  if (!S._draft) ensureDraft();
+  S._draft.trainingExpiryDate = normaliseDateValue(value);
   window.render();
 };
 
