@@ -676,7 +676,7 @@ export function screen() {
 
   if (!ind) {
     const backRoute = S.currentScreen === 'staff-detail' ? 'staff' : 'individuals';
-    const backLabel = S.currentScreen === 'staff-detail' ? 'Staff Vetting' : 'Individuals';
+    const backLabel = S.currentScreen === 'staff-detail' ? 'Staff' : 'Individuals';
     return `
       <div class="empty-state">
         <div class="empty-state-title">${S.currentScreen === 'staff-detail' ? 'Staff record not found.' : 'Individual not found.'}</div>
