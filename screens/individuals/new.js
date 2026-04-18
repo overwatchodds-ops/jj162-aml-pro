@@ -366,7 +366,6 @@ function renderIdentityTab() {
             class="inp"
             value="${esc(d.role || '')}"
             oninput="updateDraft('role', this.value)"
-            onchange="updateRole(this.value)"
           >
         </div>
 
@@ -656,6 +655,11 @@ async function saveCoreIndividual(d) {
   const individualId = d.individualId || genId('ind');
   const now = new Date().toISOString();
 
+  const roleDerived =
+    (!Array.isArray(d.staffFunctions) || d.staffFunctions.length === 0)
+      ? normaliseFunctions(deriveFunctionsFromRole(d.role || ''))
+      : normaliseFunctions(d.staffFunctions || []);
+
   const record = {
     individualId,
     firmId: S.firmId,
@@ -667,9 +671,9 @@ async function saveCoreIndividual(d) {
     email: d.email || '',
     phone: d.phone || '',
     notes: d.notes || '',
-    staffFunctions: normaliseFunctions(d.staffFunctions || []),
-    staffClassification: classificationFromFunctions(d.staffFunctions || []),
-    vettingStatus: staffStatusFromDraft(d),
+    staffFunctions: roleDerived,
+    staffClassification: classificationFromFunctions(roleDerived),
+    vettingStatus: staffStatusFromDraft({ ...d, staffFunctions: roleDerived, staffClassification: classificationFromFunctions(roleDerived) }),
     createdAt: d.createdAt || now,
     updatedAt: now,
   };
@@ -933,31 +937,7 @@ window.updateDraft = function(field, value) {
 
 window.updateRole = function(value) {
   if (!S._draft) ensureDraft();
-
-  const previousFunctions = Array.isArray(S._draft.staffFunctions)
-    ? [...S._draft.staffFunctions]
-    : [];
-  const hadNoFunctions = previousFunctions.length === 0;
-
   S._draft.role = value;
-
-  if (!hadNoFunctions) {
-    return;
-  }
-
-  const derived = normaliseFunctions(deriveFunctionsFromRole(value));
-  const nextClassification = classificationFromFunctions(derived);
-
-  const functionsChanged =
-    JSON.stringify(previousFunctions) !== JSON.stringify(derived) ||
-    S._draft.staffClassification !== nextClassification;
-
-  S._draft.staffFunctions = derived;
-  S._draft.staffClassification = nextClassification;
-
-  if (functionsChanged) {
-    window.render();
-  }
 };
 
 window.toggleStaffFunction = function(code, checked) {
