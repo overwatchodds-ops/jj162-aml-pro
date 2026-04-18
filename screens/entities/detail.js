@@ -55,8 +55,8 @@ export function screen() {
 
   if (!entity) return `
     <div class="empty-state">
-      <div class="empty-state-title">Entity not found.</div>
-      <button onclick="go('entities')" class="btn-sec btn-sm" style="margin-top:var(--space-3);">← Back to entities</button>
+      <div class="empty-state-title">Client not found.</div>
+      <button onclick="go('entities')" class="btn-sec btn-sm" style="margin-top:var(--space-3);">← Back to clients</button>
     </div>`;
 
   // Members
@@ -71,7 +71,7 @@ export function screen() {
     l.status           === 'former'
   );
 
-  // Overall entity compliance
+  // Overall client compliance
   const allCompliant = activeLinks.length > 0 && activeLinks.every(l => memberStatusIcon(l.individualId) === '✓');
   const statusBadge  = activeLinks.length === 0
     ? `<span class="badge badge-neutral">No members</span>`
@@ -87,7 +87,7 @@ export function screen() {
       <!-- Header -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-6);">
         <div>
-          <button onclick="go('entities')" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">← Entities</button>
+          <button onclick="go('entities')" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">← Clients</button>
           <h1 class="screen-title" style="margin-top:var(--space-2);">${entity.entityName}</h1>
           <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1);">
             ${statusBadge}
@@ -98,10 +98,10 @@ export function screen() {
         <button onclick="go('entity-edit',{entityId:'${entityId}'})" class="btn-sec btn-sm">Edit</button>
       </div>
 
-      <!-- Entity details -->
+      <!-- Entity also known as Client details -->
       <div class="card">
-        <div class="section-heading">Entity details</div>
-        ${row('Entity type',   entity.entityType)}
+        <div class="section-heading">Client details</div>
+        ${row('Client type',   entity.entityType)}
         ${row('ABN',           entity.abn)}
         ${row('ACN',           entity.acn)}
         ${row('Address',       entity.registeredAddress)}
@@ -139,7 +139,7 @@ export function screen() {
         </div>
 
         ${activeLinks.length === 0 ? `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No members yet. Add individuals to this entity.</p>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No members yet. Add individuals to this client.</p>
         ` : activeLinks.map(l => {
           const ind    = S.individuals.find(i => i.individualId === l.individualId);
           const icon   = memberStatusIcon(l.individualId);
@@ -191,8 +191,8 @@ export function screen() {
       <!-- SMR -->
       <div class="card">
         <div class="section-heading">SMR</div>
-        <button onclick="go('smr',{filterEntity:'${entityId}'})" class="btn-sec btn-sm">View SMRs involving this entity</button>
-        <p style="font-size:10px;color:var(--color-text-muted);margin-top:var(--space-2);">Only your firm's SMRs are shown.</p>
+        <button onclick="go('smr',{filterEntity:'${entityId}'})" class="btn-sec btn-sm">View SMRs involving this client</button>
+        <p style="font-size:10px;color:var(--color-text-muted);margin-top:var(--space-2);">Only your firm's client SMRs are shown.</p>
       </div>
 
       <!-- Audit trail -->
