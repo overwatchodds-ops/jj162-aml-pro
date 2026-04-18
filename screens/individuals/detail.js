@@ -289,7 +289,7 @@ function renderStaffDetail(individualId, ind) {
     <div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-6);">
         <div style="display:flex;align-items:center;gap:var(--space-4);">
-          <button onclick="go('staff')" class="btn-ghost" style="color:var(--color-text-muted);padding:0;font-size:var(--font-size-sm);">← Staff Vetting</button>
+          <button onclick="go('staff')" class="btn-ghost" style="color:var(--color-text-muted);padding:0;font-size:var(--font-size-sm);">← Staff</button>
         </div>
         <button onclick="go('staff-edit',{individualId:'${individualId}'})" class="btn-sec btn-sm">Edit</button>
       </div>
