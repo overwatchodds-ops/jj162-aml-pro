@@ -10,6 +10,7 @@ export function screen() {
 
   const tabs = [
     { key: 'details',   label: 'Firm details'   },
+    { key: 'appointments', label: 'Appointments'   },
     { key: 'services',  label: 'Services'        },
     { key: 'risk',      label: 'Risk Assessment' },
     { key: 'program',   label: 'AML/CTF Program' },
@@ -39,6 +40,7 @@ export function screen() {
       </div>
 
       ${activeTab === 'details'   ? tabDetails(firm)   : ''}
+      ${activeTab === 'appointments' ? tabAppointments(firm) : ''}
       ${activeTab === 'enrolment' ? tabEnrolment(firm) : ''}
       ${activeTab === 'services'  ? tabServices(firm)  : ''}
       ${activeTab === 'risk'      ? renderRiskTab()    : ''}
@@ -83,6 +85,43 @@ function tabDetails(firm) {
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
         <button onclick="go('firm-profile')" class="btn-sec" style="flex:1;">Cancel</button>
         <button onclick="saveFirmDetails()" class="btn" style="flex:2;">Save details</button>
+      </div>
+    </div>`;
+}
+
+// ─── TAB: APPOINTMENTS ────────────────────────────────────────────────────────
+function tabAppointments(firm) {
+  const appt = firm.appointments || {};
+  return `
+    <div class="card">
+      <div class="section-heading">Key Appointments</div>
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+        Identify the key individuals responsible for your firm's compliance.
+      </p>
+
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="form-row">
+          <label class="label label-required">Principal</label>
+          <input id="appt-principal" type="text" class="inp" value="${appt.principal?.name || ''}" placeholder="The person who established the firm">
+          <div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">At a minimum, the Principal must be recorded to proceed.</div>
+        </div>
+
+        <div class="form-row">
+          <label class="label">AML/CTF Compliance Officer (AMLCO)</label>
+          <input id="appt-amlco" type="text" class="inp" value="${appt.amlco?.name || ''}" placeholder="Name of AMLCO">
+        </div>
+
+        <div class="form-row">
+          <label class="label">Senior Manager</label>
+          <input id="appt-senior" type="text" class="inp" value="${appt.senior?.name || ''}" placeholder="Senior Manager approving the program">
+        </div>
+      </div>
+
+      <div id="appt-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+      
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
+        <button onclick="go('firm-profile')" class="btn-sec" style="flex:1;">Cancel</button>
+        <button onclick="saveFirmAppointments()" class="btn" style="flex:2;">Save Appointments</button>
       </div>
     </div>`;
 }
@@ -587,4 +626,41 @@ window.progAutoNextReview = function(date) {
   d.setFullYear(d.getFullYear() + 1);
   const el = document.getElementById('prog-next-review');
   if (el && !el.value) el.value = d.toISOString().split('T')[0];
+};
+
+window.saveFirmAppointments = async function() {
+  const principalName = document.getElementById('appt-principal')?.value?.trim();
+  const amlcoName     = document.getElementById('appt-amlco')?.value?.trim();
+  const seniorName    = document.getElementById('appt-senior')?.value?.trim();
+  const errEl         = document.getElementById('appt-error');
+  
+  if (errEl) errEl.style.display = 'none';
+
+  if (!principalName) {
+    if (errEl) { errEl.textContent = 'Principal name is required.'; errEl.style.display = 'block'; }
+    return;
+  }
+
+  const fields = {
+    appointments: {
+      principal: { name: principalName },
+      amlco:     { name: amlcoName },
+      senior:    { name: seniorName }
+    }
+  };
+
+  try {
+    await updateFirmProfile(S.firmId, fields);
+    // Sync local state
+    if (!S.firm.appointments) S.firm.appointments = {};
+    S.firm.appointments.principal = { name: principalName };
+    S.firm.appointments.amlco     = { name: amlcoName };
+    S.firm.appointments.senior    = { name: seniorName };
+    
+    await auditFirm('appointments_updated', `Key appointments updated — Principal: ${principalName}`);
+    toast('Appointments saved');
+    go('firm-profile'); // Return to profile to see the green badge
+  } catch (err) {
+    if (errEl) { errEl.textContent = 'Failed to save. Please try again.'; errEl.style.display = 'block'; }
+  }
 };
