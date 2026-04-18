@@ -103,6 +103,13 @@ function normaliseDateValue(value = '') {
   return '';
 }
 
+function formatDateForDisplay(value = '') {
+  const iso = normaliseDateValue(value);
+  if (!iso) return '';
+  const [yyyy, mm, dd] = iso.split('-');
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 function addOneYearISO(value = '') {
   const iso = normaliseDateValue(value);
   if (!iso) return '';
@@ -110,7 +117,6 @@ function addOneYearISO(value = '') {
   const [yyyy, mm, dd] = iso.split('-').map(Number);
   const nextYear = yyyy + 1;
 
-  // preserve date safely, including leap-year edge cases
   const lastDayOfMonth = new Date(nextYear, mm, 0).getDate();
   const safeDay = Math.min(dd, lastDayOfMonth);
 
@@ -550,16 +556,58 @@ function renderTrainingTab() {
 
         <div class="form-row">
           <label class="label">Completed date</label>
-          <input type="date" class="inp"
-            value="${esc(normaliseDateValue(d.trainingCompletedDate || ''))}"
-            onchange="handleTrainingDateChange(this.value)">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input
+              type="text"
+              class="inp"
+              value="${esc(formatDateForDisplay(d.trainingCompletedDate || ''))}"
+              placeholder="dd/mm/yyyy"
+              onblur="handleTrainingDateTextBlur(this.value)"
+              style="flex:1;"
+            >
+            <input
+              id="training-completed-picker"
+              type="date"
+              value="${esc(normaliseDateValue(d.trainingCompletedDate || ''))}"
+              onchange="handleTrainingDatePicker(this.value)"
+              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;"
+            >
+            <button
+              type="button"
+              class="btn-ghost"
+              onclick="openDatePicker('training-completed-picker')"
+              style="padding:10px 12px;border:1px solid var(--color-border-light);border-radius:12px;"
+              aria-label="Pick completed date"
+            >📅</button>
+          </div>
         </div>
 
         <div class="form-row">
           <label class="label">Expiry date</label>
-          <input type="date" class="inp"
-            value="${esc(normaliseDateValue(d.trainingExpiryDate || ''))}"
-            onchange="handleTrainingExpiryChange(this.value)">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input
+              type="text"
+              class="inp"
+              value="${esc(formatDateForDisplay(d.trainingExpiryDate || ''))}"
+              placeholder="dd/mm/yyyy"
+              onblur="handleTrainingExpiryTextBlur(this.value)"
+              style="flex:1;"
+            >
+            <input
+              id="training-expiry-picker"
+              type="date"
+              value="${esc(normaliseDateValue(d.trainingExpiryDate || ''))}"
+              onchange="handleTrainingExpiryPicker(this.value)"
+              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;"
+            >
+            <button
+              type="button"
+              class="btn-ghost"
+              onclick="openDatePicker('training-expiry-picker')"
+              style="padding:10px 12px;border:1px solid var(--color-border-light);border-radius:12px;"
+              aria-label="Pick expiry date"
+            >📅</button>
+          </div>
         </div>
 
         <div class="form-row span-2">
@@ -1008,7 +1056,17 @@ window.staffSetTab = function(tab) {
   window.render();
 };
 
-window.handleTrainingDateChange = function(value) {
+window.openDatePicker = function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (typeof el.showPicker === 'function') {
+    el.showPicker();
+  } else {
+    el.click();
+  }
+};
+
+window.handleTrainingDateTextBlur = function(value) {
   if (!S._draft) ensureDraft();
 
   const previousCompleted = normaliseDateValue(S._draft.trainingCompletedDate || '');
@@ -1016,9 +1074,15 @@ window.handleTrainingDateChange = function(value) {
   const previousAutoExpiry = addOneYearISO(previousCompleted);
 
   const normalised = normaliseDateValue(value);
+
+  if (value && !normalised) {
+    window.toast?.('Enter the completed date as dd/mm/yyyy or use the calendar.', 'err');
+    window.render();
+    return;
+  }
+
   S._draft.trainingCompletedDate = normalised;
 
-  // Auto-update expiry if it was blank or if it matched the old auto-calculated expiry
   if (normalised) {
     const shouldAutoUpdate = !previousExpiry || previousExpiry === previousAutoExpiry;
     if (shouldAutoUpdate) {
@@ -1031,10 +1095,27 @@ window.handleTrainingDateChange = function(value) {
   window.render();
 };
 
-window.handleTrainingExpiryChange = function(value) {
+window.handleTrainingDatePicker = function(value) {
+  window.handleTrainingDateTextBlur(value);
+};
+
+window.handleTrainingExpiryTextBlur = function(value) {
   if (!S._draft) ensureDraft();
+
+  const normalised = normaliseDateValue(value);
+
+  if (value && !normalised) {
+    window.toast?.('Enter the expiry date as dd/mm/yyyy or use the calendar.', 'err');
+    window.render();
+    return;
+  }
+
   S._draft.trainingExpiryDate = normaliseDateValue(value);
   window.render();
+};
+
+window.handleTrainingExpiryPicker = function(value) {
+  window.handleTrainingExpiryTextBlur(value);
 };
 
 window.handleDeclarationDateChange = function(value) {
