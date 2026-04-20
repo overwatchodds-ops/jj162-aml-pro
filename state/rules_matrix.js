@@ -152,6 +152,12 @@ export const RULES_MATRIX = [
   { id: 61, contextType: 'entity', entitySubtype: 'individual', roleType: 'self',            requirementCode: 'id_verification', level: 'required',     activeFlag: true },
   { id: 62, contextType: 'entity', entitySubtype: 'individual', roleType: 'self',            requirementCode: 'screening',       level: 'required',     activeFlag: true },
 
+  // ─── ENTITY CONTEXT — SOLE TRADER ─────────────────────────────────────────
+  // Same requirements as Individual — the person IS the business
+
+  { id: 68, contextType: 'entity', entitySubtype: 'soletrader', roleType: 'self',            requirementCode: 'id_verification', level: 'required',     activeFlag: true },
+  { id: 69, contextType: 'entity', entitySubtype: 'soletrader', roleType: 'self',            requirementCode: 'screening',       level: 'required',     activeFlag: true },
+
   // ─── ENTITY CONTEXT — OTHER ───────────────────────────────────────────────
   // Source: newclient.js — ENTITY_CONFIG['Other']
   // Roles: Director / Owner / Authorised Representative
@@ -403,6 +409,7 @@ export const ENTITY_ROLES = {
   trust:       ['trustee_individual', 'trustee_corporate', 'settlor', 'appointor', 'beneficiary_25', 'beneficial_owner', 'beneficiary'],
   smsf:        ['trustee_member', 'corporate_trustee_director'],
   individual:  ['self'],
+  soletrader:  ['self'],
   other:       ['director', 'owner', 'authorised_rep'],
 };
 
