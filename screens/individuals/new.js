@@ -124,22 +124,16 @@ function addOneYearISO(value = '') {
 }
 
 function softBadge(text, tone = 'neutral') {
-  const styles = {
-    success: 'background:#dcfce7;color:#166534;',
-    warning: 'background:#fef3c7;color:#92400e;',
-    danger:  'background:#fee2e2;color:#991b1b;',
-    info:    'background:#dbeafe;color:#1d4ed8;',
-    neutral: 'background:#f1f5f9;color:#475569;',
-    key:     'background:#fef3c7;color:#92400e;',
-    standard:'background:#dbeafe;color:#1d4ed8;',
+  const cls = {
+    success:  'badge badge-success',
+    warning:  'badge badge-warning',
+    danger:   'badge badge-danger',
+    info:     'badge badge-primary',
+    neutral:  'badge badge-neutral',
+    key:      'badge badge-warning',
+    standard: 'badge badge-primary',
   };
-  return `
-    <span style="
-      display:inline-flex;align-items:center;
-      padding:3px 10px;border-radius:999px;
-      font-size:10px;font-weight:700;
-      ${styles[tone] || styles.neutral}
-    ">${text}</span>`;
+  return `<span class="${cls[tone] || cls.neutral}">${text}</span>`;
 }
 
 function deriveFunctionsFromRole(role = '') {
@@ -400,7 +394,7 @@ function renderIdentityTab() {
         </div>
 
         <div class="form-row span-2">
-          <label class="label label-required">Job title / role *</label>
+          <label class="label label-required">Job title *</label>
           <input
             type="text"
             class="inp"
@@ -424,14 +418,9 @@ function renderIdentityTab() {
           <input type="email" class="inp" value="${esc(d.email || '')}" oninput="updateDraft('email', this.value)">
         </div>
 
-        <div class="form-row">
-          <label class="label">Phone</label>
-          <input type="text" class="inp" value="${esc(d.phone || '')}" oninput="updateDraft('phone', this.value)">
-        </div>
-
         <div class="form-row span-2">
           <label class="label">Notes</label>
-          <textarea class="inp" rows="4" oninput="updateDraft('notes', this.value)" placeholder="Any additional notes...">${esc(d.notes || '')}</textarea>
+          <textarea class="inp" rows="2" oninput="updateDraft('notes', this.value)" placeholder="Any additional notes...">${esc(d.notes || '')}</textarea>
         </div>
       </div>
     </div>
@@ -906,7 +895,7 @@ async function handleSave(redirectAfter = true) {
   const d = S._draft || {};
 
   if (!d.fullName || !d.role) {
-    window.toast('Full legal name and job title / role are required.', 'err');
+    window.toast('Full legal name and job title are required.', 'err');
     return;
   }
 
