@@ -117,6 +117,11 @@ function tabDetails(d, isEdit) {
           <input id="ent-acn" type="text" class="inp" value="${d.acn||''}" placeholder="123 456 789">
         </div>
 
+        <div class="form-row" id="ent-tfn-row" style="display:${etype==='Individual'||etype==='Sole Trader'?'block':'none'};">
+          <label class="label">TFN</label>
+          <input id="ent-tfn" type="text" class="inp" value="${d.tfn||''}" placeholder="123 456 789" autocomplete="off">
+        </div>
+
         <div class="form-row">
           <label class="label">Registered address</label>
           <input id="ent-address" type="text" class="inp" value="${d.registeredAddress||''}" placeholder="123 Collins St, Melbourne VIC 3000">
@@ -317,9 +322,11 @@ window.cancelEntity = function() {
 
 window.entityTypeChange = function() {
   const etype = document.getElementById('ent-type')?.value;
-  const isCompany = etype === 'Private Company';
-  document.getElementById('ent-acn-row').style.display = isCompany ? 'block' : 'none';
-  document.getElementById('ent-inc-row').style.display = isCompany ? 'block' : 'none';
+  const isCompany    = etype === 'Private Company';
+  const isIndividual = etype === 'Individual' || etype === 'Sole Trader';
+  document.getElementById('ent-acn-row').style.display = isCompany    ? 'block' : 'none';
+  document.getElementById('ent-inc-row').style.display = isCompany    ? 'block' : 'none';
+  document.getElementById('ent-tfn-row').style.display = isIndividual ? 'block' : 'none';
 };
 
 window.entityRiskChange = function() {
@@ -481,6 +488,7 @@ window.saveEntityRecord = async function() {
     entityType:         etype,
     abn:                document.getElementById('ent-abn')?.value?.trim()     || '',
     acn:                document.getElementById('ent-acn')?.value?.trim()     || '',
+    tfn:                document.getElementById('ent-tfn')?.value?.trim()     || '',
     registeredAddress:  document.getElementById('ent-address')?.value?.trim()|| '',
     incorporationDate:  document.getElementById('ent-inc-date')?.value        || '',
     countryOfOrigin:    document.getElementById('ent-country')?.value?.trim() || 'Australia',
