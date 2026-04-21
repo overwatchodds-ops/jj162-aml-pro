@@ -169,7 +169,31 @@ export const RULES_MATRIX = [
   { id: 66, contextType: 'entity', entitySubtype: 'other', roleType: 'owner',               requirementCode: 'screening',       level: 'required',     activeFlag: true },
 
   { id: 67, contextType: 'entity', entitySubtype: 'other', roleType: 'authorised_rep',      requirementCode: 'id_verification', level: 'required',     activeFlag: true },
-  // authorised_rep: screening not required per current app logic
+  // authorised_rep: screening not required
+
+  // ─── ENTITY CONTEXT — INCORPORATED ASSOCIATION ────────────────────────────
+  // Committee members and responsible persons must be identified
+  // Authorised representatives: ID verification only
+
+  { id: 70, contextType: 'entity', entitySubtype: 'association', roleType: 'responsible_person', requirementCode: 'id_verification', level: 'required', activeFlag: true },
+  { id: 71, contextType: 'entity', entitySubtype: 'association', roleType: 'responsible_person', requirementCode: 'screening',       level: 'required', activeFlag: true },
+
+  { id: 72, contextType: 'entity', entitySubtype: 'association', roleType: 'committee_member',   requirementCode: 'id_verification', level: 'required', activeFlag: true },
+  { id: 73, contextType: 'entity', entitySubtype: 'association', roleType: 'committee_member',   requirementCode: 'screening',       level: 'required', activeFlag: true },
+
+  { id: 74, contextType: 'entity', entitySubtype: 'association', roleType: 'authorised_rep',     requirementCode: 'id_verification', level: 'required', activeFlag: true },
+
+  // ─── ENTITY CONTEXT — CHARITY / NFP ───────────────────────────────────────
+  // Responsible persons and board members (controllers) must be identified
+  // Often registered with ACNC — treat controllers as beneficial owners
+
+  { id: 75, contextType: 'entity', entitySubtype: 'charity', roleType: 'responsible_person', requirementCode: 'id_verification', level: 'required', activeFlag: true },
+  { id: 76, contextType: 'entity', entitySubtype: 'charity', roleType: 'responsible_person', requirementCode: 'screening',       level: 'required', activeFlag: true },
+
+  { id: 77, contextType: 'entity', entitySubtype: 'charity', roleType: 'board_member',       requirementCode: 'id_verification', level: 'required', activeFlag: true },
+  { id: 78, contextType: 'entity', entitySubtype: 'charity', roleType: 'board_member',       requirementCode: 'screening',       level: 'required', activeFlag: true },
+
+  { id: 79, contextType: 'entity', entitySubtype: 'charity', roleType: 'authorised_rep',     requirementCode: 'id_verification', level: 'required', activeFlag: true },
 
 ];
 
@@ -397,6 +421,13 @@ export const ROLE_LABELS = {
 
   // Entity roles — other
   owner:                    'Owner',
+
+  // Entity roles — association
+  responsible_person:       'Responsible Person',
+  committee_member:         'Committee Member',
+
+  // Entity roles — charity / NFP
+  board_member:             'Board Member',
 };
 
 // ─── ENTITY SUBTYPE ROLES ─────────────────────────────────────────────────────
@@ -410,6 +441,8 @@ export const ENTITY_ROLES = {
   smsf:        ['trustee_member', 'corporate_trustee_director'],
   individual:  ['self'],
   soletrader:  ['self'],
+  association: ['responsible_person', 'committee_member', 'authorised_rep'],
+  charity:     ['responsible_person', 'board_member', 'authorised_rep'],
   other:       ['director', 'owner', 'authorised_rep'],
 };
 
