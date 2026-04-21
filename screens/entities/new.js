@@ -7,23 +7,27 @@ import {
 
 // ─── ENTITY OR CLIENT BUSINESS TYPES ─────────────────────────────────────────────────────────────
 const ENTITY_TYPES = [
+  'Individual',
+  'Sole Trader',
   'Private Company',
+  'Partnership',
   'Trust',
   'SMSF',
-  'Partnership',
-  'Sole Trader',
-  'Individual',
+  'Incorporated Association',
+  'Charity / NFP',
 ];
 
 // Maps entity type to ENTITY_ROLES key
 function entitySubtype(entityType) {
   const map = {
+    'Individual':               'individual',
+    'Sole Trader':              'soletrader',
     'Private Company':          'company',
+    'Partnership':              'partnership',
     'Trust':                    'trust',
     'SMSF':                     'smsf',
-    'Partnership':              'partnership',
-    'Sole Trader':              'soletrader',
-    'Individual':                    'individual',
+    'Incorporated Association': 'association',
+    'Charity / NFP':            'charity',
   };
   return map[entityType] || 'other';
 }
@@ -107,19 +111,14 @@ function tabDetails(d, isEdit) {
           </select>
         </div>
 
-        <div class="form-row">
-          <label class="label">ABN</label>
+        <div class="form-row" id="ent-abn-row" style="display:${etype==='Individual'?'none':'block'};">
+          <label class="label">ABN${etype==='Sole Trader'?' <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span>':''}</label>
           <input id="ent-abn" type="text" class="inp" value="${d.abn||''}" placeholder="12 345 678 901">
         </div>
 
         <div class="form-row" id="ent-acn-row" style="display:${etype==='Private Company'?'block':'none'};">
           <label class="label">ACN</label>
           <input id="ent-acn" type="text" class="inp" value="${d.acn||''}" placeholder="123 456 789">
-        </div>
-
-        <div class="form-row" id="ent-tfn-row" style="display:${etype==='Individual'||etype==='Sole Trader'?'block':'none'};">
-          <label class="label">TFN</label>
-          <input id="ent-tfn" type="text" class="inp" value="${d.tfn||''}" placeholder="123 456 789" autocomplete="off">
         </div>
 
         <div class="form-row">
@@ -321,12 +320,25 @@ window.cancelEntity = function() {
 };
 
 window.entityTypeChange = function() {
-  const etype = document.getElementById('ent-type')?.value;
-  const isCompany    = etype === 'Private Company';
-  const isIndividual = etype === 'Individual' || etype === 'Sole Trader';
-  document.getElementById('ent-acn-row').style.display = isCompany    ? 'block' : 'none';
-  document.getElementById('ent-inc-row').style.display = isCompany    ? 'block' : 'none';
-  document.getElementById('ent-tfn-row').style.display = isIndividual ? 'block' : 'none';
+  const etype      = document.getElementById('ent-type')?.value;
+  const isCompany  = etype === 'Private Company';
+  const isIndividual = etype === 'Individual';
+
+  // ABN — hidden for Individual only
+  const abnRow = document.getElementById('ent-abn-row');
+  if (abnRow) {
+    abnRow.style.display = isIndividual ? 'none' : 'block';
+    const abnLabel = abnRow.querySelector('label');
+    if (abnLabel) abnLabel.innerHTML = etype === 'Sole Trader'
+      ? 'ABN <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span>'
+      : 'ABN';
+  }
+
+  // ACN + Incorporation date — Private Company only
+  const acnRow = document.getElementById('ent-acn-row');
+  const incRow = document.getElementById('ent-inc-row');
+  if (acnRow) acnRow.style.display = isCompany ? 'block' : 'none';
+  if (incRow) incRow.style.display = isCompany ? 'block' : 'none';
 };
 
 window.entityRiskChange = function() {
@@ -488,7 +500,6 @@ window.saveEntityRecord = async function() {
     entityType:         etype,
     abn:                document.getElementById('ent-abn')?.value?.trim()     || '',
     acn:                document.getElementById('ent-acn')?.value?.trim()     || '',
-    tfn:                document.getElementById('ent-tfn')?.value?.trim()     || '',
     registeredAddress:  document.getElementById('ent-address')?.value?.trim()|| '',
     incorporationDate:  document.getElementById('ent-inc-date')?.value        || '',
     countryOfOrigin:    document.getElementById('ent-country')?.value?.trim() || 'Australia',
