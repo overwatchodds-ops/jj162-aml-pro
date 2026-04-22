@@ -299,14 +299,15 @@ export function screen() {
       </div>
       ` : ''}
 
-      <!-- Risk assessment -->
+      <!-- Risk assessment — inline -->
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
           <div class="section-heading" style="margin:0;">Client risk assessment</div>
-          <button onclick="go('entity-edit',{entityId:'${entityId}',tab:'risk'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">
+          <button onclick="togglePanel('risk-form-${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">
             ${entity.entityRiskRating ? 'Update' : '+ Add'}
           </button>
         </div>
+
         ${entity.entityRiskRating ? `
           ${row('Risk rating',   entity.entityRiskRating)}
           ${row('Assessed by',   entity.riskAssessedBy)}
@@ -316,6 +317,45 @@ export function screen() {
         ` : `
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No risk assessment recorded yet.</p>
         `}
+
+        <!-- Inline risk form -->
+        <div id="risk-form-${entityId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+            <div class="form-row">
+              <label class="label label-required">Risk rating</label>
+              <select id="risk-rating-${entityId}" class="inp" onchange="riskAutoNext('${entityId}')">
+                <option value="">Select...</option>
+                ${['Low','Medium','High'].map(r=>`<option value="${r}" ${entity.entityRiskRating===r?'selected':''}>${r}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Assessed by</label>
+              <select id="risk-by-${entityId}" class="inp">
+                ${staffOptions(entity.riskAssessedBy)}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Assessed date</label>
+              <input id="risk-date-${entityId}" type="date" class="inp" value="${entity.riskAssessedDate || new Date().toISOString().split('T')[0]}" onchange="riskAutoNext('${entityId}')">
+            </div>
+            <div class="form-row">
+              <label class="label">Next review date</label>
+              <input id="risk-next-${entityId}" type="date" class="inp" value="${entity.riskNextReviewDate||''}">
+            </div>
+            <div class="form-row span-2">
+              <label class="label">Risk factors / methodology notes</label>
+              <textarea id="risk-methodology-${entityId}" class="inp" rows="2" placeholder="Describe the risk factors considered...">${entity.riskMethodology||''}</textarea>
+            </div>
+          </div>
+          <div class="banner banner-info" style="margin-top:var(--space-3);">
+            High risk: review every 12 months · Medium: 24 months · Low: 36 months
+          </div>
+          <div id="risk-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+          <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+            <button onclick="togglePanel('risk-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
+            <button onclick="saveRiskInline('${entityId}')" class="btn btn-sm">Save risk assessment</button>
+          </div>
+        </div>
       </div>
 
       <!-- SMR -->
@@ -523,4 +563,58 @@ window.loadEntityAudit = async function(entityId) {
   if (!S._auditCache) S._auditCache = {};
   S._auditCache[entityId] = entries;
   render();
+};
+
+window.riskAutoNext = function(entityId) {
+  const rating = document.getElementById(`risk-rating-${entityId}`)?.value;
+  const date   = document.getElementById(`risk-date-${entityId}`)?.value;
+  if (!rating || !date) return;
+  const months = rating === 'High' ? 12 : rating === 'Medium' ? 24 : 36;
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  const el = document.getElementById(`risk-next-${entityId}`);
+  if (el && !el.value) el.value = d.toISOString().split('T')[0];
+};
+
+window.saveRiskInline = async function(entityId) {
+  const rating = document.getElementById(`risk-rating-${entityId}`)?.value;
+  const by     = document.getElementById(`risk-by-${entityId}`)?.value;
+  const date   = document.getElementById(`risk-date-${entityId}`)?.value;
+  const errEl  = document.getElementById(`risk-error-${entityId}`);
+  errEl.style.display = 'none';
+
+  if (!rating) { errEl.textContent='Risk rating is required.'; errEl.style.display='block'; return; }
+  if (!by)     { errEl.textContent='Assessed by is required.'; errEl.style.display='block'; return; }
+  if (!date)   { errEl.textContent='Assessed date is required.'; errEl.style.display='block'; return; }
+
+  const { updateEntity } = await import('../../firebase/firestore.js');
+  const now    = new Date().toISOString();
+  const fields = {
+    entityRiskRating:   rating,
+    riskAssessedBy:     by,
+    riskAssessedDate:   date,
+    riskNextReviewDate: document.getElementById(`risk-next-${entityId}`)?.value || '',
+    riskMethodology:    document.getElementById(`risk-methodology-${entityId}`)?.value?.trim() || '',
+    updatedAt:          now,
+  };
+
+  try {
+    await updateEntity(entityId, fields);
+    const entity = S.entities.find(e => e.entityId === entityId);
+    if (entity) Object.assign(entity, fields);
+    await saveAuditEntry({
+      firmId: S.firmId, userId: S.individualId,
+      userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+      action: 'risk_assessed', targetType: 'entity', targetId: entityId,
+      targetName: S.entities?.find(e=>e.entityId===entityId)?.entityName || '',
+      detail: `Risk assessment recorded — ${rating} risk — assessed by ${by}`,
+      timestamp: now,
+    });
+    toast('Risk assessment saved');
+    render();
+  } catch (err) {
+    errEl.textContent = 'Failed to save. Please try again.';
+    errEl.style.display = 'block';
+    console.error(err);
+  }
 };
