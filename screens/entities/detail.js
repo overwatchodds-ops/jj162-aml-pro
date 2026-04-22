@@ -112,8 +112,8 @@ export function screen() {
         `}
       </div>
 
-      <!-- Members / Key people -->
-      <div class="card">
+      <!-- Members / Key people — not shown for Individual or Sole Trader -->
+      ${entity.entityType !== 'Individual' && entity.entityType !== 'Sole Trader' ? `<div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
           <div>
             <div class="section-heading" style="margin:0;">Key people (${activeLinks.length})</div>
@@ -220,7 +220,7 @@ export function screen() {
             }).join('')}
           </div>
         ` : ''}
-      </div>
+      </div>` : ''}
 
       <!-- SMR -->
       <div class="card">

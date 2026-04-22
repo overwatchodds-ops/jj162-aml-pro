@@ -38,13 +38,20 @@ export function screen() {
   const isEdit  = !!entityId;
   const entity  = isEdit ? S.entities.find(e => e.entityId === entityId) : null;
   const d       = S._draft || (isEdit ? { ...entity } : {});
-  const activeTab = tab || 'details';
 
-  const tabs = [
-    { key: 'details', label: 'Details'  },
-    { key: 'risk',    label: 'Risk'     },
-    { key: 'members', label: 'Members'  },
+  // Individual and Sole Trader have no key people — the person IS the client
+  const etype        = d.entityType || '';
+  const hasMembers   = etype !== 'Individual' && etype !== 'Sole Trader';
+
+  const allTabs = [
+    { key: 'details', label: 'Details' },
+    { key: 'risk',    label: 'Risk'    },
+    { key: 'members', label: 'Key people', hidden: !hasMembers },
   ];
+  const tabs = allTabs.filter(t => !t.hidden);
+
+  // If current tab is members but type doesn't support it, fall back to details
+  const activeTab = (tab === 'members' && !hasMembers) ? 'details' : (tab || 'details');
 
   return `
     <div>
@@ -75,7 +82,7 @@ export function screen() {
       <!-- Tab content -->
       ${activeTab === 'details' ? tabDetails(d, isEdit) : ''}
       ${activeTab === 'risk'    ? tabRisk(d, isEdit, entityId) : ''}
-      ${activeTab === 'members' ? tabMembers(d, isEdit, entityId) : ''}
+      ${activeTab === 'members' && hasMembers ? tabMembers(d, isEdit, entityId) : ''}
 
       <!-- Save / Cancel -->
       ${activeTab === 'details' ? `
