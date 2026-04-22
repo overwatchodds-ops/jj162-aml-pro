@@ -477,8 +477,16 @@ function tabMembers(d, isEdit, entityId, roles) {
 window.pickClientType = function(etype) {
   if (!S._draft) S._draft = {};
   S._draft.entityType = etype;
-  S.currentParams = { ...(S.currentParams || {}), tab: 'details' };
-  render();
+
+  if (['Individual', 'Sole Trader'].includes(etype)) {
+    // Person types go directly to detail_individual.js in new mode
+    S.currentParams = { isNew: true, entityType: etype };
+    go('entity-detail');
+  } else {
+    // Entity types stay in new.js for details + key people flow
+    S.currentParams = { ...(S.currentParams || {}), tab: 'details' };
+    render();
+  }
 };
 
 window.clearClientType = function() {

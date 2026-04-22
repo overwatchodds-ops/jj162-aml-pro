@@ -3,10 +3,11 @@
 // These client types have no key people — the person IS the client.
 // CDD requirements: ID verification + PEP/sanctions screening only.
 
-import { S }                        from '../../state/index.js';
+import { S, addEntityToState, addLinkToState } from '../../state/index.js';
 import { fmtDate, fmtDateTime,
+         saveEntity, saveLink,
          saveVerification, saveScreening,
-         saveAuditEntry, genId }    from '../../firebase/firestore.js';
+         saveAuditEntry, genId }             from '../../firebase/firestore.js';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function row(label, value) {
@@ -38,7 +39,13 @@ function staffOptions(selectedName = '') {
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
-  const { entityId } = S.currentParams || {};
+  const { entityId, isNew, entityType: newType } = S.currentParams || {};
+
+  // NEW MODE — no entity saved yet, render blank form
+  if (isNew && !entityId) {
+    return renderNewForm(newType || S._draft?.entityType || 'Individual');
+  }
+
   const entity = S.entities.find(e => e.entityId === entityId);
 
   if (!entity) return `
@@ -95,7 +102,7 @@ export function screen() {
             <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${entity.entityType}</span>
           </div>
         </div>
-        <button onclick="go('entity-edit',{entityId:'${entityId}'})" class="btn-sec btn-sm">Edit</button>
+        <button onclick="togglePanel('details-form-${entityId}')" class="btn-sec btn-sm">Edit details</button>
       </div>
 
       <!-- Client details -->
@@ -109,13 +116,10 @@ export function screen() {
         ${row('Last updated',fmtDate(entity.updatedAt))}
       </div>
 
-      <!-- Individual details (from linked record) -->
+      <!-- Personal details — inline editable -->
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">${isSoleTrader ? 'Sole trader — person details' : 'Individual details'}</div>
-          ${individualId
-            ? `<button onclick="go('individual-detail',{individualId:'${individualId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">View full record →</button>`
-            : ''}
+          <div class="section-heading" style="margin:0;">${isSoleTrader ? 'Sole trader details' : 'Individual details'}</div>
         </div>
 
         ${!individualId ? `
@@ -146,10 +150,51 @@ export function screen() {
             </div>
           </div>
         ` : `
-          ${row('Full name',        ind?.fullName)}
-          ${row('Date of birth',    fmtDate(ind?.dateOfBirth))}
+          ${row('Full name',           ind?.fullName)}
+          ${row('Date of birth',       fmtDate(ind?.dateOfBirth))}
           ${row('Residential address', ind?.address)}
-          ${row('Email',            ind?.email)}
+          ${row('Email',               ind?.email)}
+          ${isSoleTrader && entity.abn ? row('ABN', entity.abn) : ''}
+          ${isSoleTrader && entity.tradingName ? row('Trading name', entity.tradingName) : ''}
+
+          <!-- Inline edit form -->
+          <div id="details-form-${entityId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
+            <div class="form-grid" style="grid-template-columns:1fr;">
+              ${isSoleTrader ? `
+                <div class="form-row">
+                  <label class="label">Business / trading name</label>
+                  <input id="edit-trading-${entityId}" type="text" class="inp" value="${entity.tradingName||''}" placeholder="e.g. John's Plumbing">
+                </div>
+              ` : ''}
+              <div class="form-row">
+                <label class="label label-required">Full legal name</label>
+                <input id="edit-name-${entityId}" type="text" class="inp" value="${ind?.fullName||entity.entityName||''}">
+              </div>
+              <div class="form-row">
+                <label class="label label-required">Date of birth</label>
+                <input id="edit-dob-${entityId}" type="date" class="inp" value="${ind?.dateOfBirth||entity.dateOfBirth||''}">
+              </div>
+              <div class="form-row">
+                <label class="label label-required">Residential address</label>
+                <input id="edit-address-${entityId}" type="text" class="inp" value="${ind?.address||entity.registeredAddress||''}">
+              </div>
+              <div class="form-row">
+                <label class="label">Email</label>
+                <input id="edit-email-${entityId}" type="email" class="inp" value="${ind?.email||entity.email||''}">
+              </div>
+              ${isSoleTrader ? `
+                <div class="form-row">
+                  <label class="label">ABN <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span></label>
+                  <input id="edit-abn-${entityId}" type="text" class="inp" value="${entity.abn||''}" placeholder="12 345 678 901">
+                </div>
+              ` : ''}
+            </div>
+            <div id="details-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+            <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+              <button onclick="togglePanel('details-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
+              <button onclick="saveDetailsInline('${entityId}','${individualId}')" class="btn btn-sm">Save changes</button>
+            </div>
+          </div>
         `}
       </div>
 
@@ -553,6 +598,341 @@ window.saveScrRecord = async function(entityId, individualId) {
   } catch (err) {
     const el = document.getElementById(`scr-error-${entityId}`);
     if (el) { el.textContent = 'Failed to save. Please try again.'; el.style.display = 'block'; }
+    console.error(err);
+  }
+};
+
+
+// ─── NEW FORM ─────────────────────────────────────────────────────────────────
+// Renders when isNew=true — blank form, same layout as the detail screen
+function renderNewForm(etype) {
+  const isSoleTrader = etype === 'Sole Trader';
+  const today = new Date().toISOString().split('T')[0];
+  const staffOpts = staffOptions('');
+
+  return `
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);">
+        <div>
+          <button onclick="clearClientType()" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">← Change type</button>
+          <h1 class="screen-title" style="margin-top:var(--space-2);">New ${etype}</h1>
+        </div>
+        <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);background:var(--color-surface-alt);padding:2px 10px;border-radius:var(--radius-pill);border:0.5px solid var(--color-border);">${etype}</span>
+      </div>
+
+      <!-- Step indicator -->
+      <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-5);">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--color-primary);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
+          <span style="font-size:var(--font-size-xs);font-weight:600;color:var(--color-primary);">Details</span>
+        </div>
+        <div style="flex:1;height:1px;background:var(--color-border);margin:0 4px;"></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--color-border);color:var(--color-text-muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
+          <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">CDD</span>
+        </div>
+      </div>
+
+      <!-- Personal details -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">${isSoleTrader ? 'Sole trader details' : 'Individual details'}</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+          ${isSoleTrader
+            ? "Enter the business trading name (if any) and the personal details of the person who operates it."
+            : "Enter the individual's personal details as they appear on their identity documents."}
+        </p>
+        <div class="form-grid" style="grid-template-columns:1fr;">
+          ${isSoleTrader ? `
+            <div class="form-row">
+              <label class="label">Business / trading name <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span></label>
+              <input id="new-trading" type="text" class="inp" placeholder="e.g. John's Plumbing">
+            </div>
+          ` : ''}
+          <div class="form-row">
+            <label class="label label-required">Full legal name</label>
+            <input id="new-name" type="text" class="inp" placeholder="e.g. Jane Elizabeth Smith">
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Date of birth</label>
+            <input id="new-dob" type="date" class="inp">
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Residential address</label>
+            <input id="new-address" type="text" class="inp" placeholder="12 Main St, Sydney NSW 2000">
+          </div>
+          <div class="form-row">
+            <label class="label">Email</label>
+            <input id="new-email" type="email" class="inp" placeholder="jane@example.com">
+          </div>
+          ${isSoleTrader ? `
+            <div class="form-row">
+              <label class="label">ABN <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span></label>
+              <input id="new-abn" type="text" class="inp" placeholder="12 345 678 901">
+            </div>
+          ` : ''}
+        </div>
+        <div id="new-details-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+      </div>
+
+      <!-- CDD -->
+      <div class="banner banner-info" style="margin-bottom:var(--space-3);">
+        <div class="banner-title">CDD required</div>
+        AUSTRAC requires identity verification and PEP/sanctions screening before providing designated services.
+      </div>
+
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">ID verification</div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+          <div class="form-row">
+            <label class="label label-required">ID type</label>
+            <select id="new-ver-type" class="inp">
+              ${['Passport','Driver licence','Medicare card','Other government ID'].map(t=>`<option>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="label label-required">ID number</label>
+            <input id="new-ver-num" type="text" class="inp" placeholder="e.g. PA1234567">
+          </div>
+          <div class="form-row">
+            <label class="label">Issuing state / country</label>
+            <input id="new-ver-state" type="text" class="inp" placeholder="e.g. NSW">
+          </div>
+          <div class="form-row">
+            <label class="label">Expiry date</label>
+            <input id="new-ver-expiry" type="date" class="inp">
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Verified by</label>
+            <select id="new-ver-by" class="inp">${staffOpts}</select>
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Verified date</label>
+            <input id="new-ver-date" type="date" class="inp" value="${today}">
+          </div>
+          <div class="form-row span-2">
+            <label class="label">Method</label>
+            <select id="new-ver-method" class="inp">
+              ${['In person','Certified copy','Electronic verification'].map(m=>`<option>${m}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">PEP / sanctions screening</div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+          <div class="form-row">
+            <label class="label label-required">Provider</label>
+            <input id="new-scr-provider" type="text" class="inp" placeholder="e.g. NameScan">
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Screening date</label>
+            <input id="new-scr-date" type="date" class="inp" value="${today}">
+          </div>
+          <div class="form-row">
+            <label class="label label-required">Result</label>
+            <select id="new-scr-result" class="inp">
+              ${['Clear','PEP match','Sanctions match','Adverse media','Refer for review'].map(r=>`<option>${r}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="label">Reference ID</label>
+            <input id="new-scr-ref" type="text" class="inp" placeholder="e.g. NS-98765">
+          </div>
+          <div class="form-row">
+            <label class="label">Completed by</label>
+            <select id="new-scr-by" class="inp">${staffOpts}</select>
+          </div>
+          <div class="form-row">
+            <label class="label">Next screening due</label>
+            <input id="new-scr-next" type="date" class="inp">
+          </div>
+        </div>
+        <div style="margin-top:var(--space-2);">
+          <a href="https://namescan.io/?ref=SIMPLEAML" target="_blank" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Open NameScan →</a>
+        </div>
+      </div>
+
+      <div id="new-cdd-error" class="banner banner-danger" style="display:none;margin-bottom:var(--space-3);"></div>
+      <div style="display:flex;gap:var(--space-3);">
+        <button onclick="clearClientType()" class="btn-sec" style="flex:1;">Cancel</button>
+        <button onclick="saveNewPersonClient('${etype}')" class="btn" style="flex:2;">Save client</button>
+      </div>
+    </div>`;
+}
+
+window.clearClientType = function() {
+  delete S._draft;
+  S.currentParams = {};
+  go('entity-new');
+};
+
+window.saveNewPersonClient = async function(etype) {
+  const name    = document.getElementById('new-name')?.value?.trim();
+  const dob     = document.getElementById('new-dob')?.value;
+  const address = document.getElementById('new-address')?.value?.trim();
+  const idNum   = document.getElementById('new-ver-num')?.value?.trim();
+  const verBy   = document.getElementById('new-ver-by')?.value;
+  const verDate = document.getElementById('new-ver-date')?.value;
+  const scrProv = document.getElementById('new-scr-provider')?.value?.trim();
+  const scrDate = document.getElementById('new-scr-date')?.value;
+
+  const detailsErr = document.getElementById('new-details-error');
+  const cddErr     = document.getElementById('new-cdd-error');
+  detailsErr.style.display = 'none';
+  cddErr.style.display     = 'none';
+
+  if (!name)    { detailsErr.textContent='Full legal name is required.'; detailsErr.style.display='block'; return; }
+  if (!dob)     { detailsErr.textContent='Date of birth is required.';   detailsErr.style.display='block'; return; }
+  if (!address) { detailsErr.textContent='Residential address is required.'; detailsErr.style.display='block'; return; }
+  if (!idNum)   { cddErr.textContent='ID number is required.'; cddErr.style.display='block'; return; }
+  if (!verBy)   { cddErr.textContent='Verified by is required.'; cddErr.style.display='block'; return; }
+  if (!verDate) { cddErr.textContent='Verified date is required.'; cddErr.style.display='block'; return; }
+  if (!scrProv) { cddErr.textContent='Screening provider is required.'; cddErr.style.display='block'; return; }
+  if (!scrDate) { cddErr.textContent='Screening date is required.'; cddErr.style.display='block'; return; }
+
+  const now  = new Date().toISOString();
+  const eid  = genId('ent');
+  const iid  = genId('ind');
+  const lid  = genId('link');
+
+  try {
+    const { saveVerification, saveScreening, saveIndividual } = await import('../../firebase/firestore.js');
+    const { addIndividualToState } = await import('../../state/index.js');
+
+    // 1. Entity record
+    const entityData = {
+      entityId: eid, firmId: S.firmId,
+      entityName:        name,
+      entityType:        etype,
+      dateOfBirth:       dob,
+      registeredAddress: address,
+      email:             document.getElementById('new-email')?.value?.trim() || '',
+      abn:               document.getElementById('new-abn')?.value?.trim() || '',
+      tradingName:       document.getElementById('new-trading')?.value?.trim() || '',
+      entityRiskRating:  null,
+      createdAt: now, updatedAt: now,
+    };
+    await saveEntity(eid, entityData);
+    addEntityToState(entityData);
+
+    // 2. Individual record
+    const indData = {
+      individualId: iid, firmId: S.firmId,
+      fullName: name, dateOfBirth: dob,
+      address, email: entityData.email,
+      isStaff: false, createdAt: now, updatedAt: now,
+    };
+    await saveIndividual(iid, indData);
+    addIndividualToState(indData);
+
+    // 3. Link
+    const linkData = {
+      linkId: lid, individualId: iid,
+      linkedObjectType: 'entity', linkedObjectId: eid,
+      roleType: 'self', status: 'active',
+      startDate: now, createdAt: now, updatedAt: now,
+    };
+    await saveLink(lid, linkData);
+    addLinkToState(linkData);
+
+    // 4. Verification
+    const idType = document.getElementById('new-ver-type')?.value || '';
+    const verRec = {
+      verificationId: genId('ver'), firmId: S.firmId, individualId: iid,
+      idType, idNumber: idNum,
+      issuingState:   document.getElementById('new-ver-state')?.value?.trim() || '',
+      expiryDate:     document.getElementById('new-ver-expiry')?.value || '',
+      verifiedBy: verBy, verifiedDate: verDate,
+      verifiedMethod: document.getElementById('new-ver-method')?.value || '',
+      createdAt: now,
+    };
+    await saveVerification(verRec);
+    if (!S.verifications) S.verifications = [];
+    S.verifications.unshift(verRec);
+
+    // 5. Screening
+    const result = document.getElementById('new-scr-result')?.value || '';
+    const scrRec = {
+      screeningId: genId('scr'), firmId: S.firmId, individualId: iid,
+      provider: scrProv, date: scrDate, result,
+      referenceId: document.getElementById('new-scr-ref')?.value?.trim() || '',
+      completedBy: document.getElementById('new-scr-by')?.value || '',
+      nextDueDate: document.getElementById('new-scr-next')?.value || '',
+      createdAt: now,
+    };
+    await saveScreening(scrRec);
+    if (!S.screenings) S.screenings = [];
+    S.screenings.unshift(scrRec);
+
+    // 6. Audit
+    await saveAuditEntry({
+      firmId: S.firmId, userId: S.individualId,
+      userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+      action: 'entity_created', targetType: 'entity', targetId: eid, targetName: name,
+      detail: `Client created with CDD — ${name} (${etype}) — ID verified by ${verBy} — screening: ${result}`,
+      timestamp: now,
+    });
+
+    delete S._draft;
+    toast('Client saved');
+    go('entity-detail', { entityId: eid });
+  } catch (err) {
+    cddErr.textContent = 'Failed to save. Please try again.';
+    cddErr.style.display = 'block';
+    console.error(err);
+  }
+};
+
+window.saveDetailsInline = async function(entityId, individualId) {
+  const name    = document.getElementById(`edit-name-${entityId}`)?.value?.trim();
+  const dob     = document.getElementById(`edit-dob-${entityId}`)?.value;
+  const address = document.getElementById(`edit-address-${entityId}`)?.value?.trim();
+  const errEl   = document.getElementById(`details-error-${entityId}`);
+  errEl.style.display = 'none';
+
+  if (!name)    { errEl.textContent='Full legal name is required.'; errEl.style.display='block'; return; }
+  if (!dob)     { errEl.textContent='Date of birth is required.'; errEl.style.display='block'; return; }
+  if (!address) { errEl.textContent='Residential address is required.'; errEl.style.display='block'; return; }
+
+  const { updateEntity, saveIndividual } = await import('../../firebase/firestore.js');
+  const now = new Date().toISOString();
+
+  try {
+    // Update entity record
+    const entityFields = {
+      entityName:        name,
+      registeredAddress: address,
+      email:             document.getElementById(`edit-email-${entityId}`)?.value?.trim() || '',
+      abn:               document.getElementById(`edit-abn-${entityId}`)?.value?.trim() || '',
+      tradingName:       document.getElementById(`edit-trading-${entityId}`)?.value?.trim() || '',
+      updatedAt:         now,
+    };
+    await updateEntity(entityId, entityFields);
+    const entity = S.entities.find(e => e.entityId === entityId);
+    if (entity) Object.assign(entity, entityFields);
+
+    // Update individual record
+    if (individualId) {
+      const indFields = { fullName: name, dateOfBirth: dob, address, email: entityFields.email, updatedAt: now };
+      await saveIndividual(individualId, { ...(S.individuals?.find(i=>i.individualId===individualId)||{}), ...indFields });
+      const ind = S.individuals?.find(i=>i.individualId===individualId);
+      if (ind) Object.assign(ind, indFields);
+    }
+
+    await saveAuditEntry({
+      firmId: S.firmId, userId: S.individualId,
+      userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+      action: 'entity_updated', targetType: 'entity', targetId: entityId, targetName: name,
+      detail: `Client details updated — ${name}`,
+      timestamp: now,
+    });
+
+    toast('Details saved');
+    render();
+  } catch (err) {
+    errEl.textContent = 'Failed to save. Please try again.';
+    errEl.style.display = 'block';
     console.error(err);
   }
 };
