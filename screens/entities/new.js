@@ -181,7 +181,12 @@ function tabRisk(d, isEdit, entityId) {
 
         <div class="form-row">
           <label class="label label-required">Assessed by</label>
-          <input id="risk-by" type="text" class="inp" value="${d.riskAssessedBy||''}" placeholder="Staff member name">
+          <select id="risk-by" class="inp">
+            <option value="">Select staff member...</option>
+            ${(S.individuals||[]).filter(i => i.isStaff).map(s =>
+              `<option value="${s.fullName}" ${d.riskAssessedBy===s.fullName?'selected':''}>${s.fullName}${s.role?' · '+s.role:''}</option>`
+            ).join('')}
+          </select>
         </div>
 
         <div class="form-row">
