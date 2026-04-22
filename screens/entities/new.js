@@ -112,89 +112,179 @@ function renderTypePicker() {
     </div>`;
 }
 
-// ─── PATH A: INDIVIDUAL / SOLE TRADER FORM ────────────────────────────────────
+// ─── PATH A: INDIVIDUAL / SOLE TRADER FORM ──────────────────────────────────
 function renderPersonForm(d, isEdit, entityId) {
   const etype        = d.entityType || '';
   const isSoleTrader = etype === 'Sole Trader';
-  const activeTab    = S.currentParams?.tab || 'details';
+  const step         = S.currentParams?.step || 'details'; // 'details' | 'cdd'
+  const today        = new Date().toISOString().split('T')[0];
+  const staffOpts    = staffOptions(d._verifiedBy || '');
 
   return `
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);">
         <div>
-          <button onclick="${isEdit ? 'cancelEntity()' : 'clearClientType()'}" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">
-            ← ${isEdit ? 'Client' : 'Change type'}
+          <button onclick="${isEdit ? "cancelEntity()" : step==="cdd" ? "personBackToDetails()" : "clearClientType()"}" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">
+            ← ${isEdit ? "Client" : step==="cdd" ? "Back" : "Change type"}
           </button>
-          <h1 class="screen-title" style="margin-top:var(--space-2);">${isEdit ? 'Edit — ' + (d.entityName||'') : 'New ' + etype}</h1>
+          <h1 class="screen-title" style="margin-top:var(--space-2);">${isEdit ? "Edit — " + (d.entityName||"") : "New " + etype}</h1>
         </div>
         <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);background:var(--color-surface-alt);padding:2px 10px;border-radius:var(--radius-pill);border:0.5px solid var(--color-border);">${etype}</span>
       </div>
 
-      <div style="display:flex;gap:2px;border-bottom:0.5px solid var(--color-border);margin-bottom:var(--space-5);">
-        ${['details','risk'].map(t => `
-          <button onclick="entityTab('${t}')" style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);padding:var(--space-2) var(--space-3);border:none;background:none;cursor:pointer;font-family:var(--font-family);color:${activeTab===t?'var(--color-primary)':'var(--color-text-muted)'};border-bottom:${activeTab===t?'2px solid var(--color-primary)':'2px solid transparent'};margin-bottom:-0.5px;">${t.charAt(0).toUpperCase()+t.slice(1)}</button>
-        `).join('')}
-      </div>
+      ${!isEdit ? `
+        <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-5);">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${step==="details"?"var(--color-primary)":"var(--color-success)"};color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">${step==="details"?"1":"✓"}</div>
+            <span style="font-size:var(--font-size-xs);font-weight:${step==="details"?"600":"400"};color:${step==="details"?"var(--color-primary)":"var(--color-text-muted)"};">Details</span>
+          </div>
+          <div style="flex:1;height:1px;background:var(--color-border);margin:0 4px;"></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${step==="cdd"?"var(--color-primary)":"var(--color-border)"};color:${step==="cdd"?"#fff":"var(--color-text-muted)"};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
+            <span style="font-size:var(--font-size-xs);font-weight:${step==="cdd"?"600":"400"};color:${step==="cdd"?"var(--color-primary)":"var(--color-text-muted)"};">CDD</span>
+          </div>
+        </div>
+      ` : ""}
 
-      ${activeTab === 'details' ? `
+      ${step === "details" ? `
         <div class="card">
-          <div class="section-heading">${isSoleTrader ? 'Sole trader details' : 'Individual details'}</div>
+          <div class="section-heading">${isSoleTrader ? "Sole trader details" : "Individual details"}</div>
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">
             ${isSoleTrader
-              ? 'Enter the business trading name (if any) and the personal details of the person who operates it.'
-              : 'Enter the individual\'s personal details as they appear on their identity documents.'}
+              ? "Enter the business trading name (if any) and the personal details of the person who operates it."
+              : "Enter the individual's personal details as they appear on their identity documents."}
           </p>
           <div class="form-grid" style="grid-template-columns:1fr;">
-
             ${isSoleTrader ? `
               <div class="form-row">
                 <label class="label">Business / trading name <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span></label>
-                <input id="ent-trading-name" type="text" class="inp" value="${d.tradingName||''}" placeholder="e.g. John's Plumbing">
+                <input id="ent-trading-name" type="text" class="inp" value="${d.tradingName||""}" placeholder="e.g. John's Plumbing">
               </div>
-            ` : ''}
-
+            ` : ""}
             <div class="form-row">
               <label class="label label-required">Full legal name</label>
-              <input id="ent-name" type="text" class="inp" value="${d.entityName||''}" placeholder="e.g. Jane Elizabeth Smith">
+              <input id="ent-name" type="text" class="inp" value="${d.entityName||""}" placeholder="e.g. Jane Elizabeth Smith">
             </div>
-
             <div class="form-row">
               <label class="label label-required">Date of birth</label>
-              <input id="ent-dob" type="date" class="inp" value="${d.dateOfBirth||''}">
+              <input id="ent-dob" type="date" class="inp" value="${d.dateOfBirth||""}">
             </div>
-
             <div class="form-row">
               <label class="label label-required">Residential address</label>
-              <input id="ent-address" type="text" class="inp" value="${d.registeredAddress||''}" placeholder="12 Main St, Sydney NSW 2000">
+              <input id="ent-address" type="text" class="inp" value="${d.registeredAddress||""}" placeholder="12 Main St, Sydney NSW 2000">
             </div>
-
             <div class="form-row">
               <label class="label">Email</label>
-              <input id="ent-email" type="email" class="inp" value="${d.email||''}" placeholder="jane@example.com">
+              <input id="ent-email" type="email" class="inp" value="${d.email||""}" placeholder="jane@example.com">
             </div>
-
             ${isSoleTrader ? `
               <div class="form-row">
                 <label class="label">ABN <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span></label>
-                <input id="ent-abn" type="text" class="inp" value="${d.abn||''}" placeholder="12 345 678 901">
+                <input id="ent-abn" type="text" class="inp" value="${d.abn||""}" placeholder="12 345 678 901">
               </div>
-            ` : ''}
-
+            ` : ""}
             <div class="form-row">
               <label class="label">Notes</label>
-              <textarea id="ent-notes" class="inp" rows="2" placeholder="Any additional notes...">${d.notes||''}</textarea>
+              <textarea id="ent-notes" class="inp" rows="2" placeholder="Any additional notes...">${d.notes||""}</textarea>
             </div>
-
           </div>
           <div id="ent-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
         </div>
         <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5);">
-          <button onclick="${isEdit ? 'cancelEntity()' : 'clearClientType()'}" class="btn-sec" style="flex:1;">Cancel</button>
-          <button onclick="savePersonRecord()" class="btn" style="flex:2;">${isEdit ? 'Save changes' : 'Save client'}</button>
+          <button onclick="${isEdit ? "cancelEntity()" : "clearClientType()"}" class="btn-sec" style="flex:1;">Cancel</button>
+          ${isEdit
+            ? `<button onclick="savePersonRecord()" class="btn" style="flex:2;">Save changes</button>`
+            : `<button onclick="personNextToCDD()" class="btn" style="flex:2;">Next — record CDD →</button>`}
         </div>
-      ` : ''}
+      ` : ""}
 
-      ${activeTab === 'risk' ? tabRisk(d, isEdit, entityId) : ''}
+      ${step === "cdd" ? `
+        <div class="banner banner-info" style="margin-bottom:var(--space-4);">
+          <div class="banner-title">Why this step?</div>
+          AUSTRAC requires you to verify identity and screen against PEP and sanctions lists before providing designated services.
+        </div>
+
+        <div class="card" style="margin-bottom:var(--space-3);">
+          <div class="section-heading">ID verification</div>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Record the identity document you sighted. You do not need to upload a copy.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+            <div class="form-row">
+              <label class="label label-required">ID type</label>
+              <select id="ver-type" class="inp">
+                ${["Passport","Driver licence","Medicare card","Other government ID"].map(t=>`<option ${d._verIdType===t?"selected":""}>${t}</option>`).join("")}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label label-required">ID number</label>
+              <input id="ver-num" type="text" class="inp" value="${d._verIdNum||""}" placeholder="e.g. PA1234567">
+            </div>
+            <div class="form-row">
+              <label class="label">Issuing state / country</label>
+              <input id="ver-state" type="text" class="inp" value="${d._verState||""}" placeholder="e.g. NSW">
+            </div>
+            <div class="form-row">
+              <label class="label">Expiry date</label>
+              <input id="ver-expiry" type="date" class="inp" value="${d._verExpiry||""}">
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Verified by</label>
+              <select id="ver-by" class="inp">${staffOpts}</select>
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Verified date</label>
+              <input id="ver-date" type="date" class="inp" value="${d._verDate||today}">
+            </div>
+            <div class="form-row span-2">
+              <label class="label">Method</label>
+              <select id="ver-method" class="inp">
+                ${["In person","Certified copy","Electronic verification"].map(m=>`<option ${d._verMethod===m?"selected":""}>${m}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--space-3);">
+          <div class="section-heading">PEP / sanctions screening</div>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">Screen against PEP, sanctions and adverse media lists.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+            <div class="form-row">
+              <label class="label label-required">Provider</label>
+              <input id="scr-provider" type="text" class="inp" value="${d._scrProvider||""}" placeholder="e.g. NameScan">
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Screening date</label>
+              <input id="scr-date" type="date" class="inp" value="${d._scrDate||today}" onchange="scrAutoNextNew(this.value)">
+            </div>
+            <div class="form-row">
+              <label class="label label-required">Result</label>
+              <select id="scr-result" class="inp">
+                ${["Clear","PEP match","Sanctions match","Adverse media","Refer for review"].map(r=>`<option ${d._scrResult===r?"selected":""}>${r}</option>`).join("")}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">Reference ID</label>
+              <input id="scr-ref" type="text" class="inp" value="${d._scrRef||""}" placeholder="e.g. NS-98765">
+            </div>
+            <div class="form-row">
+              <label class="label">Completed by</label>
+              <select id="scr-by" class="inp">${staffOpts}</select>
+            </div>
+            <div class="form-row">
+              <label class="label">Next screening due</label>
+              <input id="scr-next" type="date" class="inp" value="${d._scrNext||""}">
+            </div>
+          </div>
+          <div style="margin-top:var(--space-2);">
+            <a href="https://namescan.io/?ref=SIMPLEAML" target="_blank" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Open NameScan →</a>
+          </div>
+        </div>
+
+        <div id="cdd-error" class="banner banner-danger" style="display:none;margin-bottom:var(--space-3);"></div>
+        <div style="display:flex;gap:var(--space-3);">
+          <button onclick="personBackToDetails()" class="btn-sec" style="flex:1;">← Back</button>
+          <button onclick="savePersonWithCDD()" class="btn" style="flex:2;">Save client</button>
+        </div>
+      ` : ""}
     </div>`;
 }
 
@@ -417,6 +507,142 @@ window.entityRiskChange = function() {
   d.setMonth(d.getMonth() + months);
   const el = document.getElementById('risk-next-review');
   if (el && !el.value) el.value = d.toISOString().split('T')[0];
+};
+
+window.personNextToCDD = function() {
+  // Validate details first, stash values in draft, then go to CDD step
+  const name    = document.getElementById('ent-name')?.value?.trim();
+  const dob     = document.getElementById('ent-dob')?.value;
+  const address = document.getElementById('ent-address')?.value?.trim();
+  const errEl   = document.getElementById('ent-error');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!name)    { if (errEl) { errEl.textContent='Full legal name is required.'; errEl.style.display='block'; } return; }
+  if (!dob)     { if (errEl) { errEl.textContent='Date of birth is required.'; errEl.style.display='block'; } return; }
+  if (!address) { if (errEl) { errEl.textContent='Residential address is required.'; errEl.style.display='block'; } return; }
+
+  // Stash form values in draft so they survive the re-render
+  if (!S._draft) S._draft = {};
+  S._draft.entityName        = name;
+  S._draft.dateOfBirth       = dob;
+  S._draft.registeredAddress = address;
+  S._draft.email             = document.getElementById('ent-email')?.value?.trim() || '';
+  S._draft.abn               = document.getElementById('ent-abn')?.value?.trim() || '';
+  S._draft.tradingName       = document.getElementById('ent-trading-name')?.value?.trim() || '';
+  S._draft.notes             = document.getElementById('ent-notes')?.value?.trim() || '';
+
+  S.currentParams = { ...S.currentParams, step: 'cdd' };
+  render();
+};
+
+window.personBackToDetails = function() {
+  S.currentParams = { ...S.currentParams, step: 'details' };
+  render();
+};
+
+window.scrAutoNextNew = function(date) {
+  if (!date) return;
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + 1);
+  const el = document.getElementById('scr-next');
+  if (el && !el.value) el.value = d.toISOString().split('T')[0];
+};
+
+window.savePersonWithCDD = async function() {
+  // Validate CDD fields
+  const idNum   = document.getElementById('ver-num')?.value?.trim();
+  const verBy   = document.getElementById('ver-by')?.value;
+  const verDate = document.getElementById('ver-date')?.value;
+  const scrProv = document.getElementById('scr-provider')?.value?.trim();
+  const scrDate = document.getElementById('scr-date')?.value;
+  const errEl   = document.getElementById('cdd-error');
+  errEl.style.display = 'none';
+
+  if (!idNum)   { errEl.textContent='ID number is required.'; errEl.style.display='block'; return; }
+  if (!verBy)   { errEl.textContent='Verified by is required.'; errEl.style.display='block'; return; }
+  if (!verDate) { errEl.textContent='Verified date is required.'; errEl.style.display='block'; return; }
+  if (!scrProv) { errEl.textContent='Screening provider is required.'; errEl.style.display='block'; return; }
+  if (!scrDate) { errEl.textContent='Screening date is required.'; errEl.style.display='block'; return; }
+
+  const d        = S._draft || {};
+  const etype    = d.entityType;
+  const now      = new Date().toISOString();
+  const eid      = genId('ent');
+
+  const entityData = {
+    entityId: eid, firmId: S.firmId,
+    entityName:        d.entityName,
+    entityType:        etype,
+    dateOfBirth:       d.dateOfBirth,
+    registeredAddress: d.registeredAddress,
+    email:             d.email || '',
+    abn:               d.abn || '',
+    tradingName:       d.tradingName || '',
+    notes:             d.notes || '',
+    entityRiskRating:  null,
+    createdAt: now, updatedAt: now,
+  };
+
+  try {
+    // 1. Save entity (client record)
+    await saveEntity(eid, entityData);
+    addEntityToState(entityData);
+
+    // 2. Save verification
+    const { saveVerification, saveScreening } = await import('../../firebase/firestore.js');
+    const idType  = document.getElementById('ver-type')?.value || '';
+    const verRec  = {
+      verificationId: genId('ver'),
+      firmId:         S.firmId,
+      individualId:   eid, // for Individual/Sole Trader the entity IS the individual
+      idType,
+      idNumber:       idNum,
+      issuingState:   document.getElementById('ver-state')?.value?.trim() || '',
+      expiryDate:     document.getElementById('ver-expiry')?.value || '',
+      verifiedBy:     verBy,
+      verifiedDate:   verDate,
+      verifiedMethod: document.getElementById('ver-method')?.value || '',
+      createdAt:      now,
+    };
+    await saveVerification(verRec);
+    if (!S.verifications) S.verifications = [];
+    S.verifications.unshift(verRec);
+
+    // 3. Save screening
+    const result  = document.getElementById('scr-result')?.value || '';
+    const scrRec  = {
+      screeningId:  genId('scr'),
+      firmId:       S.firmId,
+      individualId: eid,
+      provider:     scrProv,
+      date:         scrDate,
+      result,
+      referenceId:  document.getElementById('scr-ref')?.value?.trim() || '',
+      completedBy:  document.getElementById('scr-by')?.value || '',
+      nextDueDate:  document.getElementById('scr-next')?.value || '',
+      createdAt:    now,
+    };
+    await saveScreening(scrRec);
+    if (!S.screenings) S.screenings = [];
+    S.screenings.unshift(scrRec);
+
+    // 4. Audit
+    await saveAuditEntry({
+      firmId: S.firmId, userId: S.individualId,
+      userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+      action: 'entity_created', targetType: 'entity', targetId: eid, targetName: d.entityName,
+      detail: `Client created with CDD — ${d.entityName} (${etype}) — ID verified by ${verBy} — screening: ${result}`,
+      timestamp: now,
+    });
+
+    delete S._draft;
+    toast('Client saved with CDD recorded');
+    go('entity-detail', { entityId: eid });
+  } catch (err) {
+    errEl.textContent = 'Failed to save. Please try again.';
+    errEl.style.display = 'block';
+    console.error(err);
+  }
 };
 
 window.savePersonRecord = async function() {
