@@ -260,21 +260,8 @@ function tabMembers(d, isEdit, entityId) {
 
       <!-- Add member -->
       <div style="border-top:0.5px solid var(--color-border);padding-top:var(--space-4);">
-        <div class="section-heading">Add member</div>
-
-        <!-- Search existing -->
-        <div class="form-row">
-          <label class="label">Search existing individuals</label>
-          <input
-            id="member-search"
-            type="text"
-            class="inp"
-            placeholder="Type a name to search..."
-            oninput="memberSearchFilter(this.value)"
-          >
-        </div>
-
-        <div id="member-search-results" style="margin-bottom:var(--space-3);"></div>
+        <div class="section-heading">Add a person</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">Search by name. Click a result to add them. Can't find them? Create a new individual.</p>
 
         <div class="form-row">
           <label class="label label-required">Role</label>
@@ -285,23 +272,24 @@ function tabMembers(d, isEdit, entityId) {
 
         <div class="form-row">
           <label class="label">Ownership %</label>
-          <input id="member-ownership" type="number" class="inp" placeholder="e.g. 50" min="0" max="100">
+          <input id="member-ownership" type="number" class="inp" placeholder="e.g. 50 (for shareholders only)" min="0" max="100">
         </div>
 
         <div class="form-row">
-          <label class="label">Start date</label>
-          <input id="member-start" type="date" class="inp" value="${new Date().toISOString().split('T')[0]}">
+          <label class="label">Search by name</label>
+          <input
+            id="member-search"
+            type="text"
+            class="inp"
+            placeholder="Start typing a name..."
+            oninput="memberSearchFilter(this.value)"
+            autocomplete="off"
+          >
         </div>
 
-        <div id="member-selected" style="display:none;margin-bottom:var(--space-3);padding:var(--space-3);border:0.5px solid var(--color-success-border);border-radius:var(--radius-lg);background:var(--color-success-light);">
-          <span style="font-size:var(--font-size-xs);color:var(--color-success-text);">Selected: <strong id="member-selected-name"></strong></span>
-          <button onclick="clearMemberSelection()" class="btn-ghost" style="color:var(--color-danger);font-size:10px;margin-left:var(--space-2);">Clear</button>
-        </div>
+        <div id="member-search-results" style="margin-bottom:var(--space-3);"></div>
 
-        <div style="display:flex;gap:var(--space-2);">
-          <button onclick="addExistingMember()" class="btn-sec btn-sm">+ Add selected individual</button>
-          <button onclick="addNewMember()" class="btn-sec btn-sm">+ Create new individual</button>
-        </div>
+        <button onclick="addNewMember()" class="btn-sec btn-sm">+ Create new individual</button>
       </div>
 
     </div>`;
@@ -359,62 +347,64 @@ window.memberSearchFilter = function(query) {
   if (!query || query.length < 2) { resultsEl.innerHTML = ''; return; }
 
   const q       = query.toLowerCase();
-  const matches = S.individuals.filter(i => i.fullName?.toLowerCase().includes(q)).slice(0, 5);
+  const pending = S._draft?._pendingMembers || [];
+  const pendingIds = pending.map(m => m.individualId);
+
+  // Filter out staff (isStaff) and already-pending members
+  const matches = (S.individuals || [])
+    .filter(i => !i.isStaff && i.fullName?.toLowerCase().includes(q) && !pendingIds.includes(i.individualId))
+    .slice(0, 6);
 
   if (!matches.length) {
-    resultsEl.innerHTML = `<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No individuals found. Use "Create new individual" to add them.</p>`;
+    resultsEl.innerHTML = `
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);padding:var(--space-2) 0;">
+        No results for "${query}". Use "Create new individual" below.
+      </p>`;
     return;
   }
 
   resultsEl.innerHTML = matches.map(i => `
     <div
-      onclick="selectMember('${i.individualId}','${i.fullName}')"
-      style="padding:var(--space-2) var(--space-3);border:0.5px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;font-size:var(--font-size-sm);"
+      onclick="addMemberFromSearch('${i.individualId}','${i.fullName.replace(/'/g,"\\'")}', this)"
+      style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);border:0.5px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;background:var(--color-surface);"
       onmouseover="this.style.background='var(--color-surface-alt)'"
-      onmouseout="this.style.background=''"
-    >${i.fullName}</div>`).join('');
+      onmouseout="this.style.background='var(--color-surface)'"
+    >
+      <span style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">${i.fullName}</span>
+      <span style="font-size:var(--font-size-xs);color:var(--color-primary);font-weight:var(--font-weight-medium);">+ Add</span>
+    </div>`).join('');
 };
 
-let _selectedMemberId = null;
-let _selectedMemberName = null;
-
-window.selectMember = function(id, name) {
-  _selectedMemberId   = id;
-  _selectedMemberName = name;
-  const el = document.getElementById('member-selected');
-  const nameEl = document.getElementById('member-selected-name');
-  if (el)     el.style.display = 'block';
-  if (nameEl) nameEl.textContent = name;
-  document.getElementById('member-search-results').innerHTML = '';
-  document.getElementById('member-search').value = '';
-};
-
-window.clearMemberSelection = function() {
-  _selectedMemberId   = null;
-  _selectedMemberName = null;
-  const el = document.getElementById('member-selected');
-  if (el) el.style.display = 'none';
-};
-
-window.addExistingMember = function() {
-  if (!_selectedMemberId) { toast('Select an individual first', 'err'); return; }
+window.addMemberFromSearch = function(individualId, name, el) {
   const roleType  = document.getElementById('member-role')?.value;
   const ownership = document.getElementById('member-ownership')?.value;
-  const startDate = document.getElementById('member-start')?.value;
+
+  if (!roleType) { toast('Select a role first', 'err'); return; }
 
   if (!S._draft) S._draft = {};
   if (!S._draft._pendingMembers) S._draft._pendingMembers = [];
 
+  // Check not already added
+  if (S._draft._pendingMembers.find(m => m.individualId === individualId)) {
+    toast('This person is already in the list', 'err');
+    return;
+  }
+
   S._draft._pendingMembers.push({
-    individualId: _selectedMemberId,
-    name:         _selectedMemberName,
+    individualId,
+    name,
     roleType,
     ownershipPercent: ownership ? Number(ownership) : null,
-    startDate:    startDate || new Date().toISOString().split('T')[0],
-    isNew:        false,
+    startDate: new Date().toISOString().split('T')[0],
+    isNew: false,
   });
 
-  clearMemberSelection();
+  // Clear search
+  const searchEl = document.getElementById('member-search');
+  const resultsEl = document.getElementById('member-search-results');
+  if (searchEl) searchEl.value = '';
+  if (resultsEl) resultsEl.innerHTML = '';
+
   render();
 };
 
