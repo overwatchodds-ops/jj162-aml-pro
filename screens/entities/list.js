@@ -166,9 +166,22 @@ export function screen() {
 }
 
 window.entitiesSearch = function(val) {
+  // Store search value in state but don't re-render —
+  // re-rendering destroys the input and loses focus.
+  // Instead update the table rows directly via DOM filtering.
   S.currentParams = { ...S.currentParams, search: val };
-  render();
+  _filterTable(val);
 };
+
+// Filter table rows without re-rendering the whole screen
+function _filterTable(query) {
+  const rows = document.querySelectorAll('tbody tr');
+  const q    = (query || '').toLowerCase();
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = !q || text.includes(q) ? '' : 'none';
+  });
+}
 
 window.entitiesFilter = function(filter) {
   S.currentParams = { ...S.currentParams, filter };
