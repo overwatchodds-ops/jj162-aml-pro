@@ -63,8 +63,17 @@ function renderIndividualCDD(entity, entityId) {
       </div>
 
       ${!individualId ? `
-        <div class="banner banner-warning">
-          No individual linked to this client yet. Edit the client record to link an individual.
+        <div style="padding:var(--space-4);background:var(--color-warning-light);border:0.5px solid var(--color-warning-border);border-radius:var(--radius-lg);">
+          <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-warning-text);margin-bottom:var(--space-2);">No individual linked yet</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-warning-text);margin-bottom:var(--space-3);">
+            ${entity.entityType === 'Sole Trader'
+              ? 'Link the person who operates this sole trader business. Search existing individuals or create a new one.'
+              : 'Link the individual this client record represents. Search existing individuals or create a new one.'}
+          </div>
+          <div style="display:flex;gap:var(--space-2);">
+            <button onclick="go('entity-edit',{entityId:'${entityId}',tab:'members'})" class="btn btn-sm">Link existing individual</button>
+            <button onclick="go('individual-new',{entryPoint:'entity',entityId:'${entityId}'})" class="btn-sec btn-sm">Create new individual</button>
+          </div>
         </div>
       ` : `
 
@@ -267,11 +276,16 @@ export function screen() {
       return (!needsVer || hasVer) && (!needsScr || hasScr);
     });
   }
-  const statusBadge  = activeLinks.length === 0
-    ? `<span class="badge badge-neutral">No members</span>`
-    : allCompliant
-      ? `<span class="badge badge-success">Compliant</span>`
-      : `<span class="badge badge-danger">Action required</span>`;
+  // Status badge — different logic for person types vs entity types
+  const statusBadge = isPersonType
+    ? (allCompliant
+        ? `<span class="badge badge-success">CDD complete</span>`
+        : `<span class="badge badge-danger">Action required</span>`)
+    : (activeLinks.length === 0
+        ? `<span class="badge badge-warning">No key people</span>`
+        : allCompliant
+          ? `<span class="badge badge-success">Compliant</span>`
+          : `<span class="badge badge-danger">Action required</span>`);
 
   // Audit trail cache
   const auditEntries = (S._auditCache?.[entityId] || []).slice(0, 5);
@@ -292,14 +306,14 @@ export function screen() {
         <button onclick="go('entity-edit',{entityId:'${entityId}'})" class="btn-sec btn-sm">Edit</button>
       </div>
 
-      <!-- Entity also known as Client details -->
+      <!-- Client details -->
       <div class="card">
         <div class="section-heading">Client details</div>
         ${row('Client type',   entity.entityType)}
         ${row('ABN',           entity.abn)}
-        ${row('ACN',           entity.acn)}
+        ${!isPersonType ? row('ACN', entity.acn) : ''}
         ${row('Address',       entity.registeredAddress)}
-        ${row('Incorporated',  fmtDate(entity.incorporationDate))}
+        ${!isPersonType ? row('Incorporated', fmtDate(entity.incorporationDate)) : ''}
         ${row('Country',       entity.countryOfOrigin)}
         ${row('Status',        entity.status)}
         ${row('Created',       fmtDate(entity.createdAt))}
