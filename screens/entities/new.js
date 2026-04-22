@@ -584,17 +584,51 @@ window.savePersonWithCDD = async function() {
   };
 
   try {
-    // 1. Save entity (client record)
+    const { saveVerification, saveScreening, saveIndividual } = await import('../../firebase/firestore.js');
+    const { addIndividualToState } = await import('../../state/index.js');
+
+    // 1. Save entity (client relationship record)
     await saveEntity(eid, entityData);
     addEntityToState(entityData);
 
-    // 2. Save verification
-    const { saveVerification, saveScreening } = await import('../../firebase/firestore.js');
-    const idType  = document.getElementById('ver-type')?.value || '';
-    const verRec  = {
+    // 2. Create individual record (the actual person)
+    const iid = genId('ind');
+    const indData = {
+      individualId:  iid,
+      firmId:        S.firmId,
+      fullName:      d.entityName,
+      dateOfBirth:   d.dateOfBirth,
+      address:       d.registeredAddress,
+      email:         d.email || '',
+      isStaff:       false,
+      createdAt:     now,
+      updatedAt:     now,
+    };
+    await saveIndividual(iid, indData);
+    addIndividualToState(indData);
+
+    // 3. Link individual to entity (role: self)
+    const lid = genId('link');
+    const linkData = {
+      linkId:           lid,
+      individualId:     iid,
+      linkedObjectType: 'entity',
+      linkedObjectId:   eid,
+      roleType:         'self',
+      status:           'active',
+      startDate:        now,
+      createdAt:        now,
+      updatedAt:        now,
+    };
+    await saveLink(lid, linkData);
+    addLinkToState(linkData);
+
+    // 4. Save ID verification against the individual
+    const idType = document.getElementById('ver-type')?.value || '';
+    const verRec = {
       verificationId: genId('ver'),
       firmId:         S.firmId,
-      individualId:   eid, // for Individual/Sole Trader the entity IS the individual
+      individualId:   iid,
       idType,
       idNumber:       idNum,
       issuingState:   document.getElementById('ver-state')?.value?.trim() || '',
@@ -608,12 +642,12 @@ window.savePersonWithCDD = async function() {
     if (!S.verifications) S.verifications = [];
     S.verifications.unshift(verRec);
 
-    // 3. Save screening
-    const result  = document.getElementById('scr-result')?.value || '';
-    const scrRec  = {
+    // 5. Save screening against the individual
+    const result = document.getElementById('scr-result')?.value || '';
+    const scrRec = {
       screeningId:  genId('scr'),
       firmId:       S.firmId,
-      individualId: eid,
+      individualId: iid,
       provider:     scrProv,
       date:         scrDate,
       result,
@@ -626,7 +660,7 @@ window.savePersonWithCDD = async function() {
     if (!S.screenings) S.screenings = [];
     S.screenings.unshift(scrRec);
 
-    // 4. Audit
+    // 6. Audit
     await saveAuditEntry({
       firmId: S.firmId, userId: S.individualId,
       userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
