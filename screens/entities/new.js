@@ -684,16 +684,19 @@ window.savePersonRecord = async function() {
   const dob     = document.getElementById('ent-dob')?.value;
   const address = document.getElementById('ent-address')?.value?.trim();
   const errEl   = document.getElementById('ent-error');
-  errEl.style.display = 'none';
+  if (errEl) errEl.style.display = 'none';
 
-  if (!name)    { errEl.textContent = 'Full legal name is required.';     errEl.style.display='block'; return; }
-  if (!dob)     { errEl.textContent = 'Date of birth is required.';       errEl.style.display='block'; return; }
-  if (!address) { errEl.textContent = 'Residential address is required.'; errEl.style.display='block'; return; }
+  const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display='block'; } else { toast(msg, 'err'); } };
+
+  if (!name)    { showErr('Full legal name is required.'); return; }
+  if (!dob)     { showErr('Date of birth is required.'); return; }
+  if (!address) { showErr('Residential address is required.'); return; }
 
   const { entityId } = S.currentParams || {};
   const isEdit   = !!entityId;
-  const d        = S._draft || {};
-  const etype    = d.entityType;
+  const entity   = isEdit ? S.entities.find(e => e.entityId === entityId) : null;
+  const d        = S._draft || (entity ? { ...entity } : {});
+  const etype    = d.entityType || entity?.entityType;
   const now      = new Date().toISOString();
   const eid      = isEdit ? entityId : genId('ent');
   const existing = isEdit ? S.entities.find(e => e.entityId === eid) : null;
@@ -741,13 +744,15 @@ window.savePersonRecord = async function() {
 window.saveEntityRecord = async function() {
   const name  = document.getElementById('ent-name')?.value?.trim();
   const errEl = document.getElementById('ent-error');
-  errEl.style.display = 'none';
-  if (!name) { errEl.textContent = 'Client name is required.'; errEl.style.display='block'; return; }
+  if (errEl) errEl.style.display = 'none';
+  const showErr = (msg) => { if (errEl) { errEl.textContent=msg; errEl.style.display='block'; } else { toast(msg,'err'); } };
+  if (!name) { showErr('Client name is required.'); return; }
 
   const { entityId } = S.currentParams || {};
   const isEdit   = !!entityId;
-  const d        = S._draft || {};
-  const etype    = d.entityType;
+  const entity   = isEdit ? S.entities.find(e => e.entityId === entityId) : null;
+  const d        = S._draft || (entity ? { ...entity } : {});
+  const etype    = d.entityType || entity?.entityType;
   const now      = new Date().toISOString();
   const eid      = isEdit ? entityId : genId('ent');
   const existing = isEdit ? S.entities.find(e => e.entityId === eid) : null;
