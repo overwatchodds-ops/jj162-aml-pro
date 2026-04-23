@@ -250,7 +250,7 @@ export function screen() {
                   </div>
                   <div style="display:flex;align-items:center;gap:var(--space-2);">
                     ${cddBadge(l.individualId)}
-                    <button onclick="go('individual-detail',{individualId:'${l.individualId}'})"
+                    <button onclick="viewKeyPersonCDD('${l.individualId}')"
                             class="btn-ghost"
                             style="font-size:var(--font-size-xs);color:var(--color-primary);">
                       View CDD →
@@ -286,7 +286,7 @@ export function screen() {
             </div>
           </div>
           <div id="kp-results-${fid}" style="margin-bottom:var(--space-2);"></div>
-          <button onclick="go('individual-new', {entryPoint:'entity', entityId:'${fid}'})"
+          <button onclick="addNewIndividualToEntity('${fid}')"
                   class="btn-sec btn-sm">
             + Create new individual
           </button>
@@ -481,6 +481,46 @@ window.removeKeyPerson = async function(linkId) {
     toast('Failed to remove. Please try again.', 'err');
     console.error(err);
   }
+};
+
+
+
+// Navigate to a key person's individual client record for CDD management
+window.viewKeyPersonCDD = function(individualId) {
+  // Find the entity record where this individual is the client (roleType: 'self')
+  const selfLink = (S.links || []).find(l =>
+    l.individualId === individualId &&
+    l.linkedObjectType === 'entity' &&
+    l.roleType === 'self' &&
+    l.status === 'active'
+  );
+  if (selfLink) {
+    go('entity-detail', { entityId: selfLink.linkedObjectId });
+  } else {
+    // Individual exists but has no client record yet — create one
+    go('entity-detail', {
+      isNew: true,
+      entityType: 'Individual',
+      returnToEntity: S.currentParams?.entityId,
+      existingIndividualId: individualId,
+    });
+  }
+};
+
+// Navigate to new individual screen with entity context
+window.addNewIndividualToEntity = function(fid) {
+  const entityId = S.currentParams?.entityId;
+  if (!entityId) {
+    toast('Save the entity first, then add people', 'err');
+    return;
+  }
+  const roleType = document.getElementById(`kp-role-${fid}`)?.value || '';
+  go('entity-detail', {
+    isNew:          true,
+    entityType:     'Individual',
+    returnToEntity: entityId,
+    roleType,
+  });
 };
 
 // ── SINGLE SAVE ────────────────────────────────────────────────────────────────
