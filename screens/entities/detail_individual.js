@@ -44,6 +44,8 @@ export function screen() {
   // Resolve data — new mode has no entity yet
   const entity       = entityId ? (S.entities || []).find(e => e.entityId === entityId) : null;
   const etype        = entity?.entityType || newType || S._draft?.entityType || 'Individual';
+  // Use 'new' as a stable placeholder ID for all element IDs in new mode
+  const formId       = entityId || 'new';
   const isSoleTrader = etype === 'Sole Trader';
   const today        = new Date().toISOString().split('T')[0];
 
@@ -106,7 +108,7 @@ export function screen() {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
           <div class="section-heading" style="margin:0;">${isSoleTrader ? 'Sole trader details' : 'Individual details'}</div>
           ${!isNew && individualId ? `
-            <button onclick="togglePanel('details-form-${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Edit details</button>
+            <button onclick="togglePanel('details-form-${formId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Edit details</button>
           ` : ''}
         </div>
 
@@ -153,12 +155,12 @@ export function screen() {
                 ${isSoleTrader ? 'Link the person who operates this sole trader business.' : 'Link the individual this client record represents.'}
               </div>
               <div style="display:flex;gap:var(--space-2);">
-                <button onclick="showLinkPanel('${entityId}')" class="btn btn-sm">Link existing individual</button>
-                <button onclick="go('individual-new',{entryPoint:'entity',entityId:'${entityId}'})" class="btn-sec btn-sm">Create new individual</button>
+                <button onclick="showLinkPanel('${formId}')" class="btn btn-sm">Link existing individual</button>
+                <button onclick="go('individual-new',{entryPoint:'entity',entityId:'${formId}'})" class="btn-sec btn-sm">Create new individual</button>
               </div>
-              <div id="link-panel-${entityId}" style="display:none;margin-top:var(--space-3);padding-top:var(--space-3);border-top:0.5px solid var(--color-warning-border);">
-                <input type="text" class="inp" placeholder="Search by name..." oninput="linkSearch('${entityId}',this.value)" autocomplete="off">
-                <div id="link-results-${entityId}" style="margin-top:var(--space-2);"></div>
+              <div id="link-panel-${formId}" style="display:none;margin-top:var(--space-3);padding-top:var(--space-3);border-top:0.5px solid var(--color-warning-border);">
+                <input type="text" class="inp" placeholder="Search by name..." oninput="linkSearch('${formId}',this.value)" autocomplete="off">
+                <div id="link-results-${formId}" style="margin-top:var(--space-2);"></div>
               </div>
             </div>
           ` : `
@@ -170,41 +172,41 @@ export function screen() {
             ${isSoleTrader && entity.tradingName ? row('Trading name', entity.tradingName) : ''}
 
             <!-- Collapsed edit form -->
-            <div id="details-form-${entityId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
+            <div id="details-form-${formId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
               <div class="form-grid" style="grid-template-columns:1fr;">
                 ${isSoleTrader ? `
                   <div class="form-row">
                     <label class="label">Business / trading name</label>
-                    <input id="e-trading-${entityId}" type="text" class="inp" value="${entity.tradingName||''}">
+                    <input id="e-trading-${formId}" type="text" class="inp" value="${entity.tradingName||''}">
                   </div>
                 ` : ''}
                 <div class="form-row">
                   <label class="label label-required">Full legal name</label>
-                  <input id="e-name-${entityId}" type="text" class="inp" value="${ind?.fullName || entity.entityName || ''}">
+                  <input id="e-name-${formId}" type="text" class="inp" value="${ind?.fullName || entity.entityName || ''}">
                 </div>
                 <div class="form-row">
                   <label class="label label-required">Date of birth</label>
-                  <input id="e-dob-${entityId}" type="date" class="inp" value="${ind?.dateOfBirth || entity.dateOfBirth || ''}">
+                  <input id="e-dob-${formId}" type="date" class="inp" value="${ind?.dateOfBirth || entity.dateOfBirth || ''}">
                 </div>
                 <div class="form-row">
                   <label class="label label-required">Residential address</label>
-                  <input id="e-address-${entityId}" type="text" class="inp" value="${ind?.address || entity.registeredAddress || ''}">
+                  <input id="e-address-${formId}" type="text" class="inp" value="${ind?.address || entity.registeredAddress || ''}">
                 </div>
                 <div class="form-row">
                   <label class="label">Email</label>
-                  <input id="e-email-${entityId}" type="email" class="inp" value="${ind?.email || entity.email || ''}">
+                  <input id="e-email-${formId}" type="email" class="inp" value="${ind?.email || entity.email || ''}">
                 </div>
                 ${isSoleTrader ? `
                   <div class="form-row">
                     <label class="label">ABN</label>
-                    <input id="e-abn-${entityId}" type="text" class="inp" value="${entity.abn||''}">
+                    <input id="e-abn-${formId}" type="text" class="inp" value="${entity.abn||''}">
                   </div>
                 ` : ''}
               </div>
-              <div id="e-details-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+              <div id="e-details-error-${formId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
               <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
-                <button onclick="togglePanel('details-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
-                <button onclick="saveDetailsInline('${entityId}','${individualId}')" class="btn btn-sm">Save details</button>
+                <button onclick="togglePanel('details-form-${formId}')" class="btn-sec btn-sm">Cancel</button>
+                <button onclick="saveDetailsInline('${formId}','${individualId}')" class="btn btn-sm">Save details</button>
               </div>
             </div>
           `}
@@ -244,7 +246,7 @@ export function screen() {
                     : `<div style="font-size:10px;color:var(--color-danger);">Not recorded — passport or driver licence required</div>`}
                 </div>
               </div>
-              <button onclick="togglePanel('ver-form-${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);flex-shrink:0;">
+              <button onclick="togglePanel('ver-form-${formId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);flex-shrink:0;">
                 ${hasVer ? 'Update' : '+ Record'}
               </button>
             </div>
@@ -255,46 +257,46 @@ export function screen() {
           `}
 
           <!-- Verification form — open by default for new, collapsed for existing -->
-          <div id="ver-form-${entityId}" style="display:${isNew ? 'block' : 'none'};padding:var(--space-3);${!isNew ? 'border-top:0.5px solid var(--color-border-light);' : ''}background:var(--color-surface-alt);">
+          <div id="ver-form-${formId}" style="display:${isNew ? 'block' : 'none'};padding:var(--space-3);${!isNew ? 'border-top:0.5px solid var(--color-border-light);' : ''}background:var(--color-surface-alt);">
             <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
               <div class="form-row">
                 <label class="label label-required">ID type</label>
-                <select id="ver-type-${entityId}" class="inp">
+                <select id="ver-type-${formId}" class="inp">
                   ${['Passport','Driver licence','Medicare card','Other government ID'].map(t=>`<option>${t}</option>`).join('')}
                 </select>
               </div>
               <div class="form-row">
                 <label class="label label-required">ID number</label>
-                <input id="ver-num-${entityId}" type="text" class="inp" placeholder="e.g. PA1234567">
+                <input id="ver-num-${formId}" type="text" class="inp" placeholder="e.g. PA1234567">
               </div>
               <div class="form-row">
                 <label class="label">Issuing state / country</label>
-                <input id="ver-state-${entityId}" type="text" class="inp" placeholder="e.g. NSW">
+                <input id="ver-state-${formId}" type="text" class="inp" placeholder="e.g. NSW">
               </div>
               <div class="form-row">
                 <label class="label">Expiry date</label>
-                <input id="ver-expiry-${entityId}" type="date" class="inp">
+                <input id="ver-expiry-${formId}" type="date" class="inp">
               </div>
               <div class="form-row">
                 <label class="label label-required">Verified by</label>
-                <select id="ver-by-${entityId}" class="inp">${staffOptions(latestVer?.verifiedBy)}</select>
+                <select id="ver-by-${formId}" class="inp">${staffOptions(latestVer?.verifiedBy)}</select>
               </div>
               <div class="form-row">
                 <label class="label label-required">Verified date</label>
-                <input id="ver-date-${entityId}" type="date" class="inp" value="${today}">
+                <input id="ver-date-${formId}" type="date" class="inp" value="${today}">
               </div>
               <div class="form-row span-2">
                 <label class="label">Method</label>
-                <select id="ver-method-${entityId}" class="inp">
+                <select id="ver-method-${formId}" class="inp">
                   ${['In person','Certified copy','Electronic verification'].map(m=>`<option>${m}</option>`).join('')}
                 </select>
               </div>
             </div>
-            <div id="ver-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+            <div id="ver-error-${formId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
             ${!isNew ? `
               <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
-                <button onclick="togglePanel('ver-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
-                <button onclick="saveVerRecord('${entityId}','${individualId}')" class="btn btn-sm">Save verification</button>
+                <button onclick="togglePanel('ver-form-${formId}')" class="btn-sec btn-sm">Cancel</button>
+                <button onclick="saveVerRecord('${formId}','${individualId}')" class="btn btn-sm">Save verification</button>
               </div>
             ` : ''}
           </div>
@@ -319,7 +321,7 @@ export function screen() {
                     : `<div style="font-size:10px;color:var(--color-danger);">Not recorded — NameScan or equivalent required</div>`}
                 </div>
               </div>
-              <button onclick="togglePanel('scr-form-${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);flex-shrink:0;">
+              <button onclick="togglePanel('scr-form-${formId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);flex-shrink:0;">
                 ${hasScr ? 'Add new' : '+ Record'}
               </button>
             </div>
@@ -330,43 +332,43 @@ export function screen() {
           `}
 
           <!-- Screening form — open by default for new, collapsed for existing -->
-          <div id="scr-form-${entityId}" style="display:${isNew ? 'block' : 'none'};padding:var(--space-3);${!isNew ? 'border-top:0.5px solid var(--color-border-light);' : ''}background:var(--color-surface-alt);">
+          <div id="scr-form-${formId}" style="display:${isNew ? 'block' : 'none'};padding:var(--space-3);${!isNew ? 'border-top:0.5px solid var(--color-border-light);' : ''}background:var(--color-surface-alt);">
             <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
               <div class="form-row">
                 <label class="label label-required">Provider</label>
-                <input id="scr-provider-${entityId}" type="text" class="inp" placeholder="e.g. NameScan">
+                <input id="scr-provider-${formId}" type="text" class="inp" placeholder="e.g. NameScan">
               </div>
               <div class="form-row">
                 <label class="label label-required">Date</label>
-                <input id="scr-date-${entityId}" type="date" class="inp" value="${today}" onchange="scrAutoNext('${entityId}',this.value)">
+                <input id="scr-date-${formId}" type="date" class="inp" value="${today}" onchange="scrAutoNext('${formId}',this.value)">
               </div>
               <div class="form-row">
                 <label class="label label-required">Result</label>
-                <select id="scr-result-${entityId}" class="inp">
+                <select id="scr-result-${formId}" class="inp">
                   ${['Clear','PEP match','Sanctions match','Adverse media','Refer for review'].map(r=>`<option>${r}</option>`).join('')}
                 </select>
               </div>
               <div class="form-row">
                 <label class="label">Reference ID</label>
-                <input id="scr-ref-${entityId}" type="text" class="inp" placeholder="e.g. NS-98765">
+                <input id="scr-ref-${formId}" type="text" class="inp" placeholder="e.g. NS-98765">
               </div>
               <div class="form-row">
                 <label class="label">Completed by</label>
-                <select id="scr-by-${entityId}" class="inp">${staffOptions()}</select>
+                <select id="scr-by-${formId}" class="inp">${staffOptions()}</select>
               </div>
               <div class="form-row">
                 <label class="label">Next screening due</label>
-                <input id="scr-next-${entityId}" type="date" class="inp">
+                <input id="scr-next-${formId}" type="date" class="inp">
               </div>
             </div>
             <div style="margin-top:var(--space-2);">
               <a href="https://namescan.io/?ref=SIMPLEAML" target="_blank" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Open NameScan →</a>
             </div>
-            <div id="scr-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+            <div id="scr-error-${formId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
             ${!isNew ? `
               <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
-                <button onclick="togglePanel('scr-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
-                <button onclick="saveScrRecord('${entityId}','${individualId}')" class="btn btn-sm">Save screening</button>
+                <button onclick="togglePanel('scr-form-${formId}')" class="btn-sec btn-sm">Cancel</button>
+                <button onclick="saveScrRecord('${formId}','${individualId}')" class="btn btn-sm">Save screening</button>
               </div>
             ` : ''}
           </div>
@@ -383,7 +385,7 @@ export function screen() {
       <div class="card" style="margin-bottom:var(--space-3);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
           <div class="section-heading" style="margin:0;">Client risk assessment</div>
-          ${!isNew ? `<button onclick="togglePanel('risk-form-${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">${entity?.entityRiskRating ? 'Update' : '+ Add'}</button>` : ''}
+          ${!isNew ? `<button onclick="togglePanel('risk-form-${formId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">${entity?.entityRiskRating ? 'Update' : '+ Add'}</button>` : ''}
         </div>
 
         ${isNew ? `
@@ -391,26 +393,26 @@ export function screen() {
           <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
             <div class="form-row">
               <label class="label">Risk rating</label>
-              <select id="risk-rating-${entityId}" class="inp" onchange="riskAutoNext('${entityId}')">
+              <select id="risk-rating-${formId}" class="inp" onchange="riskAutoNext('${formId}')">
                 <option value="">Select...</option>
                 ${['Low','Medium','High'].map(r=>`<option>${r}</option>`).join('')}
               </select>
             </div>
             <div class="form-row">
               <label class="label">Assessed by</label>
-              <select id="risk-by-${entityId}" class="inp">${staffOptions()}</select>
+              <select id="risk-by-${formId}" class="inp">${staffOptions()}</select>
             </div>
             <div class="form-row">
               <label class="label">Assessed date</label>
-              <input id="risk-date-${entityId}" type="date" class="inp" value="${today}" onchange="riskAutoNext('${entityId}')">
+              <input id="risk-date-${formId}" type="date" class="inp" value="${today}" onchange="riskAutoNext('${formId}')">
             </div>
             <div class="form-row">
               <label class="label">Next review date</label>
-              <input id="risk-next-${entityId}" type="date" class="inp">
+              <input id="risk-next-${formId}" type="date" class="inp">
             </div>
             <div class="form-row span-2">
               <label class="label">Risk factors / methodology notes</label>
-              <textarea id="risk-methodology-${entityId}" class="inp" rows="2" placeholder="Describe the risk factors considered..."></textarea>
+              <textarea id="risk-methodology-${formId}" class="inp" rows="2" placeholder="Describe the risk factors considered..."></textarea>
             </div>
           </div>
           <div class="banner banner-info" style="margin-top:var(--space-3);">
@@ -427,39 +429,39 @@ export function screen() {
           ` : `
             <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No risk assessment recorded yet.</p>
           `}
-          <div id="risk-form-${entityId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
+          <div id="risk-form-${formId}" style="display:none;margin-top:var(--space-4);padding-top:var(--space-4);border-top:0.5px solid var(--color-border-light);">
             <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
               <div class="form-row">
                 <label class="label label-required">Risk rating</label>
-                <select id="risk-rating-${entityId}" class="inp" onchange="riskAutoNext('${entityId}')">
+                <select id="risk-rating-${formId}" class="inp" onchange="riskAutoNext('${formId}')">
                   <option value="">Select...</option>
                   ${['Low','Medium','High'].map(r=>`<option value="${r}" ${entity?.entityRiskRating===r?'selected':''}>${r}</option>`).join('')}
                 </select>
               </div>
               <div class="form-row">
                 <label class="label label-required">Assessed by</label>
-                <select id="risk-by-${entityId}" class="inp">${staffOptions(entity?.riskAssessedBy)}</select>
+                <select id="risk-by-${formId}" class="inp">${staffOptions(entity?.riskAssessedBy)}</select>
               </div>
               <div class="form-row">
                 <label class="label label-required">Assessed date</label>
-                <input id="risk-date-${entityId}" type="date" class="inp" value="${entity?.riskAssessedDate||today}" onchange="riskAutoNext('${entityId}')">
+                <input id="risk-date-${formId}" type="date" class="inp" value="${entity?.riskAssessedDate||today}" onchange="riskAutoNext('${formId}')">
               </div>
               <div class="form-row">
                 <label class="label">Next review date</label>
-                <input id="risk-next-${entityId}" type="date" class="inp" value="${entity?.riskNextReviewDate||''}">
+                <input id="risk-next-${formId}" type="date" class="inp" value="${entity?.riskNextReviewDate||''}">
               </div>
               <div class="form-row span-2">
                 <label class="label">Risk factors / methodology notes</label>
-                <textarea id="risk-methodology-${entityId}" class="inp" rows="2">${entity?.riskMethodology||''}</textarea>
+                <textarea id="risk-methodology-${formId}" class="inp" rows="2">${entity?.riskMethodology||''}</textarea>
               </div>
             </div>
             <div class="banner banner-info" style="margin-top:var(--space-3);">
               High risk: every 12 months · Medium: 24 months · Low: 36 months
             </div>
-            <div id="risk-error-${entityId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
+            <div id="risk-error-${formId}" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
             <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
-              <button onclick="togglePanel('risk-form-${entityId}')" class="btn-sec btn-sm">Cancel</button>
-              <button onclick="saveRiskInline('${entityId}')" class="btn btn-sm">Save risk assessment</button>
+              <button onclick="togglePanel('risk-form-${formId}')" class="btn-sec btn-sm">Cancel</button>
+              <button onclick="saveRiskInline('${formId}')" class="btn btn-sm">Save risk assessment</button>
             </div>
           </div>
         `}
@@ -476,13 +478,13 @@ export function screen() {
         <!-- EXISTING: SMR + Audit -->
         <div class="card" style="margin-bottom:var(--space-3);">
           <div class="section-heading">SMR</div>
-          <button onclick="go('smr',{filterEntity:'${entityId}'})" class="btn-sec btn-sm">View SMRs involving this client</button>
+          <button onclick="go('smr',{filterEntity:'${formId}'})" class="btn-sec btn-sm">View SMRs involving this client</button>
           <p style="font-size:10px;color:var(--color-text-muted);margin-top:var(--space-2);">Only your firm's SMRs are shown.</p>
         </div>
         <div class="card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
             <div class="section-heading" style="margin:0;">Recent activity</div>
-            <button onclick="loadEntityAudit('${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Load</button>
+            <button onclick="loadEntityAudit('${formId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Load</button>
           </div>
           ${auditEntries.length > 0 ? auditEntries.map(e => `
             <div class="audit-row">
@@ -492,7 +494,7 @@ export function screen() {
             </div>`).join('') : `
             <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Click Load to view activity.</p>
           `}
-          <button onclick="go('audit-trail',{entityId:'${entityId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);margin-top:var(--space-2);">View full audit trail →</button>
+          <button onclick="go('audit-trail',{entityId:'${formId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);margin-top:var(--space-2);">View full audit trail →</button>
         </div>
       `}
 
@@ -515,34 +517,34 @@ window.scrAutoNext = function(entityId, date) {
   if (!date) return;
   const d = new Date(date);
   d.setFullYear(d.getFullYear() + 1);
-  const el = document.getElementById(`scr-next-${entityId}`);
+  const el = document.getElementById(`scr-next-${formId}`);
   if (el && !el.value) el.value = d.toISOString().split('T')[0];
 };
 
 window.riskAutoNext = function(entityId) {
-  const rating = document.getElementById(`risk-rating-${entityId}`)?.value;
-  const date   = document.getElementById(`risk-date-${entityId}`)?.value;
+  const rating = document.getElementById(`risk-rating-${formId}`)?.value;
+  const date   = document.getElementById(`risk-date-${formId}`)?.value;
   if (!rating || !date) return;
   const months = rating === 'High' ? 12 : rating === 'Medium' ? 24 : 36;
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
-  const el = document.getElementById(`risk-next-${entityId}`);
+  const el = document.getElementById(`risk-next-${formId}`);
   if (el && !el.value) el.value = d.toISOString().split('T')[0];
 };
 
 // ── SAVE NEW CLIENT (creates entity + individual + link + CDD in one go) ──────
 window.saveNewPersonClient = async function(etype) {
   const isSoleTrader = etype === 'Sole Trader';
-  const entityId     = 'new'; // placeholder — real id generated below
+  const fid      = 'new'; // matches formId used in new mode template
 
   const name    = document.getElementById('f-name')?.value?.trim();
   const dob     = document.getElementById('f-dob')?.value;
   const address = document.getElementById('f-address')?.value?.trim();
-  const idNum   = document.getElementById(`ver-num-${entityId}`)?.value?.trim();
-  const verBy   = document.getElementById(`ver-by-${entityId}`)?.value;
-  const verDate = document.getElementById(`ver-date-${entityId}`)?.value;
-  const scrProv = document.getElementById(`scr-provider-${entityId}`)?.value?.trim();
-  const scrDate = document.getElementById(`scr-date-${entityId}`)?.value;
+  const idNum   = document.getElementById(`ver-num-${fid}`)?.value?.trim();
+  const verBy   = document.getElementById(`ver-by-${fid}`)?.value;
+  const verDate = document.getElementById(`ver-date-${fid}`)?.value;
+  const scrProv = document.getElementById(`scr-provider-${fid}`)?.value?.trim();
+  const scrDate = document.getElementById(`scr-date-${fid}`)?.value;
 
   const errEl = document.getElementById('f-save-error');
   if (errEl) errEl.style.display = 'none';
@@ -576,11 +578,11 @@ window.saveNewPersonClient = async function(etype) {
       email:             document.getElementById('f-email')?.value?.trim()   || '',
       abn:               document.getElementById('f-abn')?.value?.trim()     || '',
       tradingName:       document.getElementById('f-trading')?.value?.trim() || '',
-      entityRiskRating:  document.getElementById(`risk-rating-${entityId}`)?.value || null,
-      riskAssessedBy:    document.getElementById(`risk-by-${entityId}`)?.value || '',
-      riskAssessedDate:  document.getElementById(`risk-date-${entityId}`)?.value || '',
-      riskNextReviewDate:document.getElementById(`risk-next-${entityId}`)?.value || '',
-      riskMethodology:   document.getElementById(`risk-methodology-${entityId}`)?.value?.trim() || '',
+      entityRiskRating:  document.getElementById(`risk-rating-${fid}`)?.value || null,
+      riskAssessedBy:    document.getElementById(`risk-by-${fid}`)?.value || '',
+      riskAssessedDate:  document.getElementById(`risk-date-${fid}`)?.value || '',
+      riskNextReviewDate:document.getElementById(`risk-next-${fid}`)?.value || '',
+      riskMethodology:   document.getElementById(`risk-methodology-${fid}`)?.value?.trim() || '',
       createdAt: now, updatedAt: now,
     };
     await saveEntity(eid, entityData);
@@ -607,14 +609,14 @@ window.saveNewPersonClient = async function(etype) {
     addLinkToState(linkData);
 
     // 4. Verification
-    const idType = document.getElementById(`ver-type-${entityId}`)?.value || '';
+    const idType = document.getElementById(`ver-type-${fid}`)?.value || '';
     const verRec = {
       verificationId: genId('ver'), firmId: S.firmId, individualId: iid,
       idType, idNumber: idNum,
-      issuingState:   document.getElementById(`ver-state-${entityId}`)?.value?.trim() || '',
-      expiryDate:     document.getElementById(`ver-expiry-${entityId}`)?.value || '',
+      issuingState:   document.getElementById(`ver-state-${fid}`)?.value?.trim() || '',
+      expiryDate:     document.getElementById(`ver-expiry-${fid}`)?.value || '',
       verifiedBy: verBy, verifiedDate: verDate,
-      verifiedMethod: document.getElementById(`ver-method-${entityId}`)?.value || '',
+      verifiedMethod: document.getElementById(`ver-method-${fid}`)?.value || '',
       createdAt: now,
     };
     await saveVerification(verRec);
@@ -622,13 +624,13 @@ window.saveNewPersonClient = async function(etype) {
     S.verifications.unshift(verRec);
 
     // 5. Screening
-    const result = document.getElementById(`scr-result-${entityId}`)?.value || '';
+    const result = document.getElementById(`scr-result-${fid}`)?.value || '';
     const scrRec = {
       screeningId: genId('scr'), firmId: S.firmId, individualId: iid,
       provider: scrProv, date: scrDate, result,
-      referenceId: document.getElementById(`scr-ref-${entityId}`)?.value?.trim() || '',
-      completedBy: document.getElementById(`scr-by-${entityId}`)?.value || '',
-      nextDueDate: document.getElementById(`scr-next-${entityId}`)?.value || '',
+      referenceId: document.getElementById(`scr-ref-${fid}`)?.value?.trim() || '',
+      completedBy: document.getElementById(`scr-by-${fid}`)?.value || '',
+      nextDueDate: document.getElementById(`scr-next-${fid}`)?.value || '',
       createdAt: now,
     };
     await saveScreening(scrRec);
@@ -655,10 +657,10 @@ window.saveNewPersonClient = async function(etype) {
 
 // ── SAVE VERIFICATION (existing client) ───────────────────────────────────────
 window.saveVerRecord = async function(entityId, individualId) {
-  const idNum   = document.getElementById(`ver-num-${entityId}`)?.value?.trim();
-  const verBy   = document.getElementById(`ver-by-${entityId}`)?.value;
-  const verDate = document.getElementById(`ver-date-${entityId}`)?.value;
-  const errEl   = document.getElementById(`ver-error-${entityId}`);
+  const idNum   = document.getElementById(`ver-num-${formId}`)?.value?.trim();
+  const verBy   = document.getElementById(`ver-by-${formId}`)?.value;
+  const verDate = document.getElementById(`ver-date-${formId}`)?.value;
+  const errEl   = document.getElementById(`ver-error-${formId}`);
   if (errEl) errEl.style.display = 'none';
 
   if (!idNum)   { errEl.textContent='ID number is required.';   errEl.style.display='block'; return; }
@@ -667,14 +669,14 @@ window.saveVerRecord = async function(entityId, individualId) {
 
   try {
     const now    = new Date().toISOString();
-    const idType = document.getElementById(`ver-type-${entityId}`)?.value || '';
+    const idType = document.getElementById(`ver-type-${formId}`)?.value || '';
     const record = {
       verificationId: genId('ver'), firmId: S.firmId, individualId,
       idType, idNumber: idNum,
-      issuingState:   document.getElementById(`ver-state-${entityId}`)?.value?.trim() || '',
-      expiryDate:     document.getElementById(`ver-expiry-${entityId}`)?.value || '',
+      issuingState:   document.getElementById(`ver-state-${formId}`)?.value?.trim() || '',
+      expiryDate:     document.getElementById(`ver-expiry-${formId}`)?.value || '',
       verifiedBy:     verBy, verifiedDate: verDate,
-      verifiedMethod: document.getElementById(`ver-method-${entityId}`)?.value || '',
+      verifiedMethod: document.getElementById(`ver-method-${formId}`)?.value || '',
       createdAt: now,
     };
     await saveVerification(record);
@@ -698,9 +700,9 @@ window.saveVerRecord = async function(entityId, individualId) {
 
 // ── SAVE SCREENING (existing client) ──────────────────────────────────────────
 window.saveScrRecord = async function(entityId, individualId) {
-  const provider = document.getElementById(`scr-provider-${entityId}`)?.value?.trim();
-  const date     = document.getElementById(`scr-date-${entityId}`)?.value;
-  const errEl    = document.getElementById(`scr-error-${entityId}`);
+  const provider = document.getElementById(`scr-provider-${formId}`)?.value?.trim();
+  const date     = document.getElementById(`scr-date-${formId}`)?.value;
+  const errEl    = document.getElementById(`scr-error-${formId}`);
   if (errEl) errEl.style.display = 'none';
 
   if (!provider) { errEl.textContent='Provider is required.'; errEl.style.display='block'; return; }
@@ -708,13 +710,13 @@ window.saveScrRecord = async function(entityId, individualId) {
 
   try {
     const now    = new Date().toISOString();
-    const result = document.getElementById(`scr-result-${entityId}`)?.value || '';
+    const result = document.getElementById(`scr-result-${formId}`)?.value || '';
     const record = {
       screeningId: genId('scr'), firmId: S.firmId, individualId,
       provider, date, result,
-      referenceId: document.getElementById(`scr-ref-${entityId}`)?.value?.trim() || '',
-      completedBy: document.getElementById(`scr-by-${entityId}`)?.value || '',
-      nextDueDate: document.getElementById(`scr-next-${entityId}`)?.value || '',
+      referenceId: document.getElementById(`scr-ref-${formId}`)?.value?.trim() || '',
+      completedBy: document.getElementById(`scr-by-${formId}`)?.value || '',
+      nextDueDate: document.getElementById(`scr-next-${formId}`)?.value || '',
       createdAt: now,
     };
     await saveScreening(record);
@@ -738,10 +740,10 @@ window.saveScrRecord = async function(entityId, individualId) {
 
 // ── SAVE DETAILS INLINE (existing client) ─────────────────────────────────────
 window.saveDetailsInline = async function(entityId, individualId) {
-  const name    = document.getElementById(`e-name-${entityId}`)?.value?.trim();
-  const dob     = document.getElementById(`e-dob-${entityId}`)?.value;
-  const address = document.getElementById(`e-address-${entityId}`)?.value?.trim();
-  const errEl   = document.getElementById(`e-details-error-${entityId}`);
+  const name    = document.getElementById(`e-name-${formId}`)?.value?.trim();
+  const dob     = document.getElementById(`e-dob-${formId}`)?.value;
+  const address = document.getElementById(`e-address-${formId}`)?.value?.trim();
+  const errEl   = document.getElementById(`e-details-error-${formId}`);
   if (errEl) errEl.style.display = 'none';
 
   if (!name)    { errEl.textContent='Full legal name is required.'; errEl.style.display='block'; return; }
@@ -755,9 +757,9 @@ window.saveDetailsInline = async function(entityId, individualId) {
     const entityFields = {
       entityName:        name,
       registeredAddress: address,
-      email:             document.getElementById(`e-email-${entityId}`)?.value?.trim() || '',
-      abn:               document.getElementById(`e-abn-${entityId}`)?.value?.trim() || '',
-      tradingName:       document.getElementById(`e-trading-${entityId}`)?.value?.trim() || '',
+      email:             document.getElementById(`e-email-${formId}`)?.value?.trim() || '',
+      abn:               document.getElementById(`e-abn-${formId}`)?.value?.trim() || '',
+      tradingName:       document.getElementById(`e-trading-${formId}`)?.value?.trim() || '',
       updatedAt: now,
     };
     await updateEntity(entityId, entityFields);
@@ -788,10 +790,10 @@ window.saveDetailsInline = async function(entityId, individualId) {
 
 // ── SAVE RISK INLINE (existing client) ────────────────────────────────────────
 window.saveRiskInline = async function(entityId) {
-  const rating = document.getElementById(`risk-rating-${entityId}`)?.value;
-  const by     = document.getElementById(`risk-by-${entityId}`)?.value;
-  const date   = document.getElementById(`risk-date-${entityId}`)?.value;
-  const errEl  = document.getElementById(`risk-error-${entityId}`);
+  const rating = document.getElementById(`risk-rating-${formId}`)?.value;
+  const by     = document.getElementById(`risk-by-${formId}`)?.value;
+  const date   = document.getElementById(`risk-date-${formId}`)?.value;
+  const errEl  = document.getElementById(`risk-error-${formId}`);
   if (errEl) errEl.style.display = 'none';
 
   if (!rating) { errEl.textContent='Risk rating is required.'; errEl.style.display='block'; return; }
@@ -805,8 +807,8 @@ window.saveRiskInline = async function(entityId) {
       entityRiskRating:   rating,
       riskAssessedBy:     by,
       riskAssessedDate:   date,
-      riskNextReviewDate: document.getElementById(`risk-next-${entityId}`)?.value || '',
-      riskMethodology:    document.getElementById(`risk-methodology-${entityId}`)?.value?.trim() || '',
+      riskNextReviewDate: document.getElementById(`risk-next-${formId}`)?.value || '',
+      riskMethodology:    document.getElementById(`risk-methodology-${formId}`)?.value?.trim() || '',
       updatedAt: now,
     };
     await updateEntity(entityId, fields);
@@ -830,12 +832,12 @@ window.saveRiskInline = async function(entityId) {
 
 // ── LINK EXISTING INDIVIDUAL ──────────────────────────────────────────────────
 window.showLinkPanel = function(entityId) {
-  const el = document.getElementById(`link-panel-${entityId}`);
+  const el = document.getElementById(`link-panel-${formId}`);
   if (el) el.style.display = 'block';
 };
 
 window.linkSearch = function(entityId, query) {
-  const el = document.getElementById(`link-results-${entityId}`);
+  const el = document.getElementById(`link-results-${formId}`);
   if (!el) return;
   if (!query || query.length < 2) { el.innerHTML = ''; return; }
   const q = query.toLowerCase();
@@ -847,7 +849,7 @@ window.linkSearch = function(entityId, query) {
     return;
   }
   el.innerHTML = matches.map(i => `
-    <div onclick="linkIndividual('${entityId}','${i.individualId}','${i.fullName.replace(/'/g,"\\'")}')"
+    <div onclick="linkIndividual('${formId}','${i.individualId}','${i.fullName.replace(/'/g,"\\'")}')"
       style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);border:0.5px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;background:var(--color-surface);"
       onmouseover="this.style.background='var(--color-surface-alt)'"
       onmouseout="this.style.background='var(--color-surface)'">
