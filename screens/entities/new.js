@@ -65,24 +65,17 @@ function renderTypePicker() {
       </div>
 
       <div class="card" style="margin-bottom:var(--space-3);">
-        <div class="section-heading">Individual or sole trader</div>
-        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">The client is a person. CDD is recorded directly — no separate key people needed.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
-          ${[
-            { type: 'Individual',  desc: 'Personal tax, direct client, SMSF member' },
-            { type: 'Sole Trader', desc: 'Individual running a business with or without an ABN' },
-          ].map(t => `
-            <button
-              onclick="pickClientType('${t.type}')"
-              style="text-align:left;padding:var(--space-4);border:0.5px solid var(--color-border);border-radius:var(--radius-xl);background:var(--color-surface);cursor:pointer;"
-              onmouseover="this.style.borderColor='var(--color-primary)';this.style.background='var(--color-primary-light)'"
-              onmouseout="this.style.borderColor='var(--color-border)';this.style.background='var(--color-surface)'"
-            >
-              <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);margin-bottom:4px;">${t.type}</div>
-              <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${t.desc}</div>
-            </button>
-          `).join('')}
-        </div>
+        <div class="section-heading">Individual / Sole trader</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">The client is a person. CDD is recorded directly — no separate key people needed. Includes sole traders.</p>
+        <button
+          onclick="pickClientType('Individual')"
+          style="text-align:left;padding:var(--space-4);border:0.5px solid var(--color-border);border-radius:var(--radius-xl);background:var(--color-surface);cursor:pointer;width:100%;"
+          onmouseover="this.style.borderColor='var(--color-primary)';this.style.background='var(--color-primary-light)'"
+          onmouseout="this.style.borderColor='var(--color-border)';this.style.background='var(--color-surface)'"
+        >
+          <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);margin-bottom:4px;">Individual / Sole trader</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Personal clients, direct individuals, SMSF members and sole traders operating a business.</div>
+        </button>
       </div>
 
       <div class="card">

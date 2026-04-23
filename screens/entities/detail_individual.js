@@ -46,7 +46,6 @@ export function screen() {
   const fid          = entityId || 'new';
   const entity       = entityId ? (S.entities || []).find(e => e.entityId === entityId) : null;
   const etype        = entity?.entityType || newType || S._draft?.entityType || 'Individual';
-  const isSoleTrader = etype === 'Sole Trader';
   const today        = new Date().toISOString().split('T')[0];
 
   if (!isNew && !entity) return `
@@ -114,19 +113,10 @@ export function screen() {
       <!-- CARD 1: PERSONAL DETAILS -->
       <div class="card" style="margin-bottom:var(--space-3);">
         <div class="section-heading">
-          ${isSoleTrader ? 'Sole trader details' : 'Individual details'}
+          Individual details
         </div>
 
         <div class="form-grid" style="grid-template-columns:1fr;">
-
-          ${isSoleTrader ? `
-            <div class="form-row">
-              <label class="label">Trading name
-                <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span>
-              </label>
-              ${inp(`f-trading-${fid}`, 'text', entity?.tradingName || '', "e.g. Smith's Plumbing")}
-            </div>
-          ` : ''}
 
           <div class="form-row">
             <label class="label label-required">Full legal name</label>
@@ -148,14 +138,23 @@ export function screen() {
             ${inp(`f-email-${fid}`, 'email', ind?.email || entity?.email || '', 'jane@example.com')}
           </div>
 
-          ${isSoleTrader ? `
-            <div class="form-row">
-              <label class="label">ABN
-                <span style="color:var(--color-text-muted);font-weight:400;">(optional)</span>
-              </label>
-              ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
+          <!-- Sole trader fields — leave blank if not applicable -->
+          <div style="padding-top:var(--space-3);border-top:0.5px solid var(--color-border-light);margin-top:var(--space-2);">
+            <div style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);
+                        color:var(--color-text-muted);margin-bottom:var(--space-3);">
+              IF SOLE TRADER — leave blank if not applicable
             </div>
-          ` : ''}
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+              <div class="form-row">
+                <label class="label">Trading / business name</label>
+                ${inp(`f-trading-${fid}`, 'text', entity?.tradingName || '', "e.g. Smith's Plumbing")}
+              </div>
+              <div class="form-row">
+                <label class="label">ABN</label>
+                ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
+              </div>
+            </div>
+          </div>
 
         </div>
       </div>
