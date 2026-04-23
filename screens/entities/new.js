@@ -479,9 +479,9 @@ window.pickClientType = function(etype) {
   S._draft.entityType = etype;
 
   if (['Individual', 'Sole Trader'].includes(etype)) {
-    // Person types go directly to detail_individual.js in new mode
-    S.currentParams = { isNew: true, entityType: etype };
-    go('entity-detail');
+    // Pass params directly to go() — never set S.currentParams separately
+    // because go() overwrites it with its own params argument
+    go('entity-detail', { isNew: true, entityType: etype });
   } else {
     // Entity types stay in new.js for details + key people flow
     S.currentParams = { ...(S.currentParams || {}), tab: 'details' };
