@@ -470,16 +470,9 @@ function tabMembers(d, isEdit, entityId, roles) {
 window.pickClientType = function(etype) {
   if (!S._draft) S._draft = {};
   S._draft.entityType = etype;
-
-  if (['Individual', 'Sole Trader'].includes(etype)) {
-    // Pass params directly to go() — never set S.currentParams separately
-    // because go() overwrites it with its own params argument
-    go('entity-detail', { isNew: true, entityType: etype });
-  } else {
-    // Entity types stay in new.js for details + key people flow
-    S.currentParams = { ...(S.currentParams || {}), tab: 'details' };
-    render();
-  }
+  // All types go directly to entity-detail in new mode
+  // detail.js router delegates to detail_individual.js or detail_entity.js
+  go('entity-detail', { isNew: true, entityType: etype });
 };
 
 window.clearClientType = function() {

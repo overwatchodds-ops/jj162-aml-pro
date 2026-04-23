@@ -1,22 +1,57 @@
 // ─── ENTITY CLIENT DETAIL ─────────────────────────────────────────────────────
 // Handles: Private Company, Trust, SMSF, Partnership,
 //          Incorporated Association, Charity / NFP
-// These client types have key people who must each be identified.
-// CDD: ID verification + screening per key person.
+//
+// One screen, always-editable, one Save button.
+// Key people are linked individuals — CDD lives on their individual record.
+// fid = entityId || 'new'
 
-import { S }                        from '../../state/index.js';
-import { getRequirements, ROLE_LABELS } from '../../state/rules_matrix.js';
-import { fmtDate, fmtDateTime }     from '../../firebase/firestore.js';
+import { S, addEntityToState, addLinkToState } from '../../state/index.js';
+import { ROLE_LABELS, ENTITY_ROLES }            from '../../state/rules_matrix.js';
+import { fmtDate, saveEntity, saveLink,
+         saveAuditEntry, genId }                from '../../firebase/firestore.js';
+
+// ─── CONFIG: per entity type ───────────────────────────────────────────────────
+const ENTITY_CONFIG = {
+  'Private Company': {
+    verSources:  ['ASIC Connect search', 'ABN Lookup', 'Company constitution sighted', 'Other'],
+    roles:       ENTITY_ROLES.company,
+    whoToAdd:    'Add all directors and shareholders holding more than 25%.',
+    showACN:     true,
+  },
+  'Trust': {
+    verSources:  ['Trust deed sighted', 'ABN Lookup', 'Other'],
+    roles:       ENTITY_ROLES.trust,
+    whoToAdd:    'Add all trustees, settlor, appointor and beneficiaries holding more than 25%.',
+    showACN:     false,
+  },
+  'SMSF': {
+    verSources:  ['ATO ABN Lookup', 'Trust deed sighted', 'Other'],
+    roles:       ENTITY_ROLES.smsf,
+    whoToAdd:    'Add all trustees and members of the fund.',
+    showACN:     false,
+  },
+  'Partnership': {
+    verSources:  ['Partnership agreement sighted', 'ABN Lookup', 'Other'],
+    roles:       ENTITY_ROLES.partnership,
+    whoToAdd:    'Add all partners.',
+    showACN:     false,
+  },
+  'Incorporated Association': {
+    verSources:  ['State register search', 'ABN Lookup', 'Constitution sighted', 'Other'],
+    roles:       ENTITY_ROLES.association,
+    whoToAdd:    'Add all responsible persons and committee members.',
+    showACN:     false,
+  },
+  'Charity / NFP': {
+    verSources:  ['ACNC register search', 'ABN Lookup', 'Other'],
+    roles:       ENTITY_ROLES.charity,
+    whoToAdd:    'Add all responsible persons and board members.',
+    showACN:     false,
+  },
+};
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function row(label, value) {
-  if (!value) return '';
-  return `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);">
-      <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);min-width:140px;flex-shrink:0;">${label}</span>
-      <span style="font-size:var(--font-size-xs);color:var(--color-text-primary);text-align:right;">${value}</span>
-    </div>`;
-}
 
 function riskBadge(rating) {
   switch (rating?.toLowerCase()) {
@@ -27,284 +62,528 @@ function riskBadge(rating) {
   }
 }
 
-// Check if one member is CDD compliant
-function memberCDDStatus(individualId) {
-  const indLinks = S.links.filter(l => l.individualId === individualId && l.status === 'active');
-  const required = getRequirements(indLinks, S.entities);
-  const hasVer   = (S.verifications||[]).some(v => v.individualId === individualId);
-  const hasScr   = (S.screenings   ||[]).some(s => s.individualId === individualId && s.result);
-  const needsVer = required.includes('id_verification');
-  const needsScr = required.includes('screening');
-  return {
-    compliant:    (!needsVer || hasVer) && (!needsScr || hasScr),
-    hasVer, hasScr, needsVer, needsScr,
-    latestVer:    (S.verifications||[]).filter(v=>v.individualId===individualId).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt))[0],
-    latestScr:    (S.screenings   ||[]).filter(s=>s.individualId===individualId).sort((a,b)=>b.date?.localeCompare(a.date))[0],
-  };
+function staffOptions(selected = '') {
+  const staff = (S.individuals || []).filter(i => i.isStaff);
+  if (!staff.length) return `<option value="">No staff found — add staff first</option>`;
+  return `<option value="">Select staff member...</option>` +
+    staff.map(s =>
+      `<option value="${s.fullName}" ${selected === s.fullName ? 'selected' : ''}>
+        ${s.fullName}${s.role ? ' · ' + s.role : ''}
+      </option>`
+    ).join('');
+}
+
+function inp(id, type, value = '', placeholder = '') {
+  return `<input id="${id}" type="${type}" class="inp"
+                 value="${value}" placeholder="${placeholder}">`;
+}
+
+function cddBadge(individualId) {
+  const hasVer = (S.verifications||[]).some(v => v.individualId === individualId);
+  const hasScr = (S.screenings||[]).some(s => s.individualId === individualId && s.result);
+  if (hasVer && hasScr) return `<span class="badge badge-success">CDD complete</span>`;
+  if (hasVer || hasScr) return `<span class="badge badge-warning">CDD partial</span>`;
+  return `<span class="badge badge-danger">CDD needed</span>`;
 }
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-export function screen() {
-  const { entityId } = S.currentParams || {};
-  const entity = S.entities.find(e => e.entityId === entityId);
 
-  if (!entity) return `
+export function screen() {
+  const { entityId, isNew, entityType: newType } = S.currentParams || {};
+
+  const fid    = entityId || 'new';
+  const entity = entityId ? (S.entities || []).find(e => e.entityId === entityId) : null;
+  const etype  = entity?.entityType || newType || S._draft?.entityType || 'Private Company';
+  const config = ENTITY_CONFIG[etype] || ENTITY_CONFIG['Private Company'];
+  const today  = new Date().toISOString().split('T')[0];
+
+  if (!isNew && !entity) return `
     <div class="empty-state">
       <div class="empty-state-title">Client not found.</div>
-      <button onclick="go('entities')" class="btn-sec btn-sm" style="margin-top:var(--space-3);">← Back to clients</button>
+      <button onclick="go('entities')" class="btn-sec btn-sm"
+              style="margin-top:var(--space-3);">← Clients</button>
     </div>`;
 
-  const isCompany = entity.entityType === 'Private Company';
+  // Active key people
+  const keyPeople = entity
+    ? (S.links || []).filter(l =>
+        l.linkedObjectId === entityId &&
+        l.linkedObjectType === 'entity' &&
+        l.status === 'active')
+    : [];
 
-  // Active and former key people
-  const activeLinks = S.links.filter(l =>
-    l.linkedObjectId   === entityId &&
-    l.linkedObjectType === 'entity' &&
-    l.status           === 'active'
-  );
-  const formerLinks = S.links.filter(l =>
-    l.linkedObjectId   === entityId &&
-    l.linkedObjectType === 'entity' &&
-    l.status           === 'former'
-  );
-
-  // Overall compliance — all active members must be CDD compliant
-  const allCompliant = activeLinks.length > 0 &&
-    activeLinks.every(l => memberCDDStatus(l.individualId).compliant);
-
-  const statusBadge = activeLinks.length === 0
-    ? `<span class="badge badge-warning">No key people added</span>`
-    : allCompliant
-      ? `<span class="badge badge-success">Compliant</span>`
-      : `<span class="badge badge-danger">Action required</span>`;
-
-  // Audit
-  const auditEntries = (S._auditCache?.[entityId] || []).slice(0, 5);
+  // Overall CDD status
+  const allCDD = keyPeople.length > 0 && keyPeople.every(l => {
+    const hasVer = (S.verifications||[]).some(v => v.individualId === l.individualId);
+    const hasScr = (S.screenings||[]).some(s => s.individualId === l.individualId && s.result);
+    return hasVer && hasScr;
+  });
 
   return `
     <div>
 
-      <!-- Header -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5);">
+      <!-- HEADER -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                  margin-bottom:var(--space-5);">
         <div>
-          <button onclick="go('entities')" class="btn-ghost" style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">← Clients</button>
-          <h1 class="screen-title" style="margin-top:var(--space-2);">${entity.entityName}</h1>
+          <button onclick="${isNew ? 'clearEntityType()' : "go('entities')"}"
+                  class="btn-ghost"
+                  style="padding:0;color:var(--color-text-muted);font-size:var(--font-size-sm);">
+            ← ${isNew ? 'Change type' : 'Clients'}
+          </button>
+          <h1 class="screen-title" style="margin-top:var(--space-2);">
+            ${isNew ? 'New ' + etype : entity.entityName}
+          </h1>
           <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1);">
-            ${statusBadge}
-            ${riskBadge(entity.entityRiskRating)}
-            <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${entity.entityType}</span>
+            <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${etype}</span>
+            ${!isNew ? `
+              ${riskBadge(entity.entityRiskRating)}
+              ${keyPeople.length === 0
+                ? `<span class="badge badge-warning">No key people</span>`
+                : allCDD
+                  ? `<span class="badge badge-success">CDD complete</span>`
+                  : `<span class="badge badge-danger">CDD incomplete</span>`}
+            ` : ''}
           </div>
         </div>
-        <button onclick="go('entity-edit',{entityId:'${entityId}'})" class="btn-sec btn-sm">Edit</button>
       </div>
 
-      <!-- Client details -->
-      <div class="card">
-        <div class="section-heading">Client details</div>
-        ${row('Client type',   entity.entityType)}
-        ${row('ABN',           entity.abn)}
-        ${isCompany ? row('ACN', entity.acn) : ''}
-        ${row('Address',       entity.registeredAddress)}
-        ${isCompany ? row('Incorporated', fmtDate(entity.incorporationDate)) : ''}
-        ${row('Country',       entity.countryOfOrigin)}
-        ${row('Status',        entity.status)}
-        ${row('Created',       fmtDate(entity.createdAt))}
-        ${row('Last updated',  fmtDate(entity.updatedAt))}
-      </div>
+      <!-- CARD 1: ENTITY DETAILS -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">Entity details</div>
 
-      <!-- Key people -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div>
-            <div class="section-heading" style="margin:0;">Key people (${activeLinks.length})</div>
-            <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;">
-              ${keyPeopleLabel(entity.entityType)}
+        <div class="form-grid" style="grid-template-columns:1fr;">
+
+          <div class="form-row">
+            <label class="label label-required">Entity name</label>
+            ${inp(`f-name-${fid}`, 'text', entity?.entityName || '', etype === 'Trust' ? 'e.g. Smith Family Trust' : etype === 'SMSF' ? 'e.g. Smith Super Fund' : 'e.g. Acme Pty Ltd')}
+          </div>
+
+          <div class="form-row">
+            <label class="label">ABN</label>
+            ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
+          </div>
+
+          ${config.showACN ? `
+            <div class="form-row">
+              <label class="label">ACN</label>
+              ${inp(`f-acn-${fid}`, 'text', entity?.acn || '', '123 456 789')}
             </div>
+          ` : ''}
+
+          <div class="form-row">
+            <label class="label">Registered address</label>
+            ${inp(`f-address-${fid}`, 'text', entity?.registeredAddress || '', '123 Collins St, Melbourne VIC 3000')}
           </div>
-          <button onclick="go('entity-edit',{entityId:'${entityId}',tab:'members'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">+ Add person</button>
+
+          <div class="form-row">
+            <label class="label label-required">Nature of business / purpose of relationship</label>
+            <textarea id="f-purpose-${fid}" class="inp" rows="2"
+                      placeholder="e.g. Family trust for investment property — providing tax and accounting services"
+            >${entity?.purposeOfRelationship || ''}</textarea>
+          </div>
+
         </div>
+      </div>
 
-        ${activeLinks.length === 0 ? `
-          <div style="padding:var(--space-4);background:var(--color-warning-light);border:0.5px solid var(--color-warning-border);border-radius:var(--radius-lg);">
-            <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-warning-text);margin-bottom:4px;">No key people added yet</div>
-            <div style="font-size:var(--font-size-xs);color:var(--color-warning-text);">${keyPeoplePrompt(entity.entityType)}</div>
-            <button onclick="go('entity-edit',{entityId:'${entityId}',tab:'members'})" class="btn btn-sm" style="margin-top:var(--space-3);">+ Add key people</button>
+      <!-- CARD 2: ENTITY VERIFICATION -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">Entity verification</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);
+                  margin-bottom:var(--space-3);">
+          Record how you confirmed this entity exists. No document upload required —
+          just record what you checked.
+        </p>
+
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+
+          <div class="form-row">
+            <label class="label label-required">Verified via</label>
+            <select id="f-ver-source-${fid}" class="inp">
+              ${config.verSources.map(s =>
+                `<option ${entity?.entityVerSource === s ? 'selected' : ''}>${s}</option>`
+              ).join('')}
+            </select>
           </div>
-        ` : activeLinks.map(l => {
-          const ind      = S.individuals.find(i => i.individualId === l.individualId);
-          const label    = ROLE_LABELS[l.roleType] || l.roleType;
-          const name     = ind?.fullName || 'Unknown';
-          const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-          const cdd      = memberCDDStatus(l.individualId);
 
-          return `
-            <div style="border:0.5px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-3);overflow:hidden;">
+          <div class="form-row">
+            <label class="label label-required">Date verified</label>
+            ${inp(`f-ver-date-${fid}`, 'date', entity?.entityVerDate || today)}
+          </div>
 
-              <!-- Person row -->
-              <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);">
-                <div class="avatar" style="flex-shrink:0;">${initials}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);">${name}</div>
-                  <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${label}${l.ownershipPercent ? ' · ' + l.ownershipPercent + '%' : ''}</div>
-                </div>
-                <span class="badge ${cdd.compliant ? 'badge-success' : 'badge-danger'}">${cdd.compliant ? 'CDD complete' : 'Action required'}</span>
-              </div>
+          <div class="form-row span-2">
+            <label class="label label-required">Verified by</label>
+            <select id="f-ver-by-${fid}" class="inp">
+              ${staffOptions(entity?.entityVerBy)}
+            </select>
+          </div>
 
-              <!-- CDD checklist -->
-              <div style="padding:0 var(--space-3) var(--space-3);display:flex;flex-direction:column;gap:6px;">
+        </div>
+      </div>
 
-                <!-- ID Verification row -->
-                ${cdd.needsVer ? `
-                  <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);background:var(--color-surface-alt);border-radius:var(--radius-md);">
-                    <div style="display:flex;align-items:center;gap:var(--space-2);">
-                      <span style="color:${cdd.hasVer?'var(--color-success)':'var(--color-danger)'};font-weight:bold;">${cdd.hasVer?'✓':'✗'}</span>
-                      <div>
-                        <div style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);">ID verification</div>
-                        ${cdd.hasVer
-                          ? `<div style="font-size:10px;color:var(--color-text-muted);">${cdd.latestVer.idType} · ${fmtDate(cdd.latestVer.verifiedDate)} · by ${cdd.latestVer.verifiedBy}</div>`
-                          : `<div style="font-size:10px;color:var(--color-danger);">Not recorded — passport or driver licence required</div>`}
-                      </div>
-                    </div>
-                    ${!cdd.hasVer ? `
-                      <button onclick="go('individual-detail',{individualId:'${l.individualId}',tab:'verification'})" class="btn-ghost" style="font-size:10px;color:var(--color-primary);white-space:nowrap;">+ Record →</button>
-                    ` : ''}
-                  </div>
-                ` : ''}
+      <!-- CARD 3: KEY PEOPLE -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">Key people</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);
+                  margin-bottom:var(--space-3);">
+          ${config.whoToAdd}
+          CDD (ID verification + screening) is recorded on each person's individual record.
+        </p>
 
-                <!-- Screening row -->
-                ${cdd.needsScr ? `
-                  <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);background:var(--color-surface-alt);border-radius:var(--radius-md);">
-                    <div style="display:flex;align-items:center;gap:var(--space-2);">
-                      <span style="color:${cdd.hasScr?'var(--color-success)':'var(--color-danger)'};font-weight:bold;">${cdd.hasScr?'✓':'✗'}</span>
-                      <div>
-                        <div style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);">PEP / sanctions screening</div>
-                        ${cdd.hasScr
-                          ? `<div style="font-size:10px;color:var(--color-text-muted);">Result: ${cdd.latestScr.result} · ${cdd.latestScr.provider} · ${fmtDate(cdd.latestScr.date)}</div>`
-                          : `<div style="font-size:10px;color:var(--color-danger);">Not recorded — NameScan or equivalent required</div>`}
-                      </div>
-                    </div>
-                    ${!cdd.hasScr ? `
-                      <button onclick="go('individual-detail',{individualId:'${l.individualId}',tab:'screening'})" class="btn-ghost" style="font-size:10px;color:var(--color-primary);white-space:nowrap;">+ Record →</button>
-                    ` : ''}
-                  </div>
-                ` : ''}
-
-              </div>
-
-              <!-- Footer -->
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);border-top:0.5px solid var(--color-border-light);background:var(--color-surface-alt);">
-                <button onclick="endEntityMember('${l.linkId}')" class="btn-ghost" style="color:var(--color-danger);font-size:10px;">End role</button>
-                <button onclick="go('individual-detail',{individualId:'${l.individualId}'})" class="btn-ghost" style="font-size:10px;color:var(--color-text-muted);">View full record →</button>
-              </div>
-            </div>`;
-        }).join('')}
-
-        ${formerLinks.length > 0 ? `
-          <div style="margin-top:var(--space-3);">
-            <div class="section-heading">Former key people</div>
-            ${formerLinks.map(l => {
-              const ind   = S.individuals.find(i => i.individualId === l.individualId);
+        ${keyPeople.length > 0 ? `
+          <div style="margin-bottom:var(--space-4);">
+            ${keyPeople.map(l => {
+              const ind   = (S.individuals||[]).find(i => i.individualId === l.individualId);
               const label = ROLE_LABELS[l.roleType] || l.roleType;
               return `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);">
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                            padding:var(--space-3);border:0.5px solid var(--color-border);
+                            border-radius:var(--radius-lg);margin-bottom:var(--space-2);">
                   <div>
-                    <div style="font-size:var(--font-size-base);color:var(--color-text-muted);">${ind?.fullName || 'Unknown'}</div>
-                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${label} · ended ${fmtDate(l.endDate)}</div>
+                    <div style="font-size:var(--font-size-sm);
+                                font-weight:var(--font-weight-medium);">
+                      ${ind?.fullName || 'Unknown'}
+                    </div>
+                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                      ${label}
+                    </div>
                   </div>
-                  <span class="badge badge-neutral" style="font-size:9px;">Former</span>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);">
+                    ${cddBadge(l.individualId)}
+                    <button onclick="go('individual-detail',{individualId:'${l.individualId}'})"
+                            class="btn-ghost"
+                            style="font-size:var(--font-size-xs);color:var(--color-primary);">
+                      View CDD →
+                    </button>
+                    <button onclick="removeKeyPerson('${l.linkId}')"
+                            class="btn-ghost"
+                            style="font-size:var(--font-size-xs);color:var(--color-danger);">
+                      Remove
+                    </button>
+                  </div>
                 </div>`;
             }).join('')}
           </div>
         ` : ''}
-      </div>
 
-      <!-- Risk assessment -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">Client risk assessment</div>
-          <button onclick="go('entity-edit',{entityId:'${entityId}',tab:'risk'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">
-            ${entity.entityRiskRating ? 'Update' : '+ Add'}
+        <!-- Add person -->
+        <div style="border-top:${keyPeople.length > 0 ? '0.5px solid var(--color-border-light);padding-top:var(--space-3);' : ''}">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+            <div class="form-row">
+              <label class="label">Role</label>
+              <select id="kp-role-${fid}" class="inp">
+                ${config.roles.map(r =>
+                  `<option value="${r}">${ROLE_LABELS[r] || r}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">Search by name</label>
+              <input id="kp-search-${fid}" type="text" class="inp"
+                     placeholder="Type to search existing individuals..."
+                     oninput="kpSearch('${fid}', this.value)"
+                     autocomplete="off">
+            </div>
+          </div>
+          <div id="kp-results-${fid}" style="margin-bottom:var(--space-2);"></div>
+          <button onclick="go('individual-new', {entryPoint:'entity', entityId:'${fid}'})"
+                  class="btn-sec btn-sm">
+            + Create new individual
           </button>
         </div>
-        ${entity.entityRiskRating ? `
-          ${row('Risk rating',   entity.entityRiskRating)}
-          ${row('Assessed by',   entity.riskAssessedBy)}
-          ${row('Assessed date', fmtDate(entity.riskAssessedDate))}
-          ${row('Next review',   fmtDate(entity.riskNextReviewDate))}
-          ${row('Methodology',   entity.riskMethodology)}
-        ` : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No risk assessment recorded yet.</p>
-        `}
       </div>
 
-      <!-- SMR -->
-      <div class="card">
-        <div class="section-heading">SMR</div>
-        <button onclick="go('smr',{filterEntity:'${entityId}'})" class="btn-sec btn-sm">View SMRs involving this client</button>
-        <p style="font-size:10px;color:var(--color-text-muted);margin-top:var(--space-2);">Only your firm's SMRs are shown.</p>
-      </div>
-
-      <!-- Audit trail -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">Recent activity</div>
-          <button onclick="loadEntityAudit('${entityId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Load</button>
+      <!-- CARD 4: RISK ASSESSMENT (optional) -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">Client risk assessment
+          <span style="font-size:var(--font-size-xs);font-weight:400;
+                       color:var(--color-text-muted);margin-left:var(--space-2);">(optional)</span>
         </div>
-        ${auditEntries.length > 0 ? auditEntries.map(e => `
-          <div class="audit-row">
-            <span class="audit-arrow">→</span>
-            <span class="audit-date">${fmtDateTime(e.timestamp)}</span>
-            <span>${e.detail}</span>
-          </div>`).join('') : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Click Load to view activity.</p>
-        `}
-        <button onclick="go('audit-trail',{entityId:'${entityId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);margin-top:var(--space-2);">View full audit trail →</button>
+
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+
+          <div class="form-row">
+            <label class="label">Risk rating</label>
+            <select id="f-risk-rating-${fid}" class="inp"
+                    onchange="entityRiskAutoNext('${fid}')">
+              <option value="">Select...</option>
+              ${['Low','Medium','High'].map(r =>
+                `<option value="${r}" ${entity?.entityRiskRating === r ? 'selected' : ''}>${r}</option>`
+              ).join('')}
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label class="label">Assessed date</label>
+            <input id="f-risk-date-${fid}" type="date" class="inp"
+                   value="${entity?.riskAssessedDate || today}"
+                   onchange="entityRiskAutoNext('${fid}')">
+          </div>
+
+          <div class="form-row">
+            <label class="label">Next review date</label>
+            ${inp(`f-risk-next-${fid}`, 'date', entity?.riskNextReviewDate || '')}
+          </div>
+
+          <div class="form-row">
+            <label class="label">Methodology notes</label>
+            <textarea id="f-risk-notes-${fid}" class="inp" rows="2"
+                      placeholder="Risk factors considered..."
+            >${entity?.riskMethodology || ''}</textarea>
+          </div>
+
+        </div>
+
+        <div class="banner banner-info" style="margin-top:var(--space-3);">
+          High risk: review every 12 months · Medium: 24 months · Low: 36 months
+        </div>
+      </div>
+
+      <!-- SMR (existing only) -->
+      ${!isNew ? `
+        <div class="card" style="margin-bottom:var(--space-3);">
+          <div class="section-heading">SMR</div>
+          <button onclick="go('smr',{filterEntity:'${fid}'})" class="btn-sec btn-sm">
+            View SMRs involving this client
+          </button>
+        </div>
+      ` : ''}
+
+      <!-- ERROR + SAVE -->
+      <div id="save-error-${fid}" class="banner banner-danger"
+           style="display:none;margin-bottom:var(--space-3);"></div>
+
+      <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-6);">
+        <button onclick="${isNew ? 'clearEntityType()' : "go('entities')"}"
+                class="btn-sec" style="flex:1;">
+          ${isNew ? 'Cancel' : '← Clients'}
+        </button>
+        <button onclick="saveEntityClient('${fid}','${etype}')"
+                class="btn" style="flex:2;">
+          Save client
+        </button>
       </div>
 
     </div>`;
 }
 
-// ─── LABEL HELPERS ────────────────────────────────────────────────────────────
-function keyPeopleLabel(entityType) {
-  switch (entityType) {
-    case 'Private Company':          return 'Directors and shareholders with more than 25% ownership.';
-    case 'Trust':                    return 'Trustees and beneficiaries or classes of beneficiaries.';
-    case 'SMSF':                     return 'Trustees and members of the fund.';
-    case 'Partnership':              return 'All partners.';
-    case 'Incorporated Association': return 'Committee members and responsible persons.';
-    case 'Charity / NFP':            return 'Responsible persons and board members.';
-    default:                         return 'Key individuals who control or benefit from this entity.';
-  }
-}
-
-function keyPeoplePrompt(entityType) {
-  switch (entityType) {
-    case 'Private Company':          return 'Add all directors and any shareholders holding more than 25%.';
-    case 'Trust':                    return 'Add all trustees. Add beneficiaries or describe the class.';
-    case 'SMSF':                     return 'Add all trustees and members of the fund.';
-    case 'Partnership':              return 'Add all partners.';
-    case 'Incorporated Association': return 'Add committee members and any responsible persons.';
-    case 'Charity / NFP':            return 'Add responsible persons and board members.';
-    default:                         return 'Add key individuals associated with this client.';
-  }
-}
-
 // ─── ACTIONS ──────────────────────────────────────────────────────────────────
-window.endEntityMember = async function(linkId) {
-  if (!confirm('End this role? The record will be preserved with an end date.')) return;
-  const { updateLink } = await import('../../firebase/firestore.js');
-  const now = new Date().toISOString();
-  await updateLink(linkId, { status: 'former', endDate: now });
-  const link = S.links.find(l => l.linkId === linkId);
-  if (link) { link.status = 'former'; link.endDate = now; }
-  toast('Role ended — record preserved');
-  render();
+
+window.clearEntityType = function() {
+  delete S._draft;
+  S.currentParams = {};
+  go('entity-new');
 };
 
-window.loadEntityAudit = async function(entityId) {
-  const { getEntityAuditLog } = await import('../../firebase/firestore.js');
-  const entries = await getEntityAuditLog(S.firmId, entityId);
-  if (!S._auditCache) S._auditCache = {};
-  S._auditCache[entityId] = entries;
-  render();
+window.entityRiskAutoNext = function(fid) {
+  const rating = document.getElementById(`f-risk-rating-${fid}`)?.value;
+  const date   = document.getElementById(`f-risk-date-${fid}`)?.value;
+  if (!rating || !date) return;
+  const months = rating === 'High' ? 12 : rating === 'Medium' ? 24 : 36;
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  const el = document.getElementById(`f-risk-next-${fid}`);
+  if (el && !el.value) el.value = d.toISOString().split('T')[0];
+};
+
+// Key person search
+window.kpSearch = function(fid, query) {
+  const el = document.getElementById(`kp-results-${fid}`);
+  if (!el) return;
+  if (!query || query.length < 2) { el.innerHTML = ''; return; }
+
+  const entityId = S.currentParams?.entityId;
+  const linked   = new Set(
+    (S.links || [])
+      .filter(l => l.linkedObjectId === entityId && l.status === 'active')
+      .map(l => l.individualId)
+  );
+
+  const q       = query.toLowerCase();
+  const matches = (S.individuals || [])
+    .filter(i => !i.isStaff && !linked.has(i.individualId) && i.fullName?.toLowerCase().includes(q))
+    .slice(0, 6);
+
+  if (!matches.length) {
+    el.innerHTML = `
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);padding:var(--space-2) 0;">
+        No results — use "Create new individual" below.
+      </p>`;
+    return;
+  }
+
+  el.innerHTML = matches.map(i => `
+    <div onclick="kpAdd('${fid}','${i.individualId}','${i.fullName.replace(/'/g,"\\'")}')"
+         style="display:flex;align-items:center;justify-content:space-between;
+                padding:var(--space-3);border:0.5px solid var(--color-border);
+                border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;
+                background:var(--color-surface);"
+         onmouseover="this.style.background='var(--color-surface-alt)'"
+         onmouseout="this.style.background='var(--color-surface)'">
+      <span style="font-size:var(--font-size-sm);">${i.fullName}</span>
+      <span style="font-size:var(--font-size-xs);color:var(--color-primary);
+                   font-weight:var(--font-weight-medium);">+ Add</span>
+    </div>`).join('');
+};
+
+// Add key person from search result (existing client only)
+window.kpAdd = async function(fid, individualId, name) {
+  const entityId = S.currentParams?.entityId;
+  if (!entityId) { toast('Save the entity first before adding people', 'err'); return; }
+
+  const roleType = document.getElementById(`kp-role-${fid}`)?.value;
+  if (!roleType) { toast('Select a role first', 'err'); return; }
+
+  try {
+    const now = new Date().toISOString();
+    const lid = genId('link');
+    const linkData = {
+      linkId: lid, individualId,
+      linkedObjectType: 'entity', linkedObjectId: entityId,
+      roleType, status: 'active',
+      startDate: now, createdAt: now, updatedAt: now,
+    };
+    await saveLink(lid, linkData);
+    addLinkToState(linkData);
+    await saveAuditEntry({
+      firmId: S.firmId, userId: S.individualId,
+      userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+      action: 'key_person_added', targetType: 'entity', targetId: entityId,
+      targetName: S.entities?.find(e=>e.entityId===entityId)?.entityName || '',
+      detail: `${name} added as ${ROLE_LABELS[roleType] || roleType}`,
+      timestamp: now,
+    });
+    toast(`${name} added`);
+    // Clear search
+    const s = document.getElementById(`kp-search-${fid}`);
+    const r = document.getElementById(`kp-results-${fid}`);
+    if (s) s.value = '';
+    if (r) r.innerHTML = '';
+    render();
+  } catch (err) {
+    toast('Failed to add person. Please try again.', 'err');
+    console.error(err);
+  }
+};
+
+// Remove key person
+window.removeKeyPerson = async function(linkId) {
+  if (!confirm('Remove this person from the entity? Their individual record is preserved.')) return;
+  try {
+    const { updateLink } = await import('../../firebase/firestore.js');
+    const now = new Date().toISOString();
+    await updateLink(linkId, { status: 'former', endDate: now });
+    const link = (S.links||[]).find(l => l.linkId === linkId);
+    if (link) { link.status = 'former'; link.endDate = now; }
+    toast('Person removed — individual record preserved');
+    render();
+  } catch (err) {
+    toast('Failed to remove. Please try again.', 'err');
+    console.error(err);
+  }
+};
+
+// ── SINGLE SAVE ────────────────────────────────────────────────────────────────
+window.saveEntityClient = async function(fid, etype) {
+  const name      = document.getElementById(`f-name-${fid}`)?.value?.trim();
+  const purpose   = document.getElementById(`f-purpose-${fid}`)?.value?.trim();
+  const verSource = document.getElementById(`f-ver-source-${fid}`)?.value;
+  const verDate   = document.getElementById(`f-ver-date-${fid}`)?.value;
+  const verBy     = document.getElementById(`f-ver-by-${fid}`)?.value;
+
+  const errEl = document.getElementById(`save-error-${fid}`);
+  const fail  = msg => {
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    else toast(msg, 'err');
+    window.scrollTo(0, 0);
+  };
+  if (errEl) errEl.style.display = 'none';
+
+  if (!name)      return fail('Entity name is required.');
+  if (!purpose)   return fail('Nature of business / purpose of relationship is required.');
+  if (!verBy)     return fail('Verified by is required.');
+  if (!verDate)   return fail('Date verified is required.');
+
+  const isNew    = fid === 'new';
+  const entityId = isNew ? null : S.currentParams?.entityId;
+  const now      = new Date().toISOString();
+  const config   = ENTITY_CONFIG[etype] || ENTITY_CONFIG['Private Company'];
+
+  // Read all fields
+  const abn       = document.getElementById(`f-abn-${fid}`)?.value?.trim()      || '';
+  const acn       = document.getElementById(`f-acn-${fid}`)?.value?.trim()       || '';
+  const address   = document.getElementById(`f-address-${fid}`)?.value?.trim()   || '';
+  const riskRating= document.getElementById(`f-risk-rating-${fid}`)?.value       || '';
+  const riskDate  = document.getElementById(`f-risk-date-${fid}`)?.value          || '';
+  const riskNext  = document.getElementById(`f-risk-next-${fid}`)?.value          || '';
+  const riskNotes = document.getElementById(`f-risk-notes-${fid}`)?.value?.trim() || '';
+
+  try {
+    if (isNew) {
+      // ── CREATE ──────────────────────────────────────────────────────────────
+      const eid = genId('ent');
+      const entityData = {
+        entityId: eid, firmId: S.firmId,
+        entityName: name, entityType: etype,
+        abn, acn, registeredAddress: address,
+        purposeOfRelationship: purpose,
+        entityVerSource: verSource,
+        entityVerDate:   verDate,
+        entityVerBy:     verBy,
+        entityRiskRating:   riskRating || null,
+        riskAssessedBy:     verBy,
+        riskAssessedDate:   riskDate,
+        riskNextReviewDate: riskNext,
+        riskMethodology:    riskNotes,
+        createdAt: now, updatedAt: now,
+      };
+      await saveEntity(eid, entityData);
+      addEntityToState(entityData);
+      await saveAuditEntry({
+        firmId: S.firmId, userId: S.individualId,
+        userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+        action: 'entity_created', targetType: 'entity',
+        targetId: eid, targetName: name,
+        detail: `Client created — ${name} (${etype}) — verified via ${verSource} by ${verBy}`,
+        timestamp: now,
+      });
+      delete S._draft;
+      toast('Client saved');
+      go('entity-detail', { entityId: eid });
+
+    } else {
+      // ── UPDATE ──────────────────────────────────────────────────────────────
+      const { updateEntity } = await import('../../firebase/firestore.js');
+      const fields = {
+        entityName: name, abn, acn,
+        registeredAddress: address,
+        purposeOfRelationship: purpose,
+        entityVerSource: verSource,
+        entityVerDate:   verDate,
+        entityVerBy:     verBy,
+        entityRiskRating:   riskRating || null,
+        riskAssessedBy:     verBy,
+        riskAssessedDate:   riskDate,
+        riskNextReviewDate: riskNext,
+        riskMethodology:    riskNotes,
+        updatedAt: now,
+      };
+      await updateEntity(entityId, fields);
+      const entity = S.entities.find(e => e.entityId === entityId);
+      if (entity) Object.assign(entity, fields);
+      await saveAuditEntry({
+        firmId: S.firmId, userId: S.individualId,
+        userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+        action: 'entity_updated', targetType: 'entity',
+        targetId: entityId, targetName: name,
+        detail: `Client updated — ${name}`,
+        timestamp: now,
+      });
+      toast('Client saved');
+      render();
+    }
+  } catch (err) {
+    fail('Failed to save. Please try again.');
+    console.error(err);
+  }
 };
