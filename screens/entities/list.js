@@ -151,7 +151,7 @@ export function screen() {
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${fmtDate(e.updatedAt)}</td>
                   <td style="text-align:right;">
                     <button
-                      onclick="event.stopPropagation();go('entity-edit',{entityId:'${e.entityId}'})"
+                      onclick="event.stopPropagation();go('entity-detail',{entityId:'${e.entityId}'})"
                       class="btn-ghost"
                       style="color:var(--color-text-muted);"
                     >Edit</button>
