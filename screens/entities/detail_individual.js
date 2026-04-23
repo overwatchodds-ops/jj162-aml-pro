@@ -199,7 +199,7 @@ export function screen() {
 
           <div class="form-row">
             <label class="label label-required">ID number</label>
-            ${inp(`ver-num-${fid}`, 'text', '', 'e.g. PA1234567')}
+            ${inp(`ver-num-${fid}`, 'text', latestVer?.idNumber || '', 'e.g. PA1234567')}
           </div>
 
           <div class="form-row">
@@ -249,13 +249,13 @@ export function screen() {
 
           <div class="form-row">
             <label class="label label-required">Provider</label>
-            ${inp(`scr-provider-${fid}`, 'text', '', 'e.g. NameScan')}
+            ${inp(`scr-provider-${fid}`, 'text', latestScr?.provider || '', 'e.g. NameScan')}
           </div>
 
           <div class="form-row">
             <label class="label label-required">Screening date</label>
             <input id="scr-date-${fid}" type="date" class="inp"
-                   value="${today}"
+                   value="${latestScr?.date || today}"
                    onchange="scrAutoNext('${fid}', this.value)">
           </div>
 
@@ -263,19 +263,19 @@ export function screen() {
             <label class="label label-required">Result</label>
             <select id="scr-result-${fid}" class="inp">
               ${['Clear','PEP match','Sanctions match','Adverse media','Refer for review']
-                .map(r => `<option>${r}</option>`).join('')}
+                .map(r => `<option ${latestScr?.result === r ? 'selected' : ''}>${r}</option>`).join('')}
             </select>
           </div>
 
           <div class="form-row">
             <label class="label">Reference ID</label>
-            ${inp(`scr-ref-${fid}`, 'text', '', 'e.g. NS-98765')}
+            ${inp(`scr-ref-${fid}`, 'text', latestScr?.referenceId || '', 'e.g. NS-98765')}
           </div>
 
 
           <div class="form-row">
             <label class="label">Next screening due</label>
-            ${inp(`scr-next-${fid}`, 'date', '')}
+            ${inp(`scr-next-${fid}`, 'date', latestScr?.nextDueDate || '')}
           </div>
 
         </div>
