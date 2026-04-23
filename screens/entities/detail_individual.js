@@ -178,6 +178,16 @@ export function screen() {
 
         <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
 
+          <div class="form-row span-2">
+            <label class="label label-required">Staff member conducting CDD</label>
+            <select id="staff-by-${fid}" class="inp">
+              ${staffOptions(latestVer?.verifiedBy || entity?.riskAssessedBy)}
+            </select>
+            <p style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">
+              Applies to ID verification, screening and risk assessment below.
+            </p>
+          </div>
+
           <div class="form-row">
             <label class="label label-required">ID type</label>
             <select id="ver-type-${fid}" class="inp">
@@ -200,13 +210,6 @@ export function screen() {
           <div class="form-row">
             <label class="label">Expiry date</label>
             ${inp(`ver-expiry-${fid}`, 'date', latestVer?.expiryDate || '')}
-          </div>
-
-          <div class="form-row">
-            <label class="label label-required">Verified by</label>
-            <select id="ver-by-${fid}" class="inp">
-              ${staffOptions(latestVer?.verifiedBy)}
-            </select>
           </div>
 
           <div class="form-row">
@@ -269,12 +272,6 @@ export function screen() {
             ${inp(`scr-ref-${fid}`, 'text', '', 'e.g. NS-98765')}
           </div>
 
-          <div class="form-row">
-            <label class="label">Completed by</label>
-            <select id="scr-by-${fid}" class="inp">
-              ${staffOptions()}
-            </select>
-          </div>
 
           <div class="form-row">
             <label class="label">Next screening due</label>
@@ -314,12 +311,6 @@ export function screen() {
             </select>
           </div>
 
-          <div class="form-row">
-            <label class="label">Assessed by</label>
-            <select id="risk-by-${fid}" class="inp">
-              ${staffOptions(entity?.riskAssessedBy)}
-            </select>
-          </div>
 
           <div class="form-row">
             <label class="label">Assessed date</label>
@@ -419,17 +410,17 @@ window.saveClient = async function(fid, etype, individualId) {
   const idType     = document.getElementById(`ver-type-${fid}`)?.value           || '';
   const verState   = document.getElementById(`ver-state-${fid}`)?.value?.trim()  || '';
   const verExpiry  = document.getElementById(`ver-expiry-${fid}`)?.value          || '';
-  const verBy      = document.getElementById(`ver-by-${fid}`)?.value;
+  const verBy      = document.getElementById(`staff-by-${fid}`)?.value;
   const verDate    = document.getElementById(`ver-date-${fid}`)?.value;
   const verMethod  = document.getElementById(`ver-method-${fid}`)?.value          || '';
   const scrProv    = document.getElementById(`scr-provider-${fid}`)?.value?.trim();
   const scrDate    = document.getElementById(`scr-date-${fid}`)?.value;
   const scrResult  = document.getElementById(`scr-result-${fid}`)?.value          || '';
   const scrRef     = document.getElementById(`scr-ref-${fid}`)?.value?.trim()     || '';
-  const scrBy      = document.getElementById(`scr-by-${fid}`)?.value              || '';
+  const scrBy      = document.getElementById(`staff-by-${fid}`)?.value              || '';
   const scrNext    = document.getElementById(`scr-next-${fid}`)?.value            || '';
   const riskRating = document.getElementById(`risk-rating-${fid}`)?.value         || '';
-  const riskBy     = document.getElementById(`risk-by-${fid}`)?.value             || '';
+  const riskBy     = document.getElementById(`staff-by-${fid}`)?.value             || '';
   const riskDate   = document.getElementById(`risk-date-${fid}`)?.value           || '';
   const riskNext   = document.getElementById(`risk-next-${fid}`)?.value           || '';
   const riskNotes  = document.getElementById(`risk-notes-${fid}`)?.value?.trim()  || '';
