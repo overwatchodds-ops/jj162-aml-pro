@@ -78,12 +78,104 @@ function inp(id, type, value = '', placeholder = '') {
                  value="${value}" placeholder="${placeholder}">`;
 }
 
+function addMonthsISO(dateValue = '', monthsToAdd = 0) {
+  if (!dateValue) return '';
+
+  const [yyyy, mm, dd] = String(dateValue).split('-').map(Number);
+  if (!yyyy || !mm || !dd) return '';
+
+  const result = new Date(yyyy, (mm - 1) + monthsToAdd, dd);
+
+  if (result.getDate() !== dd) {
+    result.setDate(0);
+  }
+
+  return result.toISOString().split('T')[0];
+}
+
+function cddStateForIndividual(individualId) {
+  const hasVer = (S.verifications || []).some(v => v.individualId === individualId);
+  const hasScr = (S.screenings || []).some(s => s.individualId === individualId && s.result);
+
+  const missing = [];
+  if (!hasVer) missing.push('ID');
+  if (!hasScr) missing.push('Screening');
+
+  return {
+    complete: hasVer && hasScr,
+    missing,
+  };
+}
+
 function cddBadge(individualId) {
-  const hasVer = (S.verifications||[]).some(v => v.individualId === individualId);
-  const hasScr = (S.screenings||[]).some(s => s.individualId === individualId && s.result);
-  if (hasVer && hasScr) return `<span class="badge badge-success">CDD complete</span>`;
-  if (hasVer || hasScr) return `<span class="badge badge-warning">CDD partial</span>`;
-  return `<span class="badge badge-danger">CDD needed</span>`;
+  const state = cddStateForIndividual(individualId);
+
+  if (state.complete) {
+    return `<span class="badge badge-success">CDD complete</span>`;
+  }
+
+  return `<span class="badge badge-danger">Missing: ${state.missing.join(' + ')}</span>`;
+}
+
+function getEligibleIndividuals(entityId, query = '') {
+  const linked = new Set(
+    (S.links || [])
+      .filter(l =>
+        l.linkedObjectId === entityId &&
+        l.linkedObjectType === 'entity' &&
+        l.status === 'active')
+      .map(l => l.individualId)
+  );
+
+  const q = String(query || '').trim().toLowerCase();
+
+  let pool = (S.individuals || []).filter(i => !i.isStaff && !linked.has(i.individualId));
+
+  if (q) {
+    pool = pool.filter(i =>
+      (i.fullName || '').toLowerCase().includes(q) ||
+      (i.email || '').toLowerCase().includes(q)
+    );
+  }
+
+  return pool
+    .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''))
+    .slice(0, 8);
+}
+
+function renderKPResults(fid, matches, mode = 'search') {
+  const el = document.getElementById(`kp-results-${fid}`);
+  if (!el) return;
+
+  if (!matches.length) {
+    el.innerHTML = `
+      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);padding:var(--space-2) 0;">
+        ${mode === 'focus'
+          ? 'No available individuals found.'
+          : 'No results — use "Create new individual" below if this person does not already exist.'}
+      </p>`;
+    return;
+  }
+
+  el.innerHTML = matches.map(i => `
+    <div onclick="kpAdd('${fid}','${i.individualId}','${(i.fullName || '').replace(/'/g,"\\'")}')"
+         style="display:flex;align-items:center;justify-content:space-between;
+                padding:var(--space-3);border:0.5px solid var(--color-border);
+                border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;
+                background:var(--color-surface);"
+         onmouseover="this.style.background='var(--color-surface-alt)'"
+         onmouseout="this.style.background='var(--color-surface)'">
+      <div>
+        <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">
+          ${i.fullName || 'Unnamed'}
+        </div>
+        <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+          ${i.email || 'No email recorded'}
+        </div>
+      </div>
+      <span style="font-size:var(--font-size-xs);color:var(--color-primary);
+                   font-weight:var(--font-weight-medium);">+ Add existing</span>
+    </div>`).join('');
 }
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
@@ -104,7 +196,6 @@ export function screen() {
               style="margin-top:var(--space-3);">← Clients</button>
     </div>`;
 
-  // Active key people
   const keyPeople = entity
     ? (S.links || []).filter(l =>
         l.linkedObjectId === entityId &&
@@ -112,12 +203,8 @@ export function screen() {
         l.status === 'active')
     : [];
 
-  // Overall CDD status
-  const allCDD = keyPeople.length > 0 && keyPeople.every(l => {
-    const hasVer = (S.verifications||[]).some(v => v.individualId === l.individualId);
-    const hasScr = (S.screenings||[]).some(s => s.individualId === l.individualId && s.result);
-    return hasVer && hasScr;
-  });
+  const incompleteCDDCount = keyPeople.filter(l => !cddStateForIndividual(l.individualId).complete).length;
+  const allCDD = keyPeople.length > 0 && incompleteCDDCount === 0;
 
   return `
     <div>
@@ -134,7 +221,7 @@ export function screen() {
           <h1 class="screen-title" style="margin-top:var(--space-2);">
             ${isNew ? 'New ' + etype : entity.entityName}
           </h1>
-          <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1);">
+          <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-1);flex-wrap:wrap;">
             <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${etype}</span>
             ${!isNew ? `
               ${riskBadge(entity.entityRiskRating)}
@@ -142,7 +229,7 @@ export function screen() {
                 ? `<span class="badge badge-warning">No key people</span>`
                 : allCDD
                   ? `<span class="badge badge-success">CDD complete</span>`
-                  : `<span class="badge badge-danger">CDD incomplete</span>`}
+                  : `<span class="badge badge-danger">${incompleteCDDCount} key ${incompleteCDDCount === 1 ? 'person' : 'people'} incomplete</span>`}
             ` : ''}
           </div>
         </div>
@@ -248,7 +335,7 @@ export function screen() {
                       ${label}
                     </div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:var(--space-2);">
+                  <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;">
                     ${cddBadge(l.individualId)}
                     <button onclick="viewKeyPersonCDD('${l.individualId}')"
                             class="btn-ghost"
@@ -266,7 +353,6 @@ export function screen() {
           </div>
         ` : ''}
 
-        <!-- Add person -->
         <div style="border-top:${keyPeople.length > 0 ? '0.5px solid var(--color-border-light);padding-top:var(--space-3);' : ''}">
           <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
             <div class="form-row">
@@ -280,7 +366,8 @@ export function screen() {
             <div class="form-row">
               <label class="label">Search by name</label>
               <input id="kp-search-${fid}" type="text" class="inp"
-                     placeholder="Type to search existing individuals..."
+                     placeholder="Type to search existing individuals or email..."
+                     onfocus="kpFocus('${fid}')"
                      oninput="kpSearch('${fid}', this.value)"
                      autocomplete="off">
             </div>
@@ -378,61 +465,51 @@ window.clearEntityType = function() {
 window.entityRiskAutoNext = function(fid) {
   const rating = document.getElementById(`f-risk-rating-${fid}`)?.value;
   const date   = document.getElementById(`f-risk-date-${fid}`)?.value;
-  if (!rating || !date) return;
+  const el     = document.getElementById(`f-risk-next-${fid}`);
+
+  if (!el || !rating || !date) return;
+
   const months = rating === 'High' ? 12 : rating === 'Medium' ? 24 : 36;
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  const el = document.getElementById(`f-risk-next-${fid}`);
-  if (el && !el.value) el.value = d.toISOString().split('T')[0];
+  el.value = addMonthsISO(date, months);
 };
 
-// Key person search
-window.kpSearch = function(fid, query) {
-  const el = document.getElementById(`kp-results-${fid}`);
-  if (!el) return;
-  if (!query || query.length < 2) { el.innerHTML = ''; return; }
-
+window.kpFocus = function(fid) {
   const entityId = S.currentParams?.entityId;
-  const linked   = new Set(
-    (S.links || [])
-      .filter(l => l.linkedObjectId === entityId && l.status === 'active')
-      .map(l => l.individualId)
-  );
+  if (!entityId) return;
+  renderKPResults(fid, getEligibleIndividuals(entityId, ''), 'focus');
+};
 
-  const q       = query.toLowerCase();
-  const matches = (S.individuals || [])
-    .filter(i => !i.isStaff && !linked.has(i.individualId) && i.fullName?.toLowerCase().includes(q))
-    .slice(0, 6);
+window.kpSearch = function(fid, query) {
+  const entityId = S.currentParams?.entityId;
+  const el = document.getElementById(`kp-results-${fid}`);
+  if (!el || !entityId) return;
 
-  if (!matches.length) {
-    el.innerHTML = `
-      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);padding:var(--space-2) 0;">
-        No results — use "Create new individual" below.
-      </p>`;
+  const q = String(query || '').trim();
+  if (!q) {
+    renderKPResults(fid, getEligibleIndividuals(entityId, ''), 'focus');
     return;
   }
 
-  el.innerHTML = matches.map(i => `
-    <div onclick="kpAdd('${fid}','${i.individualId}','${i.fullName.replace(/'/g,"\\'")}')"
-         style="display:flex;align-items:center;justify-content:space-between;
-                padding:var(--space-3);border:0.5px solid var(--color-border);
-                border-radius:var(--radius-md);cursor:pointer;margin-bottom:4px;
-                background:var(--color-surface);"
-         onmouseover="this.style.background='var(--color-surface-alt)'"
-         onmouseout="this.style.background='var(--color-surface)'">
-      <span style="font-size:var(--font-size-sm);">${i.fullName}</span>
-      <span style="font-size:var(--font-size-xs);color:var(--color-primary);
-                   font-weight:var(--font-weight-medium);">+ Add</span>
-    </div>`).join('');
+  renderKPResults(fid, getEligibleIndividuals(entityId, q), 'search');
 };
 
-// Add key person from search result (existing client only)
 window.kpAdd = async function(fid, individualId, name) {
   const entityId = S.currentParams?.entityId;
   if (!entityId) { toast('Save the entity first before adding people', 'err'); return; }
 
   const roleType = document.getElementById(`kp-role-${fid}`)?.value;
   if (!roleType) { toast('Select a role first', 'err'); return; }
+
+  const duplicateLink = (S.links || []).some(l =>
+    l.individualId === individualId &&
+    l.linkedObjectId === entityId &&
+    l.linkedObjectType === 'entity' &&
+    l.status === 'active'
+  );
+  if (duplicateLink) {
+    toast('This individual is already linked to this client.', 'err');
+    return;
+  }
 
   try {
     const now = new Date().toISOString();
@@ -454,7 +531,6 @@ window.kpAdd = async function(fid, individualId, name) {
       timestamp: now,
     });
     toast(`${name} added`);
-    // Clear search
     const s = document.getElementById(`kp-search-${fid}`);
     const r = document.getElementById(`kp-results-${fid}`);
     if (s) s.value = '';
@@ -466,7 +542,6 @@ window.kpAdd = async function(fid, individualId, name) {
   }
 };
 
-// Remove key person
 window.removeKeyPerson = async function(linkId) {
   if (!confirm('Remove this person from the entity? Their individual record is preserved.')) return;
   try {
@@ -483,9 +558,7 @@ window.removeKeyPerson = async function(linkId) {
   }
 };
 
-// Navigate to a key person's individual client record for CDD management
 window.viewKeyPersonCDD = function(individualId) {
-  // Find the entity record where this individual is the client (roleType: 'self')
   const selfLink = (S.links || []).find(l =>
     l.individualId === individualId &&
     l.linkedObjectType === 'entity' &&
@@ -495,17 +568,16 @@ window.viewKeyPersonCDD = function(individualId) {
   if (selfLink) {
     go('entity-detail', { entityId: selfLink.linkedObjectId });
   } else {
-    // Individual exists but has no client record yet — create one
     go('entity-detail', {
       isNew: true,
       entityType: 'Individual',
       returnToEntity: S.currentParams?.entityId,
       existingIndividualId: individualId,
+      roleType: document.getElementById(`kp-role-${S.currentParams?.entityId || 'new'}`)?.value || '',
     });
   }
 };
 
-// Navigate to new individual screen with entity context
 window.addNewIndividualToEntity = function(fid) {
   const entityId = S.currentParams?.entityId;
   if (!entityId) {
@@ -514,14 +586,13 @@ window.addNewIndividualToEntity = function(fid) {
   }
   const roleType = document.getElementById(`kp-role-${fid}`)?.value || '';
   go('entity-detail', {
-    isNew:          true,
-    entityType:     'Individual',
+    isNew: true,
+    entityType: 'Individual',
     returnToEntity: entityId,
     roleType,
   });
 };
 
-// ── SINGLE SAVE ────────────────────────────────────────────────────────────────
 window.saveEntityClient = async function(fid, etype) {
   const name      = document.getElementById(`f-name-${fid}`)?.value?.trim();
   const purpose   = document.getElementById(`f-purpose-${fid}`)?.value?.trim();
@@ -537,28 +608,26 @@ window.saveEntityClient = async function(fid, etype) {
   };
   if (errEl) errEl.style.display = 'none';
 
-  const abn       = document.getElementById(`f-abn-${fid}`)?.value?.trim()      || '';
-  const acn       = document.getElementById(`f-acn-${fid}`)?.value?.trim()       || '';
-  const address   = document.getElementById(`f-address-${fid}`)?.value?.trim()   || '';
-  const riskRating= document.getElementById(`f-risk-rating-${fid}`)?.value       || '';
-  const riskDate  = document.getElementById(`f-risk-date-${fid}`)?.value          || '';
-  const riskNext  = document.getElementById(`f-risk-next-${fid}`)?.value          || '';
-  const riskNotes = document.getElementById(`f-risk-notes-${fid}`)?.value?.trim() || '';
+  const abn        = document.getElementById(`f-abn-${fid}`)?.value?.trim() || '';
+  const acn        = document.getElementById(`f-acn-${fid}`)?.value?.trim() || '';
+  const address    = document.getElementById(`f-address-${fid}`)?.value?.trim() || '';
+  const riskRating = document.getElementById(`f-risk-rating-${fid}`)?.value || '';
+  const riskDate   = document.getElementById(`f-risk-date-${fid}`)?.value || '';
+  const riskNext   = document.getElementById(`f-risk-next-${fid}`)?.value || '';
+  const riskNotes  = document.getElementById(`f-risk-notes-${fid}`)?.value?.trim() || '';
 
-  if (!name)      return fail('Entity name is required.');
+  if (!name) return fail('Entity name is required.');
   if (etype === 'Private Company' && !abn) return fail('ABN is required for a Private Company.');
-  if (!purpose)   return fail('Nature of business / purpose of relationship is required.');
-  if (!verBy)     return fail('Verified by is required.');
-  if (!verDate)   return fail('Date verified is required.');
+  if (!purpose) return fail('Nature of business / purpose of relationship is required.');
+  if (!verBy) return fail('Verified by is required.');
+  if (!verDate) return fail('Date verified is required.');
 
   const isNew    = fid === 'new';
   const entityId = isNew ? null : S.currentParams?.entityId;
   const now      = new Date().toISOString();
-  const config   = ENTITY_CONFIG[etype] || ENTITY_CONFIG['Private Company'];
 
   try {
     if (isNew) {
-      // ── CREATE ──────────────────────────────────────────────────────────────
       const eid = genId('ent');
       const entityData = {
         entityId: eid, firmId: S.firmId,
@@ -566,20 +635,20 @@ window.saveEntityClient = async function(fid, etype) {
         abn, acn, registeredAddress: address,
         purposeOfRelationship: purpose,
         entityVerSource: verSource,
-        entityVerDate:   verDate,
-        entityVerBy:     verBy,
-        entityRiskRating:   riskRating || null,
-        riskAssessedBy:     verBy,
-        riskAssessedDate:   riskDate,
+        entityVerDate: verDate,
+        entityVerBy: verBy,
+        entityRiskRating: riskRating || null,
+        riskAssessedBy: verBy,
+        riskAssessedDate: riskDate,
         riskNextReviewDate: riskNext,
-        riskMethodology:    riskNotes,
+        riskMethodology: riskNotes,
         createdAt: now, updatedAt: now,
       };
       await saveEntity(eid, entityData);
       addEntityToState(entityData);
       await saveAuditEntry({
         firmId: S.firmId, userId: S.individualId,
-        userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+        userName: S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
         action: 'entity_created', targetType: 'entity',
         targetId: eid, targetName: name,
         detail: `Client created — ${name} (${etype}) — verified via ${verSource} by ${verBy}`,
@@ -590,20 +659,19 @@ window.saveEntityClient = async function(fid, etype) {
       go('entity-detail', { entityId: eid });
 
     } else {
-      // ── UPDATE ──────────────────────────────────────────────────────────────
       const { updateEntity } = await import('../../firebase/firestore.js');
       const fields = {
         entityName: name, abn, acn,
         registeredAddress: address,
         purposeOfRelationship: purpose,
         entityVerSource: verSource,
-        entityVerDate:   verDate,
-        entityVerBy:     verBy,
-        entityRiskRating:   riskRating || null,
-        riskAssessedBy:     verBy,
-        riskAssessedDate:   riskDate,
+        entityVerDate: verDate,
+        entityVerBy: verBy,
+        entityRiskRating: riskRating || null,
+        riskAssessedBy: verBy,
+        riskAssessedDate: riskDate,
         riskNextReviewDate: riskNext,
-        riskMethodology:    riskNotes,
+        riskMethodology: riskNotes,
         updatedAt: now,
       };
       await updateEntity(entityId, fields);
@@ -611,7 +679,7 @@ window.saveEntityClient = async function(fid, etype) {
       if (entity) Object.assign(entity, fields);
       await saveAuditEntry({
         firmId: S.firmId, userId: S.individualId,
-        userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
+        userName: S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
         action: 'entity_updated', targetType: 'entity',
         targetId: entityId, targetName: name,
         detail: `Client updated — ${name}`,
