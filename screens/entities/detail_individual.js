@@ -38,6 +38,22 @@ function inp(id, type, value = '', placeholder = '') {
                  value="${value}" placeholder="${placeholder}">`;
 }
 
+function addMonthsISO(dateValue = '', monthsToAdd = 0) {
+  if (!dateValue) return '';
+
+  const [yyyy, mm, dd] = String(dateValue).split('-').map(Number);
+  if (!yyyy || !mm || !dd) return '';
+
+  const result = new Date(yyyy, (mm - 1) + monthsToAdd, dd);
+
+  // Protect end-of-month rollover
+  if (result.getDate() !== dd) {
+    result.setDate(0);
+  }
+
+  return result.toISOString().split('T')[0];
+}
+
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 
 export function screen() {
@@ -271,7 +287,6 @@ export function screen() {
             ${inp(`scr-ref-${fid}`, 'text', latestScr?.referenceId || '', 'e.g. NS-98765')}
           </div>
 
-
           <div class="form-row">
             <label class="label">Next screening due</label>
             ${inp(`scr-next-${fid}`, 'date', latestScr?.nextDueDate || '')}
@@ -309,7 +324,6 @@ export function screen() {
               ).join('')}
             </select>
           </div>
-
 
           <div class="form-row">
             <label class="label">Assessed date</label>
@@ -387,12 +401,12 @@ window.scrAutoNext = function(fid, date) {
 window.riskAutoNext = function(fid) {
   const rating = document.getElementById(`risk-rating-${fid}`)?.value;
   const date   = document.getElementById(`risk-date-${fid}`)?.value;
-  if (!rating || !date) return;
+  const el     = document.getElementById(`risk-next-${fid}`);
+
+  if (!el || !rating || !date) return;
+
   const months = rating === 'High' ? 12 : rating === 'Medium' ? 24 : 36;
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  const el = document.getElementById(`risk-next-${fid}`);
-  if (el && !el.value) el.value = d.toISOString().split('T')[0];
+  el.value = addMonthsISO(date, months);
 };
 
 // ── SINGLE SAVE — handles both new and existing ────────────────────────────────
@@ -416,7 +430,7 @@ window.saveClient = async function(fid, etype, individualId) {
   const scrDate    = document.getElementById(`scr-date-${fid}`)?.value;
   const scrResult  = document.getElementById(`scr-result-${fid}`)?.value          || '';
   const scrRef     = document.getElementById(`scr-ref-${fid}`)?.value?.trim()     || '';
-  const scrBy      = document.getElementById(`staff-by-${fid}`)?.value              || '';
+  const scrBy      = document.getElementById(`staff-by-${fid}`)?.value             || '';
   const scrNext    = document.getElementById(`scr-next-${fid}`)?.value            || '';
   const riskRating = document.getElementById(`risk-rating-${fid}`)?.value         || '';
   const riskBy     = document.getElementById(`staff-by-${fid}`)?.value             || '';
