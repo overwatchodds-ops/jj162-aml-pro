@@ -48,62 +48,119 @@ export let S = {
 // ─── LOAD ─────────────────────────────────────────────────────────────────────
 
 export async function load(uid) {
+  // restore UI state first
   try {
     const ui = localStorage.getItem('pro_v1_ui');
     if (ui) {
       const parsed = JSON.parse(ui);
-      S.currentScreen          = parsed.currentScreen || 'dashboard';
-      S.currentParams          = parsed.currentParams || {};
-      S._onboardingFirm        = parsed._onboardingFirm;
-      S._onboardingIndividual  = parsed._onboardingIndividual;
-      S._onboardingAustrac     = parsed._onboardingAustrac;
+      S.currentScreen         = parsed.currentScreen || 'dashboard';
+      S.currentParams         = parsed.currentParams || {};
+      S._onboardingFirm       = parsed._onboardingFirm;
+      S._onboardingIndividual = parsed._onboardingIndividual;
+      S._onboardingAustrac    = parsed._onboardingAustrac;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Failed to restore UI state', e);
+  }
 
   const firmId = 'firm_' + uid;
   S.firmId     = firmId;
+  S.individualId = 'ind_' + uid;
 
+  // reset collections before reloading
+  S.firm          = null;
+  S.individuals   = [];
+  S.entities      = [];
+  S.links         = [];
+  S.verifications = [];
+  S.screenings    = [];
+  S.training      = [];
+  S.vetting       = [];
+
+  // Load each area independently so one failure does not wipe the whole app view
+
+  // 1) firm profile
   try {
-    const firmProfile = await getFirmProfile(firmId);
-
-    // reset collections before reload
-    S.firm          = firmProfile || null;
-    S.individuals   = [];
-    S.entities      = [];
-    S.links         = [];
-    S.verifications = [];
-    S.screenings    = [];
-    S.training      = [];
-    S.vetting       = [];
-
-    if (firmProfile) {
-      S.individuals = await getFirmIndividuals(firmId);
-      S.entities    = await getFirmEntities(firmId);
-
-      const allLinks = [];
-      for (const ind of S.individuals) {
-        const indLinks = await getIndividualLinks(ind.individualId);
-        allLinks.push(...indLinks);
-      }
-
-      const seen = new Set();
-      S.links = allLinks.filter(l => {
-        if (seen.has(l.linkId)) return false;
-        seen.add(l.linkId);
-        return true;
-      });
-
-      // load compliance evidence as firm-wide collections
-      S.verifications = await getFirmVerifications(firmId);
-      S.screenings    = await getFirmScreenings(firmId);
-      S.training      = await getFirmTrainingRecords(firmId);
-      S.vetting       = await getFirmVettingRecords(firmId);
-    }
+    S.firm = await getFirmProfile(firmId);
   } catch (e) {
-    console.error('Error loading firm data:', e);
+    console.error('Error loading firm profile:', e);
+    S.firm = null;
   }
 
-  S.individualId = 'ind_' + uid;
+  // 2) individuals
+  try {
+    S.individuals = await getFirmIndividuals(firmId);
+  } catch (e) {
+    console.error('Error loading individuals:', e);
+    S.individuals = [];
+  }
+
+  // 3) entities
+  try {
+    S.entities = await getFirmEntities(firmId);
+  } catch (e) {
+    console.error('Error loading entities:', e);
+    S.entities = [];
+  }
+
+  // 4) links
+  try {
+    const allLinks = [];
+    for (const ind of S.individuals) {
+      try {
+        const indLinks = await getIndividualLinks(ind.individualId);
+        allLinks.push(...indLinks);
+      } catch (e) {
+        console.error(`Error loading links for individual ${ind.individualId}:`, e);
+      }
+    }
+
+    const seen = new Set();
+    S.links = allLinks.filter(l => {
+      if (!l?.linkId) return false;
+      if (seen.has(l.linkId)) return false;
+      seen.add(l.linkId);
+      return true;
+    });
+  } catch (e) {
+    console.error('Error loading links:', e);
+    S.links = [];
+  }
+
+  // 5) verifications
+  try {
+    S.verifications = await getFirmVerifications(firmId);
+  } catch (e) {
+    console.error('Error loading verifications:', e);
+    S.verifications = [];
+  }
+
+  // 6) screenings
+  try {
+    S.screenings = await getFirmScreenings(firmId);
+  } catch (e) {
+    console.error('Error loading screenings:', e);
+    S.screenings = [];
+  }
+
+  // 7) training
+  try {
+    S.training = await getFirmTrainingRecords(firmId);
+  } catch (e) {
+    console.error('Error loading training records:', e);
+    S.training = [];
+  }
+
+  // 8) vetting
+  try {
+    S.vetting = await getFirmVettingRecords(firmId);
+  } catch (e) {
+    console.error('Error loading vetting records:', e);
+    S.vetting = [];
+  }
+
+  // keep UI on a sensible screen if current one is empty/broken after load
+  if (!S.currentScreen) S.currentScreen = 'dashboard';
 }
 
 // ─── SAVE ─────────────────────────────────────────────────────────────────────
@@ -117,7 +174,9 @@ export function save() {
       _onboardingIndividual: S._onboardingIndividual,
       _onboardingAustrac:    S._onboardingAustrac,
     }));
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Failed to save UI state', e);
+  }
 }
 
 // ─── RESET ────────────────────────────────────────────────────────────────────
