@@ -3,23 +3,120 @@ import { fmtDate } from '../../firebase/firestore.js';
 
 const PERSON_TYPES = ['Individual', 'Sole Trader'];
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function normalizeIdNumber(value = '') {
+  return String(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function getSelfLinkForEntity(entityId) {
+  return (S.links || []).find(l =>
+    l.linkedObjectId === entityId &&
+    l.linkedObjectType === 'entity' &&
+    l.roleType === 'self' &&
+    l.status === 'active'
+  ) || null;
+}
+
+function getIndividualForEntity(entity) {
+  if (!PERSON_TYPES.includes(entity.entityType)) return null;
+  const selfLink = getSelfLinkForEntity(entity.entityId);
+  if (!selfLink) return null;
+  return (S.individuals || []).find(i => i.individualId === selfLink.individualId) || null;
+}
+
+function buildDuplicateIndex() {
+  const nameDobMap = new Map();
+  const idMap      = new Map();
+
+  const personEntities = (S.entities || []).filter(e => PERSON_TYPES.includes(e.entityType));
+
+  personEntities.forEach(entity => {
+    const selfLink = getSelfLinkForEntity(entity.entityId);
+    if (!selfLink) return;
+
+    const individualId = selfLink.individualId;
+    const ind = (S.individuals || []).find(i => i.individualId === individualId);
+    if (!ind) return;
+
+    const name = String(ind.fullName || '').trim().toLowerCase();
+    const dob  = String(ind.dateOfBirth || '').trim();
+
+    if (name && dob) {
+      const key = `${name}|${dob}`;
+      if (!nameDobMap.has(key)) nameDobMap.set(key, new Set());
+      nameDobMap.get(key).add(individualId);
+    }
+
+    (S.verifications || [])
+      .filter(v => v.individualId === individualId)
+      .forEach(v => {
+        const normId = normalizeIdNumber(v.idNumber);
+        if (!normId) return;
+        if (!idMap.has(normId)) idMap.set(normId, new Set());
+        idMap.get(normId).add(individualId);
+      });
+  });
+
+  return { nameDobMap, idMap };
+}
+
+function duplicateInfo(entity, duplicateIndex) {
+  if (!PERSON_TYPES.includes(entity.entityType)) return { isDuplicate: false, reasons: [] };
+
+  const ind = getIndividualForEntity(entity);
+  if (!ind) return { isDuplicate: false, reasons: [] };
+
+  const reasons = [];
+
+  const name = String(ind.fullName || '').trim().toLowerCase();
+  const dob  = String(ind.dateOfBirth || '').trim();
+  if (name && dob) {
+    const key = `${name}|${dob}`;
+    const matches = duplicateIndex.nameDobMap.get(key);
+    if (matches && matches.size > 1) {
+      reasons.push('same name + DOB');
+    }
+  }
+
+  const idMatches = new Set();
+  (S.verifications || [])
+    .filter(v => v.individualId === ind.individualId)
+    .forEach(v => {
+      const normId = normalizeIdNumber(v.idNumber);
+      if (!normId) return;
+      const matches = duplicateIndex.idMap.get(normId);
+      if (matches && matches.size > 1) {
+        idMatches.add(normId);
+      }
+    });
+
+  if (idMatches.size) {
+    reasons.push('same ID number');
+  }
+
+  return {
+    isDuplicate: reasons.length > 0,
+    reasons,
+  };
+}
+
 // ─── STATUS DERIVATION ────────────────────────────────────────────────────────
 function clientStatus(entity) {
   const entityId = entity.entityId;
 
   if (PERSON_TYPES.includes(entity.entityType)) {
-    const link = S.links.find(l =>
+    const link = (S.links || []).find(l =>
       l.linkedObjectId   === entityId &&
       l.linkedObjectType === 'entity' &&
       l.status           === 'active'
     );
     if (!link) return 'incomplete';
     const iid    = link.individualId;
-    const hasVer = (S.verifications||[]).some(v => v.individualId === iid);
-    const hasScr = (S.screenings   ||[]).some(s => s.individualId === iid && s.result);
+    const hasVer = (S.verifications || []).some(v => v.individualId === iid);
+    const hasScr = (S.screenings    || []).some(s => s.individualId === iid && s.result);
     return hasVer && hasScr ? 'compliant' : 'incomplete';
   } else {
-    const links = S.links.filter(l =>
+    const links = (S.links || []).filter(l =>
       l.linkedObjectId   === entityId &&
       l.linkedObjectType === 'entity' &&
       l.status           === 'active'
@@ -27,8 +124,8 @@ function clientStatus(entity) {
     if (!links.length) return 'no_people';
     const allDone = links.every(l => {
       const iid    = l.individualId;
-      const hasVer = (S.verifications||[]).some(v => v.individualId === iid);
-      const hasScr = (S.screenings   ||[]).some(s => s.individualId === iid && s.result);
+      const hasVer = (S.verifications || []).some(v => v.individualId === iid);
+      const hasScr = (S.screenings    || []).some(s => s.individualId === iid && s.result);
       return hasVer && hasScr;
     });
     return allDone ? 'compliant' : 'incomplete';
@@ -59,23 +156,31 @@ export function screen() {
   const search = S.currentParams?.search || '';
 
   let entities = [...(S.entities || [])];
+  const duplicateIndex = buildDuplicateIndex();
 
   if (search) {
     const q = search.toLowerCase();
-    entities = entities.filter(e =>
-      e.entityName?.toLowerCase().includes(q) ||
-      e.abn?.includes(q)
-    );
+    entities = entities.filter(e => {
+      const ind = getIndividualForEntity(e);
+      return (
+        e.entityName?.toLowerCase().includes(q) ||
+        e.abn?.toLowerCase?.().includes?.(q) ||
+        ind?.email?.toLowerCase().includes(q) ||
+        ind?.dateOfBirth?.toLowerCase?.().includes?.(q)
+      );
+    });
   }
 
   const withStatus = entities.map(e => ({
     ...e,
     _status: clientStatus(e),
+    _dup: duplicateInfo(e, duplicateIndex),
   }));
 
   const filtered = filter === 'all' ? withStatus : withStatus.filter(e => {
     if (filter === 'compliant')  return e._status === 'compliant';
     if (filter === 'incomplete') return e._status === 'incomplete' || e._status === 'no_people';
+    if (filter === 'duplicates') return e._dup?.isDuplicate;
     return true;
   });
 
@@ -83,6 +188,7 @@ export function screen() {
     all:        withStatus.length,
     compliant:  withStatus.filter(e => e._status === 'compliant').length,
     incomplete: withStatus.filter(e => e._status === 'incomplete' || e._status === 'no_people').length,
+    duplicates: withStatus.filter(e => e._dup?.isDuplicate).length,
   };
 
   return `
@@ -108,9 +214,10 @@ export function screen() {
         </div>
         <div class="filter-tabs">
           ${[
-            { key: 'all',        label: `All (${counts.all})`               },
+            { key: 'all',        label: `All (${counts.all})` },
             { key: 'compliant',  label: `CDD complete (${counts.compliant})` },
-            { key: 'incomplete', label: `Incomplete (${counts.incomplete})`   },
+            { key: 'incomplete', label: `Incomplete (${counts.incomplete})` },
+            { key: 'duplicates', label: `Duplicates (${counts.duplicates})` },
           ].map(f => `
             <button
               onclick="entitiesFilter('${f.key}')"
@@ -123,7 +230,7 @@ export function screen() {
       ${filtered.length === 0 ? `
         <div class="empty-state">
           <div class="empty-state-title">${search ? 'No clients match your search.' : 'No clients yet.'}</div>
-          <div class="empty-state-sub">${search ? 'Try a different name or ABN.' : 'Click "+ New client" to add your first client.'}</div>
+          <div class="empty-state-sub">${search ? 'Try a different name, email, DOB or ABN.' : 'Click "+ New client" to add your first client.'}</div>
         </div>
       ` : `
         <div class="table-wrap">
@@ -142,8 +249,18 @@ export function screen() {
               ${filtered.map(e => `
                 <tr onclick="go('entity-detail',{entityId:'${e.entityId}'})">
                   <td>
-                    <div style="font-weight:var(--font-weight-medium);">${e.entityName || '—'}</div>
-                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${e.abn ? 'ABN ' + e.abn : ''}</div>
+                    <div style="font-weight:var(--font-weight-medium);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <span>${e.entityName || '—'}</span>
+                      ${e._dup?.isDuplicate ? `<span class="badge badge-danger">Possible duplicate</span>` : ''}
+                    </div>
+                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                      ${e.abn ? 'ABN ' + e.abn : ''}
+                    </div>
+                    ${e._dup?.isDuplicate ? `
+                      <div style="font-size:var(--font-size-xs);color:var(--color-danger);margin-top:4px;">
+                        ${e._dup.reasons.join(' · ')}
+                      </div>
+                    ` : ''}
                   </td>
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">${e.entityType || '—'}</td>
                   <td>${riskBadge(e.entityRiskRating)}</td>
@@ -166,14 +283,10 @@ export function screen() {
 }
 
 window.entitiesSearch = function(val) {
-  // Store search value in state but don't re-render —
-  // re-rendering destroys the input and loses focus.
-  // Instead update the table rows directly via DOM filtering.
   S.currentParams = { ...S.currentParams, search: val };
   _filterTable(val);
 };
 
-// Filter table rows without re-rendering the whole screen
 function _filterTable(query) {
   const rows = document.querySelectorAll('tbody tr');
   const q    = (query || '').toLowerCase();
