@@ -438,6 +438,10 @@ window.saveClient = async function(fid, etype, individualId) {
   const riskNext   = document.getElementById(`risk-next-${fid}`)?.value           || '';
   const riskNotes  = document.getElementById(`risk-notes-${fid}`)?.value?.trim()  || '';
 
+  // Parent context if opened from Trust / entity key people
+  const parentEntityId = S.currentParams?.returnToEntity || null;
+  const parentRoleType = S.currentParams?.roleType || '';
+
   // Error helper
   const errEl = document.getElementById(`save-error-${fid}`);
   const fail  = msg => {
@@ -495,7 +499,7 @@ window.saveClient = async function(fid, etype, individualId) {
       await saveIndividual(iid, indData);
       addIndividualToState(indData);
 
-      // Link
+      // Self link (individual client record)
       const linkData = {
         linkId: lid, individualId: iid,
         linkedObjectType: 'entity', linkedObjectId: eid,
@@ -504,6 +508,24 @@ window.saveClient = async function(fid, etype, individualId) {
       };
       await saveLink(lid, linkData);
       addLinkToState(linkData);
+
+      // Optional parent link back to trust / company / other entity
+      if (parentEntityId && parentRoleType) {
+        const parentLinkId = genId('link');
+        const parentLinkData = {
+          linkId: parentLinkId,
+          individualId: iid,
+          linkedObjectType: 'entity',
+          linkedObjectId: parentEntityId,
+          roleType: parentRoleType,
+          status: 'active',
+          startDate: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await saveLink(parentLinkId, parentLinkData);
+        addLinkToState(parentLinkData);
+      }
 
       // Verification
       const verRec = {
@@ -537,6 +559,14 @@ window.saveClient = async function(fid, etype, individualId) {
         timestamp: now,
       });
 
+      // If created from a parent Trust / entity, go back there
+      if (parentEntityId) {
+        delete S._draft;
+        toast('Individual created and linked');
+        go('entity-detail', { entityId: parentEntityId });
+        return;
+      }
+
       delete S._draft;
       toast('Client saved');
       go('entity-detail', { entityId: eid });
@@ -566,7 +596,7 @@ window.saveClient = async function(fid, etype, individualId) {
         Object.assign(existing, indFields);
       }
 
-      // Always save a new verification record (append, don't overwrite)
+      // Always save a new verification record
       const verRec = {
         verificationId: genId('ver'), firmId: S.firmId,
         individualId: iid || entityId,
@@ -579,7 +609,7 @@ window.saveClient = async function(fid, etype, individualId) {
       if (!S.verifications) S.verifications = [];
       S.verifications.unshift(verRec);
 
-      // Always save a new screening record (append, don't overwrite)
+      // Always save a new screening record
       const scrRec = {
         screeningId: genId('scr'), firmId: S.firmId,
         individualId: iid || entityId,
