@@ -65,14 +65,31 @@ function getSelfEntityLink(individualId) {
   ) || null;
 }
 
-function findPotentialDuplicate({ fullName, dateOfBirth, email }, excludeIndividualId = '') {
+function findPotentialDuplicate({ fullName, dateOfBirth, email, idNumber }, excludeIndividualId = '') {
   const name = String(fullName || '').trim().toLowerCase();
   const dob  = String(dateOfBirth || '').trim();
   const eml  = String(email || '').trim().toLowerCase();
+  const idNo = String(idNumber || '').trim().toLowerCase();
+
+  if (idNo) {
+    const verDup = (S.verifications || []).find(v => {
+      const sameId = String(v.idNumber || '').trim().toLowerCase() === idNo;
+      if (!sameId) return false;
+      if (!excludeIndividualId) return true;
+      return v.individualId !== excludeIndividualId;
+    });
+    if (verDup) {
+      const matchedInd = (S.individuals || []).find(i => i.individualId === verDup.individualId);
+      return {
+        type: 'idNumber',
+        individual: matchedInd || { fullName: 'Existing record' },
+      };
+    }
+  }
 
   if (!name) return null;
 
-  return (S.individuals || []).find(i => {
+  const indDup = (S.individuals || []).find(i => {
     if (i.isStaff) return false;
     if (excludeIndividualId && i.individualId === excludeIndividualId) return false;
 
@@ -81,7 +98,16 @@ function findPotentialDuplicate({ fullName, dateOfBirth, email }, excludeIndivid
     const sameEmail = eml && String(i.email || '').trim().toLowerCase() === eml;
 
     return sameName && (sameDOB || sameEmail);
-  }) || null;
+  });
+
+  if (indDup) {
+    return {
+      type: 'nameDobOrEmail',
+      individual: indDup,
+    };
+  }
+
+  return null;
 }
 
 function getCDDState(latestVer, latestScr) {
@@ -506,8 +532,8 @@ window.saveClient = async function(fid, etype, individualId) {
   const riskNext   = document.getElementById(`risk-next-${fid}`)?.value || '';
   const riskNotes  = document.getElementById(`risk-notes-${fid}`)?.value?.trim() || '';
 
-  const parentEntityId     = S.currentParams?.returnToEntity || null;
-  const parentRoleType     = S.currentParams?.roleType || '';
+  const parentEntityId       = S.currentParams?.returnToEntity || null;
+  const parentRoleType       = S.currentParams?.roleType || '';
   const existingIndividualId = S.currentParams?.existingIndividualId || null;
 
   const errEl = document.getElementById(`save-error-${fid}`);
@@ -537,7 +563,6 @@ window.saveClient = async function(fid, etype, individualId) {
 
     // ── NEW CLIENT / LINK EXISTING INDIVIDUAL ───────────────────────────────
     if (isNew) {
-      // Reuse an existing individual if explicitly provided
       if (existingIndividualId) {
         const iid = existingIndividualId;
         const existing = (S.individuals || []).find(i => i.individualId === iid) || {};
@@ -691,15 +716,20 @@ window.saveClient = async function(fid, etype, individualId) {
         return;
       }
 
-      // Brand-new individual: guard against obvious duplicates
       const duplicate = findPotentialDuplicate({
         fullName: name,
         dateOfBirth: dob,
         email,
+        idNumber: idNum,
       });
 
       if (duplicate) {
-        return fail(`Possible duplicate found: ${duplicate.fullName}. Use "Search by name" from the parent client page instead of creating a new individual.`);
+        const matchedName = duplicate?.individual?.fullName || 'existing record';
+        const reason = duplicate.type === 'idNumber'
+          ? 'same ID number already exists'
+          : 'same name with matching DOB or email already exists';
+
+        return fail(`Possible duplicate found: ${matchedName} — ${reason}. Use "Search by name" from the parent client page instead of creating a new individual.`);
       }
 
       const eid = genId('ent');
