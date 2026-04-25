@@ -5,10 +5,9 @@
 
 import {
   getFirestore,
-  doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, getDocs, addDoc,
+  doc, getDoc, setDoc, updateDoc,
+  collection, getDocs,
   query, where, orderBy, limit,
-  serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 import { app } from './config.js';
@@ -118,13 +117,21 @@ export async function getIndividualLinks(individualId) {
 }
 
 export async function getEntityLinks(entityId) {
-  const q    = query(collection(db, 'links'), where('linkedObjectId', '==', entityId), where('linkedObjectType', '==', 'entity'));
+  const q    = query(
+    collection(db, 'links'),
+    where('linkedObjectId', '==', entityId),
+    where('linkedObjectType', '==', 'entity')
+  );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
 
 export async function getFirmLinks(firmId) {
-  const q    = query(collection(db, 'links'), where('linkedObjectId', '==', firmId), where('linkedObjectType', '==', 'firm'));
+  const q    = query(
+    collection(db, 'links'),
+    where('linkedObjectId', '==', firmId),
+    where('linkedObjectType', '==', 'firm')
+  );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
@@ -134,12 +141,26 @@ export async function getFirmLinks(firmId) {
 export async function saveVerification(data) {
   const ref = doc(collection(db, 'verifications'));
   const id  = ref.id;
-  await setDoc(ref, { verificationId: id, ...data, createdAt: new Date().toISOString() });
+  await setDoc(ref, {
+    verificationId: id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return id;
 }
 
 export async function getIndividualVerifications(individualId, firmId) {
-  const q    = query(collection(db, 'verifications'), where('individualId', '==', individualId), where('firmId', '==', firmId));
+  const q    = query(
+    collection(db, 'verifications'),
+    where('individualId', '==', individualId),
+    where('firmId', '==', firmId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+export async function getFirmVerifications(firmId) {
+  const q    = query(collection(db, 'verifications'), where('firmId', '==', firmId));
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
@@ -147,12 +168,26 @@ export async function getIndividualVerifications(individualId, firmId) {
 export async function saveScreening(data) {
   const ref = doc(collection(db, 'screenings'));
   const id  = ref.id;
-  await setDoc(ref, { screeningId: id, ...data, createdAt: new Date().toISOString() });
+  await setDoc(ref, {
+    screeningId: id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return id;
 }
 
 export async function getIndividualScreenings(individualId, firmId) {
-  const q    = query(collection(db, 'screenings'), where('individualId', '==', individualId), where('firmId', '==', firmId));
+  const q    = query(
+    collection(db, 'screenings'),
+    where('individualId', '==', individualId),
+    where('firmId', '==', firmId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+export async function getFirmScreenings(firmId) {
+  const q    = query(collection(db, 'screenings'), where('firmId', '==', firmId));
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
@@ -160,12 +195,26 @@ export async function getIndividualScreenings(individualId, firmId) {
 export async function saveTrainingRecord(data) {
   const ref = doc(collection(db, 'training_records'));
   const id  = ref.id;
-  await setDoc(ref, { trainingId: id, ...data, createdAt: new Date().toISOString() });
+  await setDoc(ref, {
+    trainingId: id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return id;
 }
 
 export async function getIndividualTraining(individualId, firmId) {
-  const q    = query(collection(db, 'training_records'), where('individualId', '==', individualId), where('firmId', '==', firmId));
+  const q    = query(
+    collection(db, 'training_records'),
+    where('individualId', '==', individualId),
+    where('firmId', '==', firmId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+export async function getFirmTrainingRecords(firmId) {
+  const q    = query(collection(db, 'training_records'), where('firmId', '==', firmId));
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
@@ -173,12 +222,26 @@ export async function getIndividualTraining(individualId, firmId) {
 export async function saveVettingRecord(data) {
   const ref = doc(collection(db, 'vetting_records'));
   const id  = ref.id;
-  await setDoc(ref, { vettingId: id, ...data, createdAt: new Date().toISOString() });
+  await setDoc(ref, {
+    vettingId: id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return id;
 }
 
 export async function getIndividualVetting(individualId, firmId) {
-  const q    = query(collection(db, 'vetting_records'), where('individualId', '==', individualId), where('firmId', '==', firmId));
+  const q    = query(
+    collection(db, 'vetting_records'),
+    where('individualId', '==', individualId),
+    where('firmId', '==', firmId)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+export async function getFirmVettingRecords(firmId) {
+  const q    = query(collection(db, 'vetting_records'), where('firmId', '==', firmId));
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
@@ -188,7 +251,11 @@ export async function getIndividualVetting(individualId, firmId) {
 export async function saveSMR(data) {
   const ref = doc(collection(db, 'smrs'));
   const id  = ref.id;
-  await setDoc(ref, { smrId: id, ...data, createdAt: new Date().toISOString() });
+  await setDoc(ref, {
+    smrId: id,
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return id;
 }
 
@@ -205,18 +272,21 @@ export async function updateSMR(smrId, fields) {
 }
 
 export async function getFirmSMRs(firmId) {
-  const q    = query(collection(db, 'smrs'), where('firmId', '==', firmId), orderBy('createdAt', 'desc'));
+  const q    = query(
+    collection(db, 'smrs'),
+    where('firmId', '==', firmId),
+    orderBy('createdAt', 'desc')
+  );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
 
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
-// Append-only. Never update or delete audit entries.
 
 export async function saveAuditEntry(data) {
   const ref = doc(collection(db, 'audit_log'));
   await setDoc(ref, {
-    logId:     ref.id,
+    logId: ref.id,
     ...data,
     timestamp: data.timestamp || new Date().toISOString(),
   });
@@ -257,8 +327,6 @@ export async function getEntityAuditLog(firmId, entityId) {
 }
 
 // ─── ID GENERATOR ─────────────────────────────────────────────────────────────
-// Generates a unique ID with a readable prefix.
-// Usage: genId('ind') → 'ind_a1b2c3d4'
 
 export function genId(prefix = 'id') {
   return prefix + '_' + Math.random().toString(36).slice(2, 10);
