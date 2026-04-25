@@ -14,40 +14,40 @@ import { fmtDate, saveEntity, saveLink,
 // ─── CONFIG: per entity type ───────────────────────────────────────────────────
 const ENTITY_CONFIG = {
   'Private Company': {
-    verSources:  ['ASIC Connect search', 'ABN Lookup', 'Company constitution sighted', 'Other'],
-    roles:       ENTITY_ROLES.company,
-    whoToAdd:    'Add all directors and shareholders holding more than 25%.',
-    showACN:     true,
+    verSources: ['ASIC Connect search', 'ABN Lookup', 'Company constitution sighted', 'Other'],
+    roles: ENTITY_ROLES.company,
+    whoToAdd: 'Add all directors and shareholders holding more than 25%.',
+    showACN: true,
   },
   'Trust': {
-    verSources:  ['Trust deed sighted', 'ABN Lookup', 'Other'],
-    roles:       ENTITY_ROLES.trust,
-    whoToAdd:    'Add all trustees, settlor, appointor and beneficiaries holding more than 25%.',
-    showACN:     false,
+    verSources: ['Trust deed sighted', 'ABN Lookup', 'Other'],
+    roles: ENTITY_ROLES.trust,
+    whoToAdd: 'Add all trustees, settlor, appointor and beneficiaries holding more than 25%.',
+    showACN: false,
   },
   'SMSF': {
-    verSources:  ['ATO ABN Lookup', 'Trust deed sighted', 'Other'],
-    roles:       ENTITY_ROLES.smsf,
-    whoToAdd:    'Add all trustees and members of the fund.',
-    showACN:     false,
+    verSources: ['ATO ABN Lookup', 'Trust deed sighted', 'Other'],
+    roles: ENTITY_ROLES.smsf,
+    whoToAdd: 'Add all trustees and members of the fund.',
+    showACN: false,
   },
   'Partnership': {
-    verSources:  ['Partnership agreement sighted', 'ABN Lookup', 'Other'],
-    roles:       ENTITY_ROLES.partnership,
-    whoToAdd:    'Add all partners.',
-    showACN:     false,
+    verSources: ['Partnership agreement sighted', 'ABN Lookup', 'Other'],
+    roles: ENTITY_ROLES.partnership,
+    whoToAdd: 'Add all partners.',
+    showACN: false,
   },
   'Incorporated Association': {
-    verSources:  ['State register search', 'ABN Lookup', 'Constitution sighted', 'Other'],
-    roles:       ENTITY_ROLES.association,
-    whoToAdd:    'Add all responsible persons and committee members.',
-    showACN:     false,
+    verSources: ['State register search', 'ABN Lookup', 'Constitution sighted', 'Other'],
+    roles: ENTITY_ROLES.association,
+    whoToAdd: 'Add all responsible persons and committee members.',
+    showACN: false,
   },
   'Charity / NFP': {
-    verSources:  ['ACNC register search', 'ABN Lookup', 'Other'],
-    roles:       ENTITY_ROLES.charity,
-    whoToAdd:    'Add all responsible persons and board members.',
-    showACN:     false,
+    verSources: ['ACNC register search', 'ABN Lookup', 'Other'],
+    roles: ENTITY_ROLES.charity,
+    whoToAdd: 'Add all responsible persons and board members.',
+    showACN: false,
   },
 };
 
@@ -143,16 +143,14 @@ function getEligibleIndividuals(entityId, query = '') {
     .slice(0, 8);
 }
 
-function renderKPResults(fid, matches, mode = 'search') {
+function renderKPResults(fid, matches) {
   const el = document.getElementById(`kp-results-${fid}`);
   if (!el) return;
 
   if (!matches.length) {
     el.innerHTML = `
       <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);padding:var(--space-2) 0;">
-        ${mode === 'focus'
-          ? 'No available individuals found.'
-          : 'No results — use "Create new individual" below if this person does not already exist.'}
+        No matches found — use "Create new individual" below if this person does not already exist.
       </p>`;
     return;
   }
@@ -366,8 +364,7 @@ export function screen() {
             <div class="form-row">
               <label class="label">Search by name</label>
               <input id="kp-search-${fid}" type="text" class="inp"
-                     placeholder="Type to search existing individuals or email..."
-                     onfocus="kpFocus('${fid}')"
+                     placeholder="Type 2+ letters to search existing individuals or email..."
                      oninput="kpSearch('${fid}', this.value)"
                      autocomplete="off">
             </div>
@@ -473,24 +470,18 @@ window.entityRiskAutoNext = function(fid) {
   el.value = addMonthsISO(date, months);
 };
 
-window.kpFocus = function(fid) {
-  const entityId = S.currentParams?.entityId;
-  if (!entityId) return;
-  renderKPResults(fid, getEligibleIndividuals(entityId, ''), 'focus');
-};
-
 window.kpSearch = function(fid, query) {
   const entityId = S.currentParams?.entityId;
   const el = document.getElementById(`kp-results-${fid}`);
   if (!el || !entityId) return;
 
   const q = String(query || '').trim();
-  if (!q) {
-    renderKPResults(fid, getEligibleIndividuals(entityId, ''), 'focus');
+  if (q.length < 2) {
+    el.innerHTML = '';
     return;
   }
 
-  renderKPResults(fid, getEligibleIndividuals(entityId, q), 'search');
+  renderKPResults(fid, getEligibleIndividuals(entityId, q));
 };
 
 window.kpAdd = async function(fid, individualId, name) {
