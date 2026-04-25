@@ -160,7 +160,7 @@ export function screen() {
           </div>
 
           <div class="form-row">
-            <label class="label">ABN</label>
+            <label class="label ${etype === 'Private Company' ? 'label-required' : ''}">ABN</label>
             ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
           </div>
 
@@ -483,8 +483,6 @@ window.removeKeyPerson = async function(linkId) {
   }
 };
 
-
-
 // Navigate to a key person's individual client record for CDD management
 window.viewKeyPersonCDD = function(individualId) {
   // Find the entity record where this individual is the client (roleType: 'self')
@@ -539,7 +537,16 @@ window.saveEntityClient = async function(fid, etype) {
   };
   if (errEl) errEl.style.display = 'none';
 
+  const abn       = document.getElementById(`f-abn-${fid}`)?.value?.trim()      || '';
+  const acn       = document.getElementById(`f-acn-${fid}`)?.value?.trim()       || '';
+  const address   = document.getElementById(`f-address-${fid}`)?.value?.trim()   || '';
+  const riskRating= document.getElementById(`f-risk-rating-${fid}`)?.value       || '';
+  const riskDate  = document.getElementById(`f-risk-date-${fid}`)?.value          || '';
+  const riskNext  = document.getElementById(`f-risk-next-${fid}`)?.value          || '';
+  const riskNotes = document.getElementById(`f-risk-notes-${fid}`)?.value?.trim() || '';
+
   if (!name)      return fail('Entity name is required.');
+  if (etype === 'Private Company' && !abn) return fail('ABN is required for a Private Company.');
   if (!purpose)   return fail('Nature of business / purpose of relationship is required.');
   if (!verBy)     return fail('Verified by is required.');
   if (!verDate)   return fail('Date verified is required.');
@@ -548,15 +555,6 @@ window.saveEntityClient = async function(fid, etype) {
   const entityId = isNew ? null : S.currentParams?.entityId;
   const now      = new Date().toISOString();
   const config   = ENTITY_CONFIG[etype] || ENTITY_CONFIG['Private Company'];
-
-  // Read all fields
-  const abn       = document.getElementById(`f-abn-${fid}`)?.value?.trim()      || '';
-  const acn       = document.getElementById(`f-acn-${fid}`)?.value?.trim()       || '';
-  const address   = document.getElementById(`f-address-${fid}`)?.value?.trim()   || '';
-  const riskRating= document.getElementById(`f-risk-rating-${fid}`)?.value       || '';
-  const riskDate  = document.getElementById(`f-risk-date-${fid}`)?.value          || '';
-  const riskNext  = document.getElementById(`f-risk-next-${fid}`)?.value          || '';
-  const riskNotes = document.getElementById(`f-risk-notes-${fid}`)?.value?.trim() || '';
 
   try {
     if (isNew) {
