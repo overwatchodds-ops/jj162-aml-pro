@@ -1,6 +1,9 @@
 // ─── INDIVIDUAL / SOLE TRADER CLIENT DETAIL ───────────────────────────────────
 // One screen, one save button, always-editable fields.
-// New mode:      inputs empty, saves entity + individual + link + CDD
+// New mode:
+//   - brand new individual client, OR
+//   - reuse existing individual (existingIndividualId) and create/link entity record
+//
 // Existing mode: inputs pre-filled, saves updates to all records
 //
 // fid = entityId || 'new'  — stable element ID prefix throughout
@@ -46,7 +49,6 @@ function addMonthsISO(dateValue = '', monthsToAdd = 0) {
 
   const result = new Date(yyyy, (mm - 1) + monthsToAdd, dd);
 
-  // Protect end-of-month rollover
   if (result.getDate() !== dd) {
     result.setDate(0);
   }
@@ -54,15 +56,73 @@ function addMonthsISO(dateValue = '', monthsToAdd = 0) {
   return result.toISOString().split('T')[0];
 }
 
+function getSelfEntityLink(individualId) {
+  return (S.links || []).find(l =>
+    l.individualId === individualId &&
+    l.linkedObjectType === 'entity' &&
+    l.roleType === 'self' &&
+    l.status === 'active'
+  ) || null;
+}
+
+function findPotentialDuplicate({ fullName, dateOfBirth, email }, excludeIndividualId = '') {
+  const name = String(fullName || '').trim().toLowerCase();
+  const dob  = String(dateOfBirth || '').trim();
+  const eml  = String(email || '').trim().toLowerCase();
+
+  if (!name) return null;
+
+  return (S.individuals || []).find(i => {
+    if (i.isStaff) return false;
+    if (excludeIndividualId && i.individualId === excludeIndividualId) return false;
+
+    const sameName  = String(i.fullName || '').trim().toLowerCase() === name;
+    const sameDOB   = dob && String(i.dateOfBirth || '').trim() === dob;
+    const sameEmail = eml && String(i.email || '').trim().toLowerCase() === eml;
+
+    return sameName && (sameDOB || sameEmail);
+  }) || null;
+}
+
+function getCDDState(latestVer, latestScr) {
+  const missing = [];
+  if (!latestVer) missing.push('ID verification');
+  if (!latestScr?.result) missing.push('Screening');
+
+  return {
+    complete: missing.length === 0,
+    missing,
+    label: missing.length === 0 ? 'CDD complete' : 'CDD incomplete',
+    detail: missing.length === 0
+      ? 'ID verification and screening recorded'
+      : `Missing: ${missing.join(' + ')}`,
+  };
+}
+
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 
 export function screen() {
-  const { entityId, isNew, entityType: newType } = S.currentParams || {};
+  const {
+    entityId,
+    isNew,
+    entityType: newType,
+    returnToEntity,
+    existingIndividualId,
+  } = S.currentParams || {};
 
-  const fid          = entityId || 'new';
-  const entity       = entityId ? (S.entities || []).find(e => e.entityId === entityId) : null;
-  const etype        = entity?.entityType || newType || S._draft?.entityType || 'Individual';
-  const today        = new Date().toISOString().split('T')[0];
+  const fid             = entityId || 'new';
+  const entity          = entityId ? (S.entities || []).find(e => e.entityId === entityId) : null;
+  const etype           = entity?.entityType || newType || S._draft?.entityType || 'Individual';
+  const parentEntityId  = returnToEntity || null;
+  const existingInd     = existingIndividualId
+    ? (S.individuals || []).find(i => i.individualId === existingIndividualId)
+    : null;
+  const selfLink        = existingInd ? getSelfEntityLink(existingInd.individualId) : null;
+  const selfEntity      = selfLink
+    ? (S.entities || []).find(e => e.entityId === selfLink.linkedObjectId)
+    : null;
+
+  const today = new Date().toISOString().split('T')[0];
 
   if (!isNew && !entity) return `
     <div class="empty-state">
@@ -71,30 +131,40 @@ export function screen() {
               style="margin-top:var(--space-3);">← Clients</button>
     </div>`;
 
-  // Linked individual + latest evidence
   const link = entity
     ? (S.links || []).find(l =>
         l.linkedObjectId === entityId &&
         l.linkedObjectType === 'entity' &&
+        l.roleType === 'self' &&
         l.status === 'active')
     : null;
-  const individualId = link?.individualId || null;
+
+  const individualId = link?.individualId || existingIndividualId || null;
   const ind = individualId
     ? (S.individuals || []).find(i => i.individualId === individualId)
-    : null;
+    : existingInd || null;
 
   const latestVer = individualId
     ? (S.verifications || [])
         .filter(v => v.individualId === individualId)
-        .sort((a, b) => b.createdAt?.localeCompare(a.createdAt))[0] || null
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null
     : null;
+
   const latestScr = individualId
     ? (S.screenings || [])
         .filter(s => s.individualId === individualId)
-        .sort((a, b) => b.date?.localeCompare(a.date))[0] || null
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0] || null
     : null;
 
-  const cddComplete = !!latestVer && !!latestScr?.result;
+  const cddState = getCDDState(latestVer, latestScr);
+
+  const cancelAction = isNew
+    ? (parentEntityId ? `go('entity-detail',{entityId:'${parentEntityId}'})` : 'clearClientType()')
+    : "go('entities')";
+
+  const cancelLabel = isNew
+    ? (parentEntityId ? '← Back to parent client' : 'Cancel')
+    : '← Clients';
 
   return `
     <div>
@@ -103,26 +173,33 @@ export function screen() {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;
                   margin-bottom:var(--space-5);">
         <div>
-          <button onclick="${isNew ? 'clearClientType()' : "go('entities')"}"
+          <button onclick="${cancelAction}"
                   class="btn-ghost"
                   style="padding:0;color:var(--color-text-muted);
                          font-size:var(--font-size-sm);">
-            ← ${isNew ? 'Change type' : 'Clients'}
+            ${cancelLabel}
           </button>
           <h1 class="screen-title" style="margin-top:var(--space-2);">
-            ${isNew ? 'New ' + etype : entity.entityName}
+            ${isNew
+              ? (existingInd ? `Link existing individual — ${existingInd.fullName}` : 'New ' + etype)
+              : entity.entityName}
           </h1>
           <div style="display:flex;align-items:center;gap:var(--space-2);
-                      margin-top:var(--space-1);">
+                      margin-top:var(--space-1);flex-wrap:wrap;">
             <span style="font-size:var(--font-size-xs);
                          color:var(--color-text-muted);">${etype}</span>
             ${!isNew ? `
-              <span class="badge ${cddComplete ? 'badge-success' : 'badge-danger'}">
-                ${cddComplete ? 'CDD complete' : 'Action required'}
+              <span class="badge ${cddState.complete ? 'badge-success' : 'badge-danger'}">
+                ${cddState.label}
               </span>
               ${riskBadge(entity.entityRiskRating)}
             ` : ''}
           </div>
+          ${!isNew && !cddState.complete ? `
+            <div style="font-size:var(--font-size-xs);color:var(--color-danger);margin-top:var(--space-1);">
+              ${cddState.detail}
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -154,7 +231,6 @@ export function screen() {
             ${inp(`f-email-${fid}`, 'email', ind?.email || entity?.email || '', 'jane@example.com')}
           </div>
 
-          <!-- Sole trader fields — leave blank if not applicable -->
           <div style="padding-top:var(--space-3);border-top:0.5px solid var(--color-border-light);margin-top:var(--space-2);">
             <div style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);
                         color:var(--color-text-muted);margin-bottom:var(--space-3);">
@@ -163,11 +239,11 @@ export function screen() {
             <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
               <div class="form-row">
                 <label class="label">Trading / business name</label>
-                ${inp(`f-trading-${fid}`, 'text', entity?.tradingName || '', "e.g. Smith's Plumbing")}
+                ${inp(`f-trading-${fid}`, 'text', entity?.tradingName || selfEntity?.tradingName || '', "e.g. Smith's Plumbing")}
               </div>
               <div class="form-row">
                 <label class="label">ABN</label>
-                ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
+                ${inp(`f-abn-${fid}`, 'text', entity?.abn || selfEntity?.abn || '', '12 345 678 901')}
               </div>
             </div>
           </div>
@@ -178,7 +254,7 @@ export function screen() {
       <!-- CARD 2: ID VERIFICATION -->
       <div class="card" style="margin-bottom:var(--space-3);">
         <div class="section-heading">ID verification</div>
-        ${!isNew && latestVer ? `
+        ${latestVer ? `
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);
                     margin-bottom:var(--space-3);">
             Last recorded: ${latestVer.idType} · ${fmtDate(latestVer.verifiedDate)}
@@ -196,7 +272,7 @@ export function screen() {
           <div class="form-row span-2">
             <label class="label label-required">Staff member conducting CDD</label>
             <select id="staff-by-${fid}" class="inp">
-              ${staffOptions(latestVer?.verifiedBy || entity?.riskAssessedBy)}
+              ${staffOptions(latestVer?.verifiedBy || entity?.riskAssessedBy || selfEntity?.riskAssessedBy)}
             </select>
             <p style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">
               Applies to ID verification, screening and risk assessment below.
@@ -247,7 +323,7 @@ export function screen() {
       <!-- CARD 3: PEP / SANCTIONS SCREENING -->
       <div class="card" style="margin-bottom:var(--space-3);">
         <div class="section-heading">PEP / sanctions screening</div>
-        ${!isNew && latestScr ? `
+        ${latestScr ? `
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);
                     margin-bottom:var(--space-3);">
             Last recorded: ${latestScr.result} · ${latestScr.provider}
@@ -320,7 +396,7 @@ export function screen() {
                     onchange="riskAutoNext('${fid}')">
               <option value="">Select...</option>
               ${['Low','Medium','High'].map(r =>
-                `<option value="${r}" ${entity?.entityRiskRating === r ? 'selected' : ''}>${r}</option>`
+                `<option value="${r}" ${(entity?.entityRiskRating || selfEntity?.entityRiskRating) === r ? 'selected' : ''}>${r}</option>`
               ).join('')}
             </select>
           </div>
@@ -328,20 +404,20 @@ export function screen() {
           <div class="form-row">
             <label class="label">Assessed date</label>
             <input id="risk-date-${fid}" type="date" class="inp"
-                   value="${entity?.riskAssessedDate || today}"
+                   value="${entity?.riskAssessedDate || selfEntity?.riskAssessedDate || today}"
                    onchange="riskAutoNext('${fid}')">
           </div>
 
           <div class="form-row">
             <label class="label">Next review date</label>
-            ${inp(`risk-next-${fid}`, 'date', entity?.riskNextReviewDate || '')}
+            ${inp(`risk-next-${fid}`, 'date', entity?.riskNextReviewDate || selfEntity?.riskNextReviewDate || '')}
           </div>
 
           <div class="form-row span-2">
             <label class="label">Methodology notes</label>
             <textarea id="risk-notes-${fid}" class="inp" rows="2"
                       placeholder="Describe the risk factors considered..."
-            >${entity?.riskMethodology || ''}</textarea>
+            >${entity?.riskMethodology || selfEntity?.riskMethodology || ''}</textarea>
           </div>
 
         </div>
@@ -351,7 +427,6 @@ export function screen() {
         </div>
       </div>
 
-      <!-- SMR LINK (existing only) -->
       ${!isNew ? `
         <div class="card" style="margin-bottom:var(--space-3);">
           <div class="section-heading">SMR</div>
@@ -361,16 +436,15 @@ export function screen() {
         </div>
       ` : ''}
 
-      <!-- ERROR + SINGLE SAVE BUTTON -->
       <div id="save-error-${fid}" class="banner banner-danger"
            style="display:none;margin-bottom:var(--space-3);"></div>
 
       <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-6);">
-        <button onclick="${isNew ? 'clearClientType()' : "go('entities')"}"
+        <button onclick="${cancelAction}"
                 class="btn-sec" style="flex:1;">
-          ${isNew ? 'Cancel' : '← Clients'}
+          ${cancelLabel}
         </button>
-        <button onclick="saveClient('${fid}','${etype}','${individualId}')"
+        <button onclick="saveClient('${fid}','${etype}','${individualId || ''}')"
                 class="btn" style="flex:2;">
           Save client
         </button>
@@ -381,14 +455,12 @@ export function screen() {
 
 // ─── ACTIONS ──────────────────────────────────────────────────────────────────
 
-// Back to type picker
 window.clearClientType = function() {
   delete S._draft;
   S.currentParams = {};
   go('entity-new');
 };
 
-// Auto-set next screening due = date + 1 year
 window.scrAutoNext = function(fid, date) {
   if (!date) return;
   const d = new Date(date);
@@ -397,7 +469,6 @@ window.scrAutoNext = function(fid, date) {
   if (el && !el.value) el.value = d.toISOString().split('T')[0];
 };
 
-// Auto-set next review date from risk rating
 window.riskAutoNext = function(fid) {
   const rating = document.getElementById(`risk-rating-${fid}`)?.value;
   const date   = document.getElementById(`risk-date-${fid}`)?.value;
@@ -409,40 +480,36 @@ window.riskAutoNext = function(fid) {
   el.value = addMonthsISO(date, months);
 };
 
-// ── SINGLE SAVE — handles both new and existing ────────────────────────────────
 window.saveClient = async function(fid, etype, individualId) {
-
-  // Read all form values
   const name       = document.getElementById(`f-name-${fid}`)?.value?.trim();
   const dob        = document.getElementById(`f-dob-${fid}`)?.value;
   const address    = document.getElementById(`f-address-${fid}`)?.value?.trim();
-  const email      = document.getElementById(`f-email-${fid}`)?.value?.trim()    || '';
-  const abn        = document.getElementById(`f-abn-${fid}`)?.value?.trim()      || '';
-  const trading    = document.getElementById(`f-trading-${fid}`)?.value?.trim()  || '';
+  const email      = document.getElementById(`f-email-${fid}`)?.value?.trim() || '';
+  const abn        = document.getElementById(`f-abn-${fid}`)?.value?.trim() || '';
+  const trading    = document.getElementById(`f-trading-${fid}`)?.value?.trim() || '';
   const idNum      = document.getElementById(`ver-num-${fid}`)?.value?.trim();
-  const idType     = document.getElementById(`ver-type-${fid}`)?.value           || '';
-  const verState   = document.getElementById(`ver-state-${fid}`)?.value?.trim()  || '';
-  const verExpiry  = document.getElementById(`ver-expiry-${fid}`)?.value          || '';
+  const idType     = document.getElementById(`ver-type-${fid}`)?.value || '';
+  const verState   = document.getElementById(`ver-state-${fid}`)?.value?.trim() || '';
+  const verExpiry  = document.getElementById(`ver-expiry-${fid}`)?.value || '';
   const verBy      = document.getElementById(`staff-by-${fid}`)?.value;
   const verDate    = document.getElementById(`ver-date-${fid}`)?.value;
-  const verMethod  = document.getElementById(`ver-method-${fid}`)?.value          || '';
+  const verMethod  = document.getElementById(`ver-method-${fid}`)?.value || '';
   const scrProv    = document.getElementById(`scr-provider-${fid}`)?.value?.trim();
   const scrDate    = document.getElementById(`scr-date-${fid}`)?.value;
-  const scrResult  = document.getElementById(`scr-result-${fid}`)?.value          || '';
-  const scrRef     = document.getElementById(`scr-ref-${fid}`)?.value?.trim()     || '';
-  const scrBy      = document.getElementById(`staff-by-${fid}`)?.value             || '';
-  const scrNext    = document.getElementById(`scr-next-${fid}`)?.value            || '';
-  const riskRating = document.getElementById(`risk-rating-${fid}`)?.value         || '';
-  const riskBy     = document.getElementById(`staff-by-${fid}`)?.value             || '';
-  const riskDate   = document.getElementById(`risk-date-${fid}`)?.value           || '';
-  const riskNext   = document.getElementById(`risk-next-${fid}`)?.value           || '';
-  const riskNotes  = document.getElementById(`risk-notes-${fid}`)?.value?.trim()  || '';
+  const scrResult  = document.getElementById(`scr-result-${fid}`)?.value || '';
+  const scrRef     = document.getElementById(`scr-ref-${fid}`)?.value?.trim() || '';
+  const scrBy      = document.getElementById(`staff-by-${fid}`)?.value || '';
+  const scrNext    = document.getElementById(`scr-next-${fid}`)?.value || '';
+  const riskRating = document.getElementById(`risk-rating-${fid}`)?.value || '';
+  const riskBy     = document.getElementById(`staff-by-${fid}`)?.value || '';
+  const riskDate   = document.getElementById(`risk-date-${fid}`)?.value || '';
+  const riskNext   = document.getElementById(`risk-next-${fid}`)?.value || '';
+  const riskNotes  = document.getElementById(`risk-notes-${fid}`)?.value?.trim() || '';
 
-  // Parent context if opened from Trust / entity key people
-  const parentEntityId = S.currentParams?.returnToEntity || null;
-  const parentRoleType = S.currentParams?.roleType || '';
+  const parentEntityId     = S.currentParams?.returnToEntity || null;
+  const parentRoleType     = S.currentParams?.roleType || '';
+  const existingIndividualId = S.currentParams?.existingIndividualId || null;
 
-  // Error helper
   const errEl = document.getElementById(`save-error-${fid}`);
   const fail  = msg => {
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
@@ -451,7 +518,6 @@ window.saveClient = async function(fid, etype, individualId) {
   };
   if (errEl) errEl.style.display = 'none';
 
-  // Validate
   if (!name)    return fail('Full legal name is required.');
   if (!dob)     return fail('Date of birth is required.');
   if (!address) return fail('Residential address is required.');
@@ -469,13 +535,177 @@ window.saveClient = async function(fid, etype, individualId) {
     const { saveIndividual, updateEntity } = await import('../../firebase/firestore.js');
     const { addIndividualToState }         = await import('../../state/index.js');
 
-    // ── NEW CLIENT ────────────────────────────────────────────────────────────
+    // ── NEW CLIENT / LINK EXISTING INDIVIDUAL ───────────────────────────────
     if (isNew) {
+      // Reuse an existing individual if explicitly provided
+      if (existingIndividualId) {
+        const iid = existingIndividualId;
+        const existing = (S.individuals || []).find(i => i.individualId === iid) || {};
+        const indData = {
+          ...existing,
+          fullName: name,
+          dateOfBirth: dob,
+          address,
+          email,
+          isStaff: false,
+          updatedAt: now,
+        };
+        await saveIndividual(iid, indData);
+        if ((S.individuals || []).some(i => i.individualId === iid)) {
+          Object.assign(existing, indData);
+        } else {
+          addIndividualToState({ individualId: iid, firmId: S.firmId, createdAt: now, ...indData });
+        }
+
+        let selfLink = getSelfEntityLink(iid);
+        let selfEntityId = selfLink?.linkedObjectId || null;
+
+        const entityFields = {
+          entityName: name,
+          entityType: etype,
+          dateOfBirth: dob,
+          registeredAddress: address,
+          email,
+          abn,
+          tradingName: trading,
+          entityRiskRating: riskRating || null,
+          riskAssessedBy: riskBy,
+          riskAssessedDate: riskDate,
+          riskNextReviewDate: riskNext,
+          riskMethodology: riskNotes,
+          updatedAt: now,
+        };
+
+        if (selfEntityId) {
+          await updateEntity(selfEntityId, entityFields);
+          const selfEntity = (S.entities || []).find(e => e.entityId === selfEntityId);
+          if (selfEntity) Object.assign(selfEntity, entityFields);
+        } else {
+          selfEntityId = genId('ent');
+          const entityData = {
+            entityId: selfEntityId,
+            firmId: S.firmId,
+            createdAt: now,
+            ...entityFields,
+          };
+          await saveEntity(selfEntityId, entityData);
+          addEntityToState(entityData);
+
+          const selfLinkId = genId('link');
+          const selfLinkData = {
+            linkId: selfLinkId,
+            individualId: iid,
+            linkedObjectType: 'entity',
+            linkedObjectId: selfEntityId,
+            roleType: 'self',
+            status: 'active',
+            startDate: now,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await saveLink(selfLinkId, selfLinkData);
+          addLinkToState(selfLinkData);
+          selfLink = selfLinkData;
+        }
+
+        if (parentEntityId && parentRoleType) {
+          const existingParentLink = (S.links || []).find(l =>
+            l.individualId === iid &&
+            l.linkedObjectType === 'entity' &&
+            l.linkedObjectId === parentEntityId &&
+            l.roleType === parentRoleType &&
+            l.status === 'active'
+          );
+
+          if (!existingParentLink) {
+            const parentLinkId = genId('link');
+            const parentLinkData = {
+              linkId: parentLinkId,
+              individualId: iid,
+              linkedObjectType: 'entity',
+              linkedObjectId: parentEntityId,
+              roleType: parentRoleType,
+              status: 'active',
+              startDate: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await saveLink(parentLinkId, parentLinkData);
+            addLinkToState(parentLinkData);
+          }
+        }
+
+        const verRec = {
+          verificationId: genId('ver'),
+          firmId: S.firmId,
+          individualId: iid,
+          idType,
+          idNumber: idNum,
+          issuingState: verState,
+          expiryDate: verExpiry,
+          verifiedBy: verBy,
+          verifiedDate: verDate,
+          verifiedMethod: verMethod,
+          createdAt: now,
+        };
+        await saveVerification(verRec);
+        if (!S.verifications) S.verifications = [];
+        S.verifications.unshift(verRec);
+
+        const scrRec = {
+          screeningId: genId('scr'),
+          firmId: S.firmId,
+          individualId: iid,
+          provider: scrProv,
+          date: scrDate,
+          result: scrResult,
+          referenceId: scrRef,
+          completedBy: scrBy,
+          nextDueDate: scrNext,
+          createdAt: now,
+        };
+        await saveScreening(scrRec);
+        if (!S.screenings) S.screenings = [];
+        S.screenings.unshift(scrRec);
+
+        await saveAuditEntry({
+          firmId: S.firmId,
+          userId: S.individualId,
+          userName: S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
+          action: 'individual_linked',
+          targetType: 'entity',
+          targetId: parentEntityId || selfEntityId,
+          targetName: name,
+          detail: `Existing individual reused — ${name}${parentEntityId ? ' — linked back to parent client' : ''}`,
+          timestamp: now,
+        });
+
+        delete S._draft;
+        if (parentEntityId) {
+          toast('Existing individual linked');
+          go('entity-detail', { entityId: parentEntityId });
+        } else {
+          toast('Client saved');
+          go('entity-detail', { entityId: selfEntityId });
+        }
+        return;
+      }
+
+      // Brand-new individual: guard against obvious duplicates
+      const duplicate = findPotentialDuplicate({
+        fullName: name,
+        dateOfBirth: dob,
+        email,
+      });
+
+      if (duplicate) {
+        return fail(`Possible duplicate found: ${duplicate.fullName}. Use "Search by name" from the parent client page instead of creating a new individual.`);
+      }
+
       const eid = genId('ent');
       const iid = genId('ind');
       const lid = genId('link');
 
-      // Entity
       const entityData = {
         entityId: eid, firmId: S.firmId,
         entityName: name, entityType: etype,
@@ -489,7 +719,6 @@ window.saveClient = async function(fid, etype, individualId) {
       await saveEntity(eid, entityData);
       addEntityToState(entityData);
 
-      // Individual
       const indData = {
         individualId: iid, firmId: S.firmId,
         fullName: name, dateOfBirth: dob,
@@ -499,7 +728,6 @@ window.saveClient = async function(fid, etype, individualId) {
       await saveIndividual(iid, indData);
       addIndividualToState(indData);
 
-      // Self link (individual client record)
       const linkData = {
         linkId: lid, individualId: iid,
         linkedObjectType: 'entity', linkedObjectId: eid,
@@ -509,7 +737,6 @@ window.saveClient = async function(fid, etype, individualId) {
       await saveLink(lid, linkData);
       addLinkToState(linkData);
 
-      // Optional parent link back to trust / company / other entity
       if (parentEntityId && parentRoleType) {
         const parentLinkId = genId('link');
         const parentLinkData = {
@@ -527,7 +754,6 @@ window.saveClient = async function(fid, etype, individualId) {
         addLinkToState(parentLinkData);
       }
 
-      // Verification
       const verRec = {
         verificationId: genId('ver'), firmId: S.firmId, individualId: iid,
         idType, idNumber: idNum, issuingState: verState,
@@ -539,7 +765,6 @@ window.saveClient = async function(fid, etype, individualId) {
       if (!S.verifications) S.verifications = [];
       S.verifications.unshift(verRec);
 
-      // Screening
       const scrRec = {
         screeningId: genId('scr'), firmId: S.firmId, individualId: iid,
         provider: scrProv, date: scrDate, result: scrResult,
@@ -559,80 +784,99 @@ window.saveClient = async function(fid, etype, individualId) {
         timestamp: now,
       });
 
-      // If created from a parent Trust / entity, go back there
+      delete S._draft;
       if (parentEntityId) {
-        delete S._draft;
         toast('Individual created and linked');
         go('entity-detail', { entityId: parentEntityId });
-        return;
+      } else {
+        toast('Client saved');
+        go('entity-detail', { entityId: eid });
       }
-
-      delete S._draft;
-      toast('Client saved');
-      go('entity-detail', { entityId: eid });
+      return;
+    }
 
     // ── EXISTING CLIENT ───────────────────────────────────────────────────────
-    } else {
-      const iid = individualId !== 'null' ? individualId : null;
+    const iid = individualId || '';
 
-      // Update entity
-      const entityFields = {
-        entityName: name, registeredAddress: address,
-        email, abn, tradingName: trading,
-        entityRiskRating: riskRating || null,
-        riskAssessedBy: riskBy, riskAssessedDate: riskDate,
-        riskNextReviewDate: riskNext, riskMethodology: riskNotes,
+    const entityFields = {
+      entityName: name,
+      dateOfBirth: dob,
+      registeredAddress: address,
+      email,
+      abn,
+      tradingName: trading,
+      entityRiskRating: riskRating || null,
+      riskAssessedBy: riskBy,
+      riskAssessedDate: riskDate,
+      riskNextReviewDate: riskNext,
+      riskMethodology: riskNotes,
+      updatedAt: now,
+    };
+    await updateEntity(entityId, entityFields);
+    const entity = S.entities.find(e => e.entityId === entityId);
+    if (entity) Object.assign(entity, entityFields);
+
+    if (iid) {
+      const existing = S.individuals?.find(i => i.individualId === iid) || {};
+      const indFields = {
+        ...existing,
+        fullName: name,
+        dateOfBirth: dob,
+        address,
+        email,
         updatedAt: now,
       };
-      await updateEntity(entityId, entityFields);
-      const entity = S.entities.find(e => e.entityId === entityId);
-      if (entity) Object.assign(entity, entityFields);
-
-      // Update individual
-      if (iid) {
-        const existing = S.individuals?.find(i => i.individualId === iid) || {};
-        const indFields = { ...existing, fullName: name, dateOfBirth: dob, address, email, updatedAt: now };
-        await saveIndividual(iid, indFields);
-        Object.assign(existing, indFields);
-      }
-
-      // Always save a new verification record
-      const verRec = {
-        verificationId: genId('ver'), firmId: S.firmId,
-        individualId: iid || entityId,
-        idType, idNumber: idNum, issuingState: verState,
-        expiryDate: verExpiry, verifiedBy: verBy,
-        verifiedDate: verDate, verifiedMethod: verMethod,
-        createdAt: now,
-      };
-      await saveVerification(verRec);
-      if (!S.verifications) S.verifications = [];
-      S.verifications.unshift(verRec);
-
-      // Always save a new screening record
-      const scrRec = {
-        screeningId: genId('scr'), firmId: S.firmId,
-        individualId: iid || entityId,
-        provider: scrProv, date: scrDate, result: scrResult,
-        referenceId: scrRef, completedBy: scrBy, nextDueDate: scrNext,
-        createdAt: now,
-      };
-      await saveScreening(scrRec);
-      if (!S.screenings) S.screenings = [];
-      S.screenings.unshift(scrRec);
-
-      await saveAuditEntry({
-        firmId: S.firmId, userId: S.individualId,
-        userName: S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
-        action: 'entity_updated', targetType: 'entity',
-        targetId: entityId, targetName: name,
-        detail: `Client updated — ${name} — new verification and screening recorded`,
-        timestamp: now,
-      });
-
-      toast('Client saved');
-      go('entity-detail', { entityId });
+      await saveIndividual(iid, indFields);
+      Object.assign(existing, indFields);
     }
+
+    const verRec = {
+      verificationId: genId('ver'),
+      firmId: S.firmId,
+      individualId: iid || entityId,
+      idType,
+      idNumber: idNum,
+      issuingState: verState,
+      expiryDate: verExpiry,
+      verifiedBy: verBy,
+      verifiedDate: verDate,
+      verifiedMethod: verMethod,
+      createdAt: now,
+    };
+    await saveVerification(verRec);
+    if (!S.verifications) S.verifications = [];
+    S.verifications.unshift(verRec);
+
+    const scrRec = {
+      screeningId: genId('scr'),
+      firmId: S.firmId,
+      individualId: iid || entityId,
+      provider: scrProv,
+      date: scrDate,
+      result: scrResult,
+      referenceId: scrRef,
+      completedBy: scrBy,
+      nextDueDate: scrNext,
+      createdAt: now,
+    };
+    await saveScreening(scrRec);
+    if (!S.screenings) S.screenings = [];
+    S.screenings.unshift(scrRec);
+
+    await saveAuditEntry({
+      firmId: S.firmId,
+      userId: S.individualId,
+      userName: S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
+      action: 'entity_updated',
+      targetType: 'entity',
+      targetId: entityId,
+      targetName: name,
+      detail: `Client updated — ${name} — new verification and screening recorded`,
+      timestamp: now,
+    });
+
+    toast('Client saved');
+    go('entity-detail', { entityId });
 
   } catch (err) {
     fail('Failed to save. Please try again.');
