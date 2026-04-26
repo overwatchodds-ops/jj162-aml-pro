@@ -26,7 +26,7 @@ const ENTITY_CONFIG = {
   'Private Company': {
     verSources: ['ASIC Connect search', 'ABN Lookup', 'Company constitution sighted', 'Other'],
     roles:      ENTITY_ROLES.company,
-    whoToAdd:   'Add all directors and shareholders holding more than 25%.',
+    whoToAdd:   'Add all directors, beneficial owners/controllers (people who own 25% or more or otherwise control the company), the secretary if relevant, and anyone authorised to act for the company.',
     showACN:    true,
   },
   'Trust': {
@@ -38,25 +38,25 @@ const ENTITY_CONFIG = {
   'SMSF': {
     verSources: ['ATO ABN Lookup', 'Trust deed sighted', 'Other'],
     roles:      ENTITY_ROLES.smsf,
-    whoToAdd:   'Add all trustees and members of the fund.',
+    whoToAdd:   'Add all individual trustees/members. If the SMSF has a corporate trustee, add the relevant corporate trustee directors/controllers.',
     showACN:    false,
   },
   'Partnership': {
     verSources: ['Partnership agreement sighted', 'ABN Lookup', 'Other'],
     roles:      ENTITY_ROLES.partnership,
-    whoToAdd:   'Add all partners.',
+    whoToAdd:   'Add all partners and anyone authorised to act for the partnership. For corporate partners, record the relevant directors/beneficial owners/controllers.',
     showACN:    false,
   },
   'Incorporated Association': {
     verSources: ['State register search', 'ABN Lookup', 'Constitution sighted', 'Other'],
     roles:      ENTITY_ROLES.association,
-    whoToAdd:   'Add all responsible persons and committee members.',
+    whoToAdd:   'Add responsible persons, committee members or office holders, and anyone authorised to act for the association.',
     showACN:    false,
   },
   'Charity / NFP': {
     verSources: ['ACNC register search', 'ABN Lookup', 'Other'],
     roles:      ENTITY_ROLES.charity,
-    whoToAdd:   'Add all responsible persons and board members.',
+    whoToAdd:   'Add responsible persons, board members or office holders, and anyone authorised to act for the charity or NFP.',
     showACN:    false,
   },
 };
