@@ -487,7 +487,7 @@ window.kpAdd = async function(fid, individualId, name) {
     const now     = new Date().toISOString();
     const lid     = genId('link');
     const linkData = {
-      linkId: lid, individualId,
+      linkId: lid, individualId, firmId: S.firmId,
       linkedObjectType: 'entity', linkedObjectId: entityId,
       roleType, status: 'active',
       startDate: now, createdAt: now, updatedAt: now,
