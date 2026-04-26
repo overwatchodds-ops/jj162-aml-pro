@@ -32,7 +32,7 @@ const ENTITY_CONFIG = {
   'Trust': {
     verSources: ['Trust deed sighted', 'ABN Lookup', 'Other'],
     roles:      ENTITY_ROLES.trust,
-    whoToAdd:   'Add all trustees, settlor, appointor and beneficiaries holding more than 25%.',
+    whoToAdd:   'Add all trustees, any corporate trustee, the appointor, settlor, guardian/protector if named, and all named beneficiaries. If beneficiaries are described as a class rather than individually named, record the beneficiary class description instead. For corporate trustees, also record the relevant directors/beneficial owners.',
     showACN:    false,
   },
   'SMSF': {
