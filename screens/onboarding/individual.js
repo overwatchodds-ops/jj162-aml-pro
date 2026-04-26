@@ -73,7 +73,7 @@ window.obIndNext = async function() {
 };
 
 async function commitOnboarding() {
-  const { saveFirmProfile, saveIndividual, saveAuditEntry } = await import('../../firebase/firestore.js');
+  const { saveFirmProfile, saveIndividual, saveFirmUser, saveAuditEntry } = await import('../../firebase/firestore.js');
 
   const firmData = S._onboardingFirm       || {};
   const indData  = S._onboardingIndividual || {};
@@ -83,6 +83,18 @@ async function commitOnboarding() {
   const firmId       = 'firm_' + uid;
   const individualId = 'ind_'  + uid;
   const linkId       = 'link_' + uid + '_firm';
+
+  // firm_users MUST be written first — Firestore rules call getUserFirmId() which reads
+  // this collection. All subsequent writes depend on it existing.
+  await saveFirmUser(uid, {
+    uid,
+    firmId,
+    individualId,
+    role:        'owner',
+    displayName: indData.name,
+    email:       indData.email || S.user?.email || '',
+    createdAt:   now,
+  });
 
   await saveFirmProfile(firmId, {
     firmId,
