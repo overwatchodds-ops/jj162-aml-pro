@@ -401,7 +401,7 @@ export const ROLE_LABELS = {
 
   // Entity roles — company
   director:                 'Director',
-  beneficial_owner_25:      'Beneficial Owner (≥25%)',
+  beneficial_owner_25:      'Beneficial Owner / Controller (≥25% or control)',
   secretary:                'Secretary',
   authorised_rep:           'Authorised Representative',
 
