@@ -49,44 +49,44 @@ export const RULES_MATRIX = [
   // ─── FIRM CONTEXT — KEY PERSONNEL ─────────────────────────────────────────
   // Functions: owner / amlco / senior_manager
 
-  { id: 1,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'id_verification',   level: 'required', activeFlag: true },
-  { id: 2,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 3,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'police_check',      level: 'required', activeFlag: true },
-  { id: 4,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'bankruptcy_check',  level: 'required', activeFlag: true },
-  { id: 5,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'training_enhanced', level: 'required', activeFlag: true },
-  { id: 6,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 1,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'id_verification',    level: 'required', activeFlag: true },
+  { id: 2,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 3,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'police_check',       level: 'required', activeFlag: true },
+  { id: 4,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'bankruptcy_check',   level: 'required', activeFlag: true },
+  { id: 5,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'training_enhanced',  level: 'required', activeFlag: true },
+  { id: 6,  contextType: 'firm', entitySubtype: null, roleType: 'owner',          requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
-  { id: 7,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'id_verification',   level: 'required', activeFlag: true },
-  { id: 8,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 9,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'police_check',      level: 'required', activeFlag: true },
-  { id: 10, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'bankruptcy_check',  level: 'required', activeFlag: true },
-  { id: 11, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'training_enhanced', level: 'required', activeFlag: true },
-  { id: 12, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 7,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'id_verification',    level: 'required', activeFlag: true },
+  { id: 8,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 9,  contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'police_check',       level: 'required', activeFlag: true },
+  { id: 10, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'bankruptcy_check',   level: 'required', activeFlag: true },
+  { id: 11, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'training_enhanced',  level: 'required', activeFlag: true },
+  { id: 12, contextType: 'firm', entitySubtype: null, roleType: 'amlco',          requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
-  { id: 13, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'id_verification',   level: 'required', activeFlag: true },
-  { id: 14, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 15, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'police_check',      level: 'required', activeFlag: true },
-  { id: 16, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'bankruptcy_check',  level: 'required', activeFlag: true },
-  { id: 17, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'training_enhanced', level: 'required', activeFlag: true },
-  { id: 18, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 13, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'id_verification',    level: 'required', activeFlag: true },
+  { id: 14, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 15, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'police_check',       level: 'required', activeFlag: true },
+  { id: 16, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'bankruptcy_check',   level: 'required', activeFlag: true },
+  { id: 17, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'training_enhanced',  level: 'required', activeFlag: true },
+  { id: 18, contextType: 'firm', entitySubtype: null, roleType: 'senior_manager', requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
   // ─── FIRM CONTEXT — STANDARD AML/CTF STAFF ────────────────────────────────
 
-  { id: 19, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 20, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'training_standard', level: 'required', activeFlag: true },
-  { id: 21, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 19, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 20, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'training_standard',  level: 'required', activeFlag: true },
+  { id: 21, contextType: 'firm', entitySubtype: null, roleType: 'staff_cdd',     requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
-  { id: 22, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 23, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'training_standard', level: 'required', activeFlag: true },
-  { id: 24, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 22, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 23, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'training_standard',  level: 'required', activeFlag: true },
+  { id: 24, contextType: 'firm', entitySubtype: null, roleType: 'staff_screen',  requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
-  { id: 25, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 26, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'training_standard', level: 'required', activeFlag: true },
-  { id: 27, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 25, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 26, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'training_standard',  level: 'required', activeFlag: true },
+  { id: 27, contextType: 'firm', entitySubtype: null, roleType: 'staff_monitor', requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
-  { id: 28, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'screening',         level: 'required', activeFlag: true },
-  { id: 29, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'training_standard', level: 'required', activeFlag: true },
-  { id: 30, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'declaration_signed',level: 'required', activeFlag: true },
+  { id: 28, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'screening',          level: 'required', activeFlag: true },
+  { id: 29, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'training_standard',  level: 'required', activeFlag: true },
+  { id: 30, contextType: 'firm', entitySubtype: null, roleType: 'staff_smr',     requirementCode: 'declaration_signed', level: 'required', activeFlag: true },
 
   // ─── FIRM CONTEXT — NO AML/CTF FUNCTIONS ──────────────────────────────────
 
@@ -98,7 +98,7 @@ export const RULES_MATRIX = [
   { id: 33, contextType: 'firm', entitySubtype: null, roleType: 'direct_client', requirementCode: 'screening',       level: 'required', activeFlag: true },
 
   // ─── ENTITY CONTEXT — PRIVATE COMPANY ─────────────────────────────────────
-  // Roles: Director / Beneficial Owner ≥25% / Secretary / Authorised Representative
+  // Roles: Director / Beneficial Owner or Controller / Secretary / Authorised Representative
 
   { id: 34, contextType: 'entity', entitySubtype: 'company', roleType: 'director',            requirementCode: 'id_verification', level: 'required', activeFlag: true },
   { id: 35, contextType: 'entity', entitySubtype: 'company', roleType: 'director',            requirementCode: 'screening',       level: 'required', activeFlag: true },
@@ -159,6 +159,7 @@ export const RULES_MATRIX = [
   { id: 80, contextType: 'entity', entitySubtype: 'trust', roleType: 'beneficiary',        requirementCode: 'screening',       level: 'required', activeFlag: true },
 
   // Beneficiary classes are recorded as a class description, not individual CDD.
+  // This role is retained for future use, but it is not shown in the Trust dropdown.
   { id: 81, contextType: 'entity', entitySubtype: 'trust', roleType: 'beneficiary_class',  requirementCode: 'assessment_recorded', level: 'required', activeFlag: true },
 
   { id: 82, contextType: 'entity', entitySubtype: 'trust', roleType: 'guardian_protector', requirementCode: 'id_verification', level: 'required', activeFlag: true },
@@ -426,9 +427,6 @@ export const ROLE_LABELS = {
   // Entity roles — individual / sole trader
   self:                     'Individual / Sole Trader',
 
-  // Entity roles — other
-  // Note: "owner" is also used for firm principals, so this shared label is intentionally broad.
-
   // Entity roles — association
   responsible_person:       'Responsible Person',
   committee_member:         'Committee Member',
@@ -440,6 +438,10 @@ export const ROLE_LABELS = {
 // ─── ENTITY SUBTYPE ROLES ─────────────────────────────────────────────────────
 // Roles available per entity subtype.
 // Used to populate role dropdowns when adding a member to an entity.
+//
+// Important:
+// beneficiary_class is intentionally NOT shown in the Trust dropdown.
+// It should be recorded in the Trust entity details, not as a fake person record.
 
 export const ENTITY_ROLES = {
   company:     ['director', 'beneficial_owner_25', 'secretary', 'authorised_rep'],
@@ -452,7 +454,6 @@ export const ENTITY_ROLES = {
     'appointor',
     'guardian_protector',
     'beneficiary',
-    'beneficiary_class',
     'beneficial_owner',
   ],
 
