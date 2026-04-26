@@ -20,8 +20,10 @@ export function screen() {
       <div class="card">
         <div class="section-heading">Export all data</div>
         <p style="font-size:var(--font-size-xs);color:var(--color-text-secondary);line-height:var(--line-height-relaxed);margin-bottom:var(--space-4);">
-          Download a complete JSON export of your firm's SimpleAML Pro records, including firm profile,
-          individuals, entities, links, verification records, screening records, vetting records, SMRs and audit log.
+          Download a JSON export of the SimpleAML Pro records currently loaded for your firm.
+          The export includes firm profile, individuals, entities, links, verification records,
+          screening records, training records, vetting records and SMRs. Audit log export is attempted
+          separately and included where available.
         </p>
         <button onclick="exportAllData()" class="btn-sec btn-sm">Download JSON export</button>
       </div>
@@ -63,13 +65,29 @@ export function screen() {
 // ─── ACTIONS ──────────────────────────────────────────────────────────────────
 
 window.exportAllData = async function() {
-  try {
-    const auditLog = await getFirmAuditLog(S.firmId, 10000);
+  let auditLog = [];
+  let auditLogExportError = null;
 
+  try {
+    auditLog = await getFirmAuditLog(S.firmId, 10000);
+  } catch (err) {
+    auditLogExportError = {
+      message: err?.message || 'Audit log export failed',
+      code: err?.code || null,
+      note: 'Core firm records were still exported. Audit log can be exported separately after Firebase rules/indexes are confirmed.',
+    };
+    console.warn('Audit log export skipped:', err);
+  }
+
+  try {
     const exportData = {
       exportDate:    new Date().toISOString(),
-      firmId:        S.firmId,
-      firm:          S.firm,
+      exportSource:  'SimpleAML Pro',
+      exportVersion: 'beta',
+      firmId:        S.firmId || null,
+      userId:        S.individualId || null,
+
+      firm:          S.firm || null,
       individuals:   S.individuals || [],
       entities:      S.entities || [],
       links:         S.links || [],
@@ -78,7 +96,9 @@ window.exportAllData = async function() {
       training:      S.training || [],
       vetting:       S.vetting || [],
       smrs:          S.smrs || [],
-      auditLog:      auditLog || [],
+
+      auditLog,
+      auditLogExportError,
     };
 
     const blob = new Blob(
@@ -91,10 +111,18 @@ window.exportAllData = async function() {
 
     a.href = url;
     a.download = `simpleaml-pro-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
-    toast('Export downloaded');
+
+    if (auditLogExportError) {
+      toast('Backup downloaded. Audit log was skipped.', 'err');
+    } else {
+      toast('Backup downloaded');
+    }
   } catch (err) {
     toast('Export failed. Please try again.', 'err');
     console.error(err);
@@ -137,7 +165,10 @@ window.exportIndividualsCSV = function() {
 
   a.href = url;
   a.download = `simpleaml-individuals-${new Date().toISOString().split('T')[0]}.csv`;
+
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 
   URL.revokeObjectURL(url);
   toast('CSV downloaded');
