@@ -260,6 +260,50 @@ export async function getFirmVettingRecords(firmId) {
   return snap.docs.map(d => d.data());
 }
 
+
+// ─── INVITES ──────────────────────────────────────────────────────────────────
+// Invites are created by the firm owner and claimed by the invitee.
+// Each invite has a unique ID used in the invite URL.
+// Publicly readable by invite ID so unauthenticated users can view the invite.
+
+export async function saveInvite(inviteId, data) {
+  await setDoc(doc(db, 'invites', inviteId), {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getInvite(inviteId) {
+  const snap = await getDoc(doc(db, 'invites', inviteId));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function claimInvite(inviteId) {
+  await updateDoc(doc(db, 'invites', inviteId), {
+    status:    'claimed',
+    claimedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getFirmInvites(firmId) {
+  const q    = query(
+    collection(db, 'invites'),
+    where('firmId', '==', firmId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+// ─── FIRM USERS (read all users for a firm) ───────────────────────────────────
+
+export async function getFirmUsers(firmId) {
+  const q    = query(collection(db, 'firm_users'), where('firmId', '==', firmId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
 // ─── SMR ──────────────────────────────────────────────────────────────────────
 
 export async function saveSMR(data) {
