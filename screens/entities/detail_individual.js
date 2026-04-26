@@ -140,8 +140,9 @@ async function linkToParent(iid, parentEntityId, parentRoleType, now) {
   );
   if (alreadyLinked) return;
   const lid = genId('link');
+  const firmId = S.firmId;
   const linkData = {
-    linkId: lid, individualId: iid,
+    linkId: lid, individualId: iid, firmId,
     linkedObjectType: 'entity', linkedObjectId: parentEntityId,
     roleType: parentRoleType, status: 'active',
     startDate: now, createdAt: now, updatedAt: now,
@@ -644,7 +645,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
           addEntityToState(entityData);
           const lid = genId('link');
           const selfLinkData = {
-            linkId: lid, individualId: iid,
+            linkId: lid, individualId: iid, firmId,
             linkedObjectType: 'entity', linkedObjectId: selfEntityId,
             roleType: 'self', status: 'active',
             startDate: now, createdAt: now, updatedAt: now,
@@ -689,7 +690,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
       addIndividualToState({ individualId: iid, firmId, fullName: name, dateOfBirth: dob, address, email, isStaff: false, createdAt: now, updatedAt: now });
 
       const selfLinkData = {
-        linkId: genId('link'), individualId: iid,
+        linkId: genId('link'), individualId: iid, firmId,
         linkedObjectType: 'entity', linkedObjectId: eid,
         roleType: 'self', status: 'active',
         startDate: now, createdAt: now, updatedAt: now,
