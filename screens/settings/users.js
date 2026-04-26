@@ -1,11 +1,13 @@
 // ─── SETTINGS — USERS ────────────────────────────────────────────────────────
-// Displays all firm_users records for this firm.
-// Owner can invite new users (generates a link to copy + share).
-// Owner can remove staff users (cannot remove themselves).
+// Shows two sections:
+//   1. Current users — staff who already have a firm_users record (login access)
+//   2. Staff without access — existing staff individuals who don't have a login yet
+//
+// Owner invites staff from section 2 — generates a link they copy and share.
+// The invitee clicks the link, creates a password, and joins the firm.
 // Max 3 users per firm for beta.
 
-import { S }       from '../../state/index.js';
-import { fmtDate } from '../../firebase/firestore.js';
+import { S } from '../../state/index.js';
 
 const MAX_USERS = 3;
 
@@ -22,31 +24,39 @@ function currentUserIsOwner() {
   return me?.role === 'owner';
 }
 
+function getStaffWithoutAccess() {
+  const userIndividualIds = new Set((S.firmUsers || []).map(u => u.individualId));
+  return (S.individuals || []).filter(i =>
+    i.isStaff &&
+    !userIndividualIds.has(i.individualId)
+  );
+}
+
 export function screen() {
-  const users    = S.firmUsers || [];
-  const isOwner  = currentUserIsOwner();
-  const canInvite = isOwner && users.length < MAX_USERS;
+  const users         = S.firmUsers || [];
+  const isOwner       = currentUserIsOwner();
+  const uninvited     = getStaffWithoutAccess();
+  const canInviteMore = isOwner && users.length < MAX_USERS;
 
   return `
     <div class="screen-narrow">
       <div class="screen-header">
         <div>
           <h1 class="screen-title">Users</h1>
-          <p class="screen-subtitle">Manage who has access to your SimpleAML Pro account. Up to ${MAX_USERS} users per firm during beta.</p>
+          <p class="screen-subtitle">Manage who has login access to your SimpleAML Pro account. Up to ${MAX_USERS} users per firm during beta.</p>
         </div>
-        ${canInvite ? `<button onclick="showInviteForm()" class="btn btn-sm">+ Invite user</button>` : ''}
       </div>
 
       <div class="banner banner-info" style="margin-bottom:var(--space-4);">
         Each user has their own login and sees the same compliance register. The firm owner cannot be removed. Staff users can view and edit records but cannot manage billing or users.
       </div>
 
-      <!-- Current users -->
+      <!-- Current users with login access -->
       <div class="card" style="margin-bottom:var(--space-4);">
-        <div class="section-heading">Current users (${users.length} / ${MAX_USERS})</div>
+        <div class="section-heading">Users with login access (${users.length} / ${MAX_USERS})</div>
 
         ${users.length === 0 ? `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No users loaded.</p>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No users yet.</p>
         ` : users.map(u => {
           const initials = (u.displayName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
           const isMe     = u.uid === S.user?.uid;
@@ -85,45 +95,51 @@ export function screen() {
         ` : ''}
       </div>
 
-      <!-- Invite form -->
-      <div id="invite-form" style="display:none;">
-        <div class="card card-editing" style="margin-bottom:var(--space-4);">
-          <div class="section-heading">Invite a user</div>
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-4);">
-            Enter their details and generate an invite link. Copy and send the link to them — they'll create their own password and join your firm automatically.
+      <!-- Staff without login access -->
+      ${isOwner ? `
+        <div class="card" style="margin-bottom:var(--space-4);">
+          <div class="section-heading">Staff without login access</div>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
+            Invite existing staff members to give them their own login.
           </p>
 
-          <div class="form-row">
-            <label class="label label-required">Full name</label>
-            <input id="invite-name" type="text" class="inp" placeholder="Jane Smith">
-          </div>
-          <div class="form-row">
-            <label class="label label-required">Email address</label>
-            <input id="invite-email" type="email" class="inp" placeholder="jane@firm.com.au">
-          </div>
-          <div class="form-row">
-            <label class="label">Role</label>
-            <select id="invite-role" class="inp">
-              <option value="staff">Staff — can view and edit records</option>
-              <option value="owner">Owner — full access including billing and users</option>
-            </select>
-          </div>
-
-          <div id="invite-error" class="banner banner-danger" style="display:none;margin-top:var(--space-3);"></div>
-
-          <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
-            <button onclick="hideInviteForm()" class="btn-sec" style="flex:1;">Cancel</button>
-            <button onclick="generateInviteLink()" class="btn" style="flex:2;">Generate invite link</button>
-          </div>
+          ${uninvited.length === 0 ? `
+            <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+              All staff members already have login access, or no staff have been added yet.
+            </p>
+          ` : uninvited.map(ind => {
+            const initials  = (ind.fullName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+            return `
+              <div style="display:flex;align-items:center;gap:var(--space-3);
+                          padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);">
+                <div class="avatar" style="flex-shrink:0;">${initials}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);">
+                    ${ind.fullName || '—'}
+                  </div>
+                  <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                    ${ind.email || '<span style="color:var(--color-warning);">No email on record — add in Staff first</span>'}
+                  </div>
+                </div>
+                ${canInviteMore && ind.email ? `
+                  <button onclick="inviteStaffMember('${ind.individualId}')" class="btn btn-sm">
+                    Invite
+                  </button>
+                ` : !ind.email ? '' : `
+                  <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Seats full</span>
+                `}
+              </div>`;
+          }).join('')}
         </div>
-      </div>
+      ` : ''}
 
-      <!-- Generated link -->
+      <!-- Generated invite link -->
       <div id="invite-link-card" style="display:none;">
         <div class="card" style="margin-bottom:var(--space-4);">
           <div class="section-heading">Invite link ready</div>
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
-            Copy this link and send it to the person you're inviting. It expires in 7 days and can only be used once.
+            Copy this link and send it to <span id="invite-link-name" style="font-weight:var(--font-weight-medium);"></span>.
+            It expires in 7 days and can only be used once.
           </p>
           <div style="display:flex;gap:var(--space-2);align-items:center;">
             <input id="invite-link-display" type="text" class="inp"
@@ -132,12 +148,11 @@ export function screen() {
             <button onclick="copyInviteLink()" class="btn btn-sm" style="flex-shrink:0;">Copy</button>
           </div>
           <div id="invite-copy-confirm"
-               style="display:none;font-size:var(--font-size-xs);
-                      color:var(--color-success);margin-top:var(--space-2);">
+               style="display:none;font-size:var(--font-size-xs);color:var(--color-success);margin-top:var(--space-2);">
             ✓ Copied to clipboard
           </div>
-          <button onclick="resetInviteForm()" class="btn-sec btn-sm" style="margin-top:var(--space-3);">
-            Invite another person
+          <button onclick="dismissInviteLink()" class="btn-sec btn-sm" style="margin-top:var(--space-3);">
+            Done
           </button>
         </div>
       </div>
@@ -145,42 +160,18 @@ export function screen() {
     </div>`;
 }
 
-// ─── INVITE FORM HANDLERS ─────────────────────────────────────────────────────
+window.inviteStaffMember = async function(individualId) {
+  const ind = (S.individuals || []).find(i => i.individualId === individualId);
+  if (!ind) { toast('Staff member not found.', 'err'); return; }
 
-window.showInviteForm = function() {
-  document.getElementById('invite-form').style.display = 'block';
-  document.getElementById('invite-link-card').style.display = 'none';
-  document.getElementById('invite-name')?.focus();
-};
+  if (!ind.email) {
+    toast('This staff member has no email on record. Add their email in Staff first.', 'err');
+    return;
+  }
 
-window.hideInviteForm = function() {
-  document.getElementById('invite-form').style.display = 'none';
-};
-
-window.resetInviteForm = function() {
-  document.getElementById('invite-link-card').style.display = 'none';
-  document.getElementById('invite-form').style.display = 'block';
-  document.getElementById('invite-name').value  = '';
-  document.getElementById('invite-email').value = '';
-  document.getElementById('invite-role').value  = 'staff';
-  document.getElementById('invite-name')?.focus();
-};
-
-window.generateInviteLink = async function() {
-  const name  = document.getElementById('invite-name')?.value?.trim();
-  const email = document.getElementById('invite-email')?.value?.trim();
-  const role  = document.getElementById('invite-role')?.value || 'staff';
-  const errEl = document.getElementById('invite-error');
-  errEl.style.display = 'none';
-
-  if (!name)  { errEl.textContent = 'Name is required.';  errEl.style.display = 'block'; return; }
-  if (!email) { errEl.textContent = 'Email is required.'; errEl.style.display = 'block'; return; }
-
-  // Check not already a user
-  const alreadyUser = (S.firmUsers || []).some(u => u.email?.toLowerCase() === email.toLowerCase());
+  const alreadyUser = (S.firmUsers || []).some(u => u.individualId === individualId);
   if (alreadyUser) {
-    errEl.textContent = 'This email already has access to your firm.';
-    errEl.style.display = 'block';
+    toast('This person already has login access.', 'err');
     return;
   }
 
@@ -190,44 +181,45 @@ window.generateInviteLink = async function() {
     const inviteId  = genId('inv');
     const now       = new Date().toISOString();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const me        = (S.firmUsers || []).find(u => u.uid === S.user?.uid);
 
     await saveInvite(inviteId, {
       inviteId,
-      firmId:      S.firmId,
-      firmName:    S.firm?.firmName || '',
-      invitedBy:   S.individualId,
-      invitedByName: S.firmUsers?.find(u => u.uid === S.user?.uid)?.displayName || '',
-      displayName: name,
-      email,
-      role,
-      status:      'pending',
-      createdAt:   now,
+      firmId:        S.firmId,
+      firmName:      S.firm?.firmName || '',
+      invitedBy:     S.individualId,
+      invitedByName: me?.displayName || '',
+      individualId,
+      displayName:   ind.fullName,
+      email:         ind.email,
+      role:          'staff',
+      status:        'pending',
+      createdAt:     now,
       expiresAt,
     });
 
     await saveAuditEntry({
       firmId:     S.firmId,
       userId:     S.individualId,
-      userName:   S.firmUsers?.find(u => u.uid === S.user?.uid)?.displayName || '',
+      userName:   me?.displayName || '',
       action:     'user_invited',
-      targetType: 'firm',
-      targetId:   S.firmId,
-      targetName: name,
-      detail:     `Invite created for ${name} (${email}) as ${role}`,
+      targetType: 'individual',
+      targetId:   individualId,
+      targetName: ind.fullName,
+      detail:     `Login invite sent to ${ind.fullName} (${ind.email})`,
       timestamp:  now,
     });
 
-    // Generate the invite URL
     const baseUrl   = window.location.origin + window.location.pathname;
     const inviteUrl = `${baseUrl}?invite=${inviteId}`;
 
-    document.getElementById('invite-form').style.display      = 'none';
     document.getElementById('invite-link-card').style.display = 'block';
     document.getElementById('invite-link-display').value      = inviteUrl;
+    document.getElementById('invite-link-name').textContent   = ind.fullName;
+    document.getElementById('invite-link-card').scrollIntoView({ behavior: 'smooth' });
 
   } catch (err) {
-    errEl.textContent = 'Failed to generate invite. Please try again.';
-    errEl.style.display = 'block';
+    toast('Failed to generate invite. Please try again.', 'err');
     console.error(err);
   }
 };
@@ -244,7 +236,9 @@ window.copyInviteLink = function() {
   });
 };
 
-// ─── REMOVE USER ─────────────────────────────────────────────────────────────
+window.dismissInviteLink = function() {
+  document.getElementById('invite-link-card').style.display = 'none';
+};
 
 window.removeUser = async function(uid) {
   const user = (S.firmUsers || []).find(u => u.uid === uid);
@@ -253,23 +247,23 @@ window.removeUser = async function(uid) {
 
   try {
     const { saveFirmUser, saveAuditEntry } = await import('../../firebase/firestore.js');
+    const me  = (S.firmUsers || []).find(u => u.uid === S.user?.uid);
+    const now = new Date().toISOString();
 
-    // Deactivate by setting status — never hard delete firm_users records
-    await saveFirmUser(uid, { ...user, status: 'removed', updatedAt: new Date().toISOString() });
+    await saveFirmUser(uid, { ...user, status: 'removed', updatedAt: now });
 
     await saveAuditEntry({
       firmId:     S.firmId,
       userId:     S.individualId,
-      userName:   S.firmUsers?.find(u => u.uid === S.user?.uid)?.displayName || '',
+      userName:   me?.displayName || '',
       action:     'user_removed',
       targetType: 'firm',
       targetId:   S.firmId,
       targetName: user.displayName,
       detail:     `User removed — ${user.displayName} (${user.email})`,
-      timestamp:  new Date().toISOString(),
+      timestamp:  now,
     });
 
-    // Remove from local state
     S.firmUsers = S.firmUsers.filter(u => u.uid !== uid);
     toast(`${user.displayName} removed`);
     render();
