@@ -252,6 +252,15 @@ export function screen() {
             >${entity?.purposeOfRelationship || ''}</textarea>
           </div>
 
+          ${etype === 'Trust' ? `
+            <div class="form-row">
+              <label class="label">Beneficiary class description, if applicable</label>
+              <textarea id="f-beneficiary-class-${fid}" class="inp" rows="2"
+                        placeholder="e.g. children and future descendants of the Smith family; charitable beneficiaries; unit holders as recorded in the trust deed"
+              >${entity?.beneficiaryClassDescription || ''}</textarea>
+            </div>
+          ` : ''}
+
         </div>
       </div>
 
@@ -566,6 +575,11 @@ window.saveEntityClient = async function(fid, etype) {
   const riskNext  = g(`f-risk-next-${fid}`)?.value        || '';
   const riskNotes = g(`f-risk-notes-${fid}`)?.value?.trim()|| '';
 
+  const beneficiaryClassDescription =
+    etype === 'Trust'
+      ? (g(`f-beneficiary-class-${fid}`)?.value?.trim() || '')
+      : '';
+
   const errEl = document.getElementById(`save-error-${fid}`);
   const fail  = msg => {
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
@@ -591,6 +605,7 @@ window.saveEntityClient = async function(fid, etype) {
     abn, acn,
     registeredAddress:     address,
     purposeOfRelationship: purpose,
+    beneficiaryClassDescription,
     entityVerSource:       verSource,
     entityVerDate:         verDate,
     entityVerBy:           verBy,
