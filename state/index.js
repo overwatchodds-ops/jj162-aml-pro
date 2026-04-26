@@ -11,6 +11,7 @@ import {
   getFirmScreenings,
   getFirmTrainingRecords,
   getFirmVettingRecords,
+  getFirmUser,
 } from '../firebase/firestore.js';
 
 // ─── STATE OBJECT ─────────────────────────────────────────────────────────────
@@ -63,9 +64,25 @@ export async function load(uid) {
     console.warn('Failed to restore UI state', e);
   }
 
-  const firmId = 'firm_' + uid;
-  S.firmId     = firmId;
-  S.individualId = 'ind_' + uid;
+  // ── Resolve firmId + individualId ─────────────────────────────────────────
+  // Primary: look up firm_users/{uid} — supports multi-user (staff added later)
+  // Fallback: derive from uid — handles existing single-user firms with no record
+  try {
+    const membership = await getFirmUser(uid);
+    if (membership) {
+      S.firmId       = membership.firmId;
+      S.individualId = membership.individualId;
+    } else {
+      S.firmId       = 'firm_' + uid;
+      S.individualId = 'ind_'  + uid;
+    }
+  } catch (e) {
+    console.warn('Could not load firm_users record — falling back to derived IDs', e);
+    S.firmId       = 'firm_' + uid;
+    S.individualId = 'ind_'  + uid;
+  }
+
+  const firmId = S.firmId;
 
   // reset collections before reloading
   S.firm          = null;

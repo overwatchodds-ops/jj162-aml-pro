@@ -35,6 +35,24 @@ export async function updateFirmProfile(firmId, fields) {
   });
 }
 
+// ─── FIRM USERS ───────────────────────────────────────────────────────────────
+// One record per authenticated user. Maps uid → firmId + individualId.
+// Created during onboarding (complete.js). Used by load() in state/index.js.
+// Foundation for multi-user: additional staff members will each get their own
+// firm_users record pointing to the same firmId.
+
+export async function saveFirmUser(uid, data) {
+  await setDoc(doc(db, 'firm_users', uid), {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getFirmUser(uid) {
+  const snap = await getDoc(doc(db, 'firm_users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
 // ─── INDIVIDUALS ──────────────────────────────────────────────────────────────
 
 export async function saveIndividual(individualId, data) {
@@ -116,21 +134,17 @@ export async function getIndividualLinks(individualId) {
   return snap.docs.map(d => d.data());
 }
 
+export async function getFirmLinks(firmId) {
+  const q    = query(collection(db, 'links'), where('firmId', '==', firmId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
 export async function getEntityLinks(entityId) {
   const q    = query(
     collection(db, 'links'),
     where('linkedObjectId', '==', entityId),
     where('linkedObjectType', '==', 'entity')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => d.data());
-}
-
-export async function getFirmLinks(firmId) {
-  const q    = query(
-    collection(db, 'links'),
-    where('linkedObjectId', '==', firmId),
-    where('linkedObjectType', '==', 'firm')
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
