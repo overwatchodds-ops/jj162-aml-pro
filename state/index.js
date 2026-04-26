@@ -12,6 +12,7 @@ import {
   getFirmTrainingRecords,
   getFirmVettingRecords,
   getFirmUser,
+  getFirmUsers,
 } from '../firebase/firestore.js';
 
 // ─── STATE OBJECT ─────────────────────────────────────────────────────────────
@@ -36,6 +37,9 @@ export let S = {
   screenings:     [],
   training:       [],
   vetting:        [],
+
+  // Users
+  firmUsers:      [],
 
   // UI drafts
   _draft:         null,
@@ -176,6 +180,15 @@ export async function load(uid) {
     S.vetting = [];
   }
 
+  // 9) firm users (all active users with access to this firm)
+  try {
+    const allFirmUsers = await getFirmUsers(firmId);
+    S.firmUsers = allFirmUsers.filter(u => u.status !== 'removed');
+  } catch (e) {
+    console.error('Error loading firm users:', e);
+    S.firmUsers = [];
+  }
+
   // keep UI on a sensible screen if current one is empty/broken after load
   if (!S.currentScreen) S.currentScreen = 'dashboard';
 }
@@ -213,6 +226,7 @@ export function reset() {
     screenings:     [],
     training:       [],
     vetting:        [],
+    firmUsers:      [],
     _draft:         null,
     _onboardingFirm:       undefined,
     _onboardingIndividual: undefined,
