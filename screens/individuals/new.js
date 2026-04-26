@@ -4,6 +4,7 @@ import {
   saveScreening,
   saveTrainingRecord,
   saveVettingRecord,
+  saveAuditEntry,
   genId,
 } from '../../firebase/firestore.js';
 
@@ -414,8 +415,8 @@ function renderIdentityTab() {
         </div>
 
         <div class="form-row">
-          <label class="label">Email</label>
-          <input type="email" class="inp" value="${esc(d.email || '')}" oninput="updateDraft('email', this.value)">
+          <label class="label label-required">Email</label>
+          <input type="email" class="inp" value="${esc(d.email || '')}" oninput="updateDraft('email', this.value)" placeholder="e.g. jane@firm.com.au">
         </div>
 
         <div class="form-row span-2">
@@ -750,7 +751,6 @@ async function saveCoreIndividual(d) {
   };
 
   await saveIndividual(individualId, record);
-  if (!S.individuals) S.individuals = [];
   upsertById(S.individuals, 'individualId', record);
   S._draft = { ...S._draft, ...record };
   return record;
@@ -842,7 +842,6 @@ async function saveEvidenceRecords(record) {
         nextDueDate: d.screeningNextDueDate || '',
       };
       const screeningId = await saveScreening(screeningRecord);
-      if (!S.screenings) S.screenings = [];
       S.screenings.unshift({ screeningId, ...screeningRecord, createdAt: new Date().toISOString() });
     }
   }
@@ -860,7 +859,6 @@ async function saveEvidenceRecords(record) {
         certificateLink: d.trainingCertificateLink || '',
       };
       const trainingId = await saveTrainingRecord(trainingRecord);
-      if (!S.training) S.training = [];
       S.training.unshift({ trainingId, ...trainingRecord, createdAt: new Date().toISOString() });
     }
   }
@@ -885,7 +883,6 @@ async function saveEvidenceRecords(record) {
         declSigned: !!d.declSigned,
       };
       const vettingId = await saveVettingRecord(vettingRecord);
-      if (!S.vetting) S.vetting = [];
       S.vetting.unshift({ vettingId, ...vettingRecord, createdAt: new Date().toISOString() });
     }
   }
@@ -898,6 +895,10 @@ async function handleSave(redirectAfter = true) {
     window.toast('Full legal name and job title are required.', 'err');
     return;
   }
+  if (!d.email) {
+    window.toast('Email is required for staff members.', 'err');
+    return;
+  }
 
   try {
     const record = await saveCoreIndividual(d);
@@ -907,6 +908,20 @@ async function handleSave(redirectAfter = true) {
     await saveIndividual(record.individualId, record);
     upsertById(S.individuals, 'individualId', record);
     S._draft = { ...S._draft, ...record };
+
+    await saveAuditEntry({
+      firmId:     S.firmId,
+      userId:     S.individualId,
+      userName:   S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User',
+      action:     isEditMode() ? 'staff_updated' : 'staff_created',
+      targetType: 'individual',
+      targetId:   record.individualId,
+      targetName: record.fullName,
+      detail:     isEditMode()
+        ? `Staff record updated — ${record.fullName}`
+        : `Staff member created — ${record.fullName} (${record.staffClassification === 'key' ? 'Key Personnel' : record.staffClassification === 'standard' ? 'Standard Staff' : 'No AML functions'})`,
+      timestamp:  new Date().toISOString(),
+    });
 
     window.toast(isEditMode() ? 'Staff record updated.' : 'Staff member saved.', 'ok');
 
