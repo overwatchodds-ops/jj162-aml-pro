@@ -24,7 +24,8 @@ import { S, save, load, reset }        from './state/index.js';
 
 import * as ScreenLogin          from './screens/auth/login.js';
 import * as ScreenSignup         from './screens/auth/signup.js';
-import * as ScreenForgotPassword from './screens/auth/forgot-password.js';
+import * as ScreenForgotPassword  from './screens/auth/forgot-password.js';
+import * as ScreenAcceptInvite    from './screens/auth/accept-invite.js';
 
 import * as ScreenOnboardingFirm       from './screens/onboarding/firm.js';
 import * as ScreenOnboardingIndividual from './screens/onboarding/individual.js';
@@ -73,6 +74,8 @@ const Screens = {
   login:              ScreenLogin.screen,
   signup:             ScreenSignup.screen,
   'forgot-password':  ScreenForgotPassword.screen,
+
+  'accept-invite':    ScreenAcceptInvite.screen,
 
   // Onboarding (2 steps only — firm + principal)
   'onboarding-firm':       ScreenOnboardingFirm.screen,
@@ -137,7 +140,7 @@ const Screens = {
 
 // ─── SCREEN GROUPS ────────────────────────────────────────────────────────────
 const AUTH_SCREENS = [
-  'login', 'signup', 'forgot-password',
+  'login', 'signup', 'forgot-password', 'accept-invite',
 ];
 
 const ONBOARDING_SCREENS = [
@@ -416,6 +419,11 @@ function render() {
         </div>
       </div>
     </div>`;
+
+  // Call screen init() if defined (e.g. accept-invite loads async data after render)
+  if (S.currentScreen === 'accept-invite' && ScreenAcceptInvite.init) {
+    ScreenAcceptInvite.init();
+  }
 }
 
 window.render = render;
@@ -440,16 +448,38 @@ window.signOut = async function() {
 };
 
 // ─── FIREBASE AUTH STATE ──────────────────────────────────────────────────────
+// ─── INVITE URL DETECTION ────────────────────────────────────────────────────
+const _urlParams = new URLSearchParams(window.location.search);
+const _inviteId  = _urlParams.get('invite');
+if (_inviteId) {
+  S.currentScreen = 'accept-invite';
+  S.currentParams = { inviteId: _inviteId };
+}
+
 const auth = getAuth(firebaseApp);
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    S.user = { uid: user.uid, email: user.email };
+    S.user = { uid: user.uid, email: user.email, displayName: user.displayName };
     await load(user.uid);
 
-    if (!S.firm) {
-      // Brand new user — no firm record exists yet
-      go('onboarding-firm');
+    // If invite was just claimed by new signup — go directly to dashboard
+    if (S._inviteClaimed) {
+      delete S._inviteClaimed;
+      await load(user.uid);
+      go('dashboard');
+    // If user arrived via invite link and hasn't claimed yet — show accept-invite
+    } else if (_inviteId && S.currentScreen === 'accept-invite') {
+      go('accept-invite', { inviteId: _inviteId });
+    } else if (!S.firm) {
+      // No firm profile — check if they're an invited staff member
+      if (S.firmUsers?.length > 0) {
+        // Has a firm_users record but firm profile failed to load — try dashboard
+        go('dashboard');
+      } else {
+        // Truly new user — start onboarding
+        go('onboarding-firm');
+      }
     } else if (ONBOARDING_SCREENS.includes(S.currentScreen)) {
       // Returning user with currentScreen stuck on an onboarding screen
       go('setup');
@@ -460,7 +490,12 @@ onAuthStateChanged(auth, async (user) => {
       go(S.currentScreen || 'dashboard');
     }
   } else {
-    go('login');
+    // Not authenticated
+    if (_inviteId) {
+      go('accept-invite', { inviteId: _inviteId });
+    } else {
+      go('login');
+    }
   }
 });
 
