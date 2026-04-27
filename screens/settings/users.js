@@ -24,10 +24,32 @@ function currentUserIsOwner() {
   return me?.role === 'owner';
 }
 
+function hasActiveFirmLink(individualId) {
+  return (S.links || []).some(l =>
+    l.individualId === individualId &&
+    l.linkedObjectType === 'firm' &&
+    l.linkedObjectId === S.firmId &&
+    l.status === 'active'
+  );
+}
+
+function isFirmStaff(individual) {
+  if (!individual?.individualId) return false;
+
+  // Explicit staff flag is the cleanest signal for new records.
+  if (individual.isStaff === true) return true;
+
+  // Backward-compatible signal for older records created before isStaff was
+  // written consistently. This avoids treating client individuals, directors,
+  // trustees or beneficiaries as staff merely because isStaff is missing.
+  return hasActiveFirmLink(individual.individualId);
+}
+
 function getStaffWithoutAccess() {
   const userIndividualIds = new Set((S.firmUsers || []).map(u => u.individualId));
+
   return (S.individuals || []).filter(i =>
-    i.isStaff &&
+    isFirmStaff(i) &&
     !userIndividualIds.has(i.individualId)
   );
 }
@@ -227,12 +249,17 @@ window.inviteStaffMember = async function(individualId) {
 window.copyInviteLink = function() {
   const input = document.getElementById('invite-link-display');
   if (!input) return;
+
   navigator.clipboard.writeText(input.value).then(() => {
     const confirm = document.getElementById('invite-copy-confirm');
     if (confirm) {
       confirm.style.display = 'block';
       setTimeout(() => { confirm.style.display = 'none'; }, 3000);
     }
+  }).catch(() => {
+    input.select();
+    document.execCommand('copy');
+    toast('Invite link copied');
   });
 };
 
@@ -243,6 +270,7 @@ window.dismissInviteLink = function() {
 window.removeUser = async function(uid) {
   const user = (S.firmUsers || []).find(u => u.uid === uid);
   if (!user) return;
+
   if (!confirm(`Remove ${user.displayName}? They will immediately lose access to your firm.`)) return;
 
   try {
