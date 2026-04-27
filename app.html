@@ -501,8 +501,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    // If user arrived via invite link and hasn't claimed yet — show accept-invite.
-    if (_inviteId && S.currentScreen === 'accept-invite') {
+    // CRITICAL INVITE FIX:
+    // If the URL has ?invite=..., always show accept-invite before any onboarding
+    // or dashboard routing. load() may restore stale localStorage such as
+    // onboarding-firm, so do not depend on S.currentScreen here.
+    if (_inviteId) {
       go('accept-invite', { inviteId: _inviteId });
       return;
     }
@@ -517,7 +520,6 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    // IMPORTANT FIX:
     // If the user signs in from login/signup/forgot-password, do not send them
     // back to the auth screen. Send them into the app.
     if (AUTH_SCREENS.includes(S.currentScreen)) {
