@@ -10,7 +10,7 @@
 //   4. If not authenticated → show signup form → create account → claim invite
 //
 // On claim:
-//   - Write firm_users/{uid} record
+//   - Write firm_users/{uid} record FIRST
 //   - Link firm_users/{uid}.individualId to the EXISTING invited staff individual
 //   - Update the existing individual record as staff
 //   - Mark invite as claimed
@@ -40,7 +40,6 @@ import { app as firebaseApp } from '../../firebase/config.js';
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 
 export function screen() {
-  // inviteId is passed via currentParams (parsed from URL ?invite= on load)
   const inviteId = S.currentParams?.inviteId;
 
   if (!inviteId) {
@@ -120,17 +119,14 @@ export async function init() {
       return;
     }
 
-    // Store invite in state for claim step
     S._pendingInvite = invite;
 
-    // If already authenticated, claim directly
     if (S.user?.uid) {
       content.innerHTML = renderClaimDirect(invite);
       content.style.display = 'block';
       return;
     }
 
-    // Otherwise show signup form
     content.innerHTML = renderSignupForm(invite);
     content.style.display = 'block';
 
@@ -249,7 +245,6 @@ window.claimInviteWithSignup = async function() {
 
     await _writeInviteClaim(credential.user.uid, name, email, invite);
 
-    // Set state before auth redirect logic completes.
     S.firmId         = invite.firmId;
     S.individualId   = invite.individualId;
     S._inviteClaimed = true;
@@ -284,8 +279,6 @@ window.claimInviteDirect = async function() {
     return;
   }
 
-  // SimpleAML Pro beta is one firm workspace per login.
-  // Do not allow an already-linked user to overwrite their firm membership accidentally.
   if (S.firmId && S.firm && S.firmId !== invite.firmId) {
     showErr(errEl, 'You are already signed in to a different firm workspace. Please sign out and open this invite with the invited account.');
     return;
@@ -324,7 +317,24 @@ async function _writeInviteClaim(uid, displayName, email, invite) {
   if (!firmId) throw new Error('Invite is missing firmId.');
   if (!individualId) throw new Error('Invite is missing linked staff individualId.');
 
-  // Confirm the invited individual exists and belongs to the same firm.
+  // 1. firm_users record — FIRST.
+  // Under Firestore rules, this membership must exist before the invitee can
+  // read or update the firm's individual/staff record.
+  await saveFirmUser(uid, {
+    uid,
+    firmId,
+    individualId,
+    role:        invite.role || 'staff',
+    status:      'active',
+    displayName: displayName || invite.displayName || email || '',
+    email:       email || invite.email || '',
+    inviteId:    invite.inviteId,
+    createdAt:   now,
+    updatedAt:   now,
+  });
+
+  // 2. Now that membership exists, confirm the invited individual exists and
+  // belongs to the same firm.
   const existingIndividual = await getIndividual(individualId);
 
   if (!existingIndividual) {
@@ -335,22 +345,7 @@ async function _writeInviteClaim(uid, displayName, email, invite) {
     throw new Error('The invited staff record does not belong to this firm. Please ask the firm owner to create a new invite.');
   }
 
-  // 1. firm_users record — FIRST.
-  // This maps the Firebase Auth user to the EXISTING staff individual record.
-  await saveFirmUser(uid, {
-    uid,
-    firmId,
-    individualId,
-    role:        invite.role || 'staff',
-    status:      'active',
-    displayName: displayName || existingIndividual.fullName || invite.displayName || '',
-    email:       email || invite.email || '',
-    inviteId:    invite.inviteId,
-    createdAt:   now,
-    updatedAt:   now,
-  });
-
-  // 2. Update existing individual record as staff.
+  // 3. Update existing individual record as staff.
   // Do NOT create a duplicate ind_<uid> individual.
   try {
     await updateIndividual(individualId, {
@@ -361,8 +356,6 @@ async function _writeInviteClaim(uid, displayName, email, invite) {
       updatedAt: now,
     });
   } catch (err) {
-    // Defensive fallback only. This should rarely run because the invited staff
-    // individual should already exist.
     await saveIndividual(individualId, {
       ...existingIndividual,
       individualId,
@@ -375,16 +368,14 @@ async function _writeInviteClaim(uid, displayName, email, invite) {
     });
   }
 
-  // 3. Mark invite as claimed.
-  // The current helper may ignore the second argument until firestore.js is updated,
-  // but passing it here is harmless and keeps this file ready for the next helper patch.
+  // 4. Mark invite as claimed.
   await claimInvite(invite.inviteId, {
     claimedByUid:   uid,
     claimedByEmail: email || invite.email || '',
     claimedAt:      now,
   });
 
-  // 4. Audit entry.
+  // 5. Audit entry.
   await saveAuditEntry({
     firmId,
     userId:     individualId,
