@@ -37,14 +37,17 @@ export async function updateFirmProfile(firmId, fields) {
 
 // ─── FIRM USERS ───────────────────────────────────────────────────────────────
 // One record per authenticated user. Maps uid → firmId + individualId.
-// Created during onboarding (complete.js). Used by load() in state/index.js.
-// Foundation for multi-user: additional staff members will each get their own
+// Created during onboarding and invite acceptance.
+// Foundation for multi-user: additional staff members each get their own
 // firm_users record pointing to the same firmId.
 
 export async function saveFirmUser(uid, data) {
+  const now = new Date().toISOString();
+
   await setDoc(doc(db, 'firm_users', uid), {
+    status: 'active',
     ...data,
-    updatedAt: new Date().toISOString(),
+    updatedAt: data?.updatedAt || now,
   });
 }
 
@@ -155,11 +158,13 @@ export async function getEntityLinks(entityId) {
 export async function saveVerification(data) {
   const ref = doc(collection(db, 'verifications'));
   const id  = ref.id;
+
   await setDoc(ref, {
     verificationId: id,
     ...data,
     createdAt: new Date().toISOString(),
   });
+
   return id;
 }
 
@@ -182,11 +187,13 @@ export async function getFirmVerifications(firmId) {
 export async function saveScreening(data) {
   const ref = doc(collection(db, 'screenings'));
   const id  = ref.id;
+
   await setDoc(ref, {
     screeningId: id,
     ...data,
     createdAt: new Date().toISOString(),
   });
+
   return id;
 }
 
@@ -209,11 +216,13 @@ export async function getFirmScreenings(firmId) {
 export async function saveTrainingRecord(data) {
   const ref = doc(collection(db, 'training_records'));
   const id  = ref.id;
+
   await setDoc(ref, {
     trainingId: id,
     ...data,
     createdAt: new Date().toISOString(),
   });
+
   return id;
 }
 
@@ -236,11 +245,13 @@ export async function getFirmTrainingRecords(firmId) {
 export async function saveVettingRecord(data) {
   const ref = doc(collection(db, 'vetting_records'));
   const id  = ref.id;
+
   await setDoc(ref, {
     vettingId: id,
     ...data,
     createdAt: new Date().toISOString(),
   });
+
   return id;
 }
 
@@ -260,16 +271,66 @@ export async function getFirmVettingRecords(firmId) {
   return snap.docs.map(d => d.data());
 }
 
+// ─── INVITES ──────────────────────────────────────────────────────────────────
+// Invites are created by the firm owner and claimed by the invitee.
+// Each invite has a unique ID used in the invite URL.
+// Public get-by-ID is allowed in rules so unauthenticated users can view the
+// invite page. Listing invites publicly should remain blocked in rules.
+
+export async function saveInvite(inviteId, data) {
+  await setDoc(doc(db, 'invites', inviteId), {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getInvite(inviteId) {
+  const snap = await getDoc(doc(db, 'invites', inviteId));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function claimInvite(inviteId, claimData = {}) {
+  const now = new Date().toISOString();
+
+  await updateDoc(doc(db, 'invites', inviteId), {
+    status:         'claimed',
+    claimedAt:      claimData.claimedAt || now,
+    claimedByUid:   claimData.claimedByUid || '',
+    claimedByEmail: claimData.claimedByEmail || '',
+    updatedAt:      now,
+  });
+}
+
+export async function getFirmInvites(firmId) {
+  const q    = query(
+    collection(db, 'invites'),
+    where('firmId', '==', firmId),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
+// ─── FIRM USERS (read all users for a firm) ───────────────────────────────────
+
+export async function getFirmUsers(firmId) {
+  const q    = query(collection(db, 'firm_users'), where('firmId', '==', firmId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
+}
+
 // ─── SMR ──────────────────────────────────────────────────────────────────────
 
 export async function saveSMR(data) {
   const ref = doc(collection(db, 'smrs'));
   const id  = ref.id;
+
   await setDoc(ref, {
     smrId: id,
     ...data,
     createdAt: new Date().toISOString(),
   });
+
   return id;
 }
 
@@ -299,11 +360,13 @@ export async function getFirmSMRs(firmId) {
 
 export async function saveAuditEntry(data) {
   const ref = doc(collection(db, 'audit_log'));
+
   await setDoc(ref, {
     logId: ref.id,
     ...data,
     timestamp: data.timestamp || new Date().toISOString(),
   });
+
   return ref.id;
 }
 
@@ -350,6 +413,7 @@ export function genId(prefix = 'id') {
 
 export function fmtDate(iso) {
   if (!iso) return '—';
+
   return new Date(iso).toLocaleDateString('en-AU', {
     day:   'numeric',
     month: 'short',
@@ -359,6 +423,7 @@ export function fmtDate(iso) {
 
 export function fmtDateTime(iso) {
   if (!iso) return '—';
+
   return new Date(iso).toLocaleDateString('en-AU', {
     day:    'numeric',
     month:  'short',

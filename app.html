@@ -22,9 +22,10 @@ import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/
 import { app as firebaseApp }          from './firebase/config.js';
 import { S, save, load, reset }        from './state/index.js';
 
-import * as ScreenLogin          from './screens/auth/login.js';
-import * as ScreenSignup         from './screens/auth/signup.js';
-import * as ScreenForgotPassword from './screens/auth/forgot-password.js';
+import * as ScreenLogin           from './screens/auth/login.js';
+import * as ScreenSignup          from './screens/auth/signup.js';
+import * as ScreenForgotPassword  from './screens/auth/forgot-password.js';
+import * as ScreenAcceptInvite    from './screens/auth/accept-invite.js';
 
 import * as ScreenOnboardingFirm       from './screens/onboarding/firm.js';
 import * as ScreenOnboardingIndividual from './screens/onboarding/individual.js';
@@ -73,13 +74,14 @@ const Screens = {
   login:              ScreenLogin.screen,
   signup:             ScreenSignup.screen,
   'forgot-password':  ScreenForgotPassword.screen,
+  'accept-invite':    ScreenAcceptInvite.screen,
 
-  // Onboarding (2 steps only — firm + principal)
+  // Onboarding
   'onboarding-firm':       ScreenOnboardingFirm.screen,
   'onboarding-individual': ScreenOnboardingIndividual.screen,
   'onboarding-complete':   ScreenOnboardingComplete.screen,
 
-  // Setup checklist (shown after onboarding + accessible from sidebar)
+  // Setup checklist
   setup:              ScreenSetup.screen,
   appointments:       ScreenAppointments.screen,
 
@@ -87,8 +89,8 @@ const Screens = {
   dashboard:          ScreenDashboard.screen,
 
   // Firm
-  'firm-profile':     ScreenFirmProfile.screen,
-  'firm-profile-edit':ScreenFirmEdit.screen,
+  'firm-profile':      ScreenFirmProfile.screen,
+  'firm-profile-edit': ScreenFirmEdit.screen,
 
   // Risk assessment sub-screens
   servicerisk:        ScreenServiceRisk.screen,
@@ -96,19 +98,19 @@ const Screens = {
   georisk:            ScreenGeoRisk.screen,
   overallrisk:        ScreenOverallRisk.screen,
 
-  // Clients (individuals + entities presented as client relationships)
+  // Clients
   clients:              ScreenEntities.screen,
   'client-detail':      ScreenEntity.screen,
   'client-new':         ScreenEntityNew.screen,
   'client-edit':        ScreenEntityEdit.screen,
 
-  // Staff Vetting (individuals linked to the firm)
+  // Staff Vetting
   staff:                ScreenIndividuals.screen,
   'staff-detail':       ScreenIndividual.screen,
   'staff-new':          ScreenIndividualNew.screen,
   'staff-edit':         ScreenIndividualEdit.screen,
 
-  // Keep original routes alive so any existing go() calls don't break
+  // Keep original routes alive
   individuals:          ScreenIndividuals.screen,
   'individual-detail':  ScreenIndividual.screen,
   'individual-new':     ScreenIndividualNew.screen,
@@ -137,20 +139,18 @@ const Screens = {
 
 // ─── SCREEN GROUPS ────────────────────────────────────────────────────────────
 const AUTH_SCREENS = [
-  'login', 'signup', 'forgot-password',
+  'login', 'signup', 'forgot-password', 'accept-invite',
 ];
 
 const ONBOARDING_SCREENS = [
   'onboarding-firm', 'onboarding-individual', 'onboarding-complete',
 ];
 
-// Screens that are part of the setup sequence — show setup banner
 const SETUP_SCREENS = [
   'setup', 'firm-profile', 'firm-profile-edit', 'appointments',
   'servicerisk', 'customerrisk', 'georisk', 'overallrisk',
 ];
 
-// Screens that require setup to be complete
 const COMPLIANCE_SCREENS = [
   'clients', 'client-new', 'client-detail',
   'staff', 'staff-new',
@@ -160,8 +160,7 @@ const COMPLIANCE_SCREENS = [
 ];
 
 // ─── SETUP STATE ──────────────────────────────────────────────────────────────
-// Returns true if the firm has completed all 5 setup steps.
-  window.isSetupComplete = function() {
+window.isSetupComplete = function() {
   const f = S.firm || {};
   return !!(
     f.firmName &&
@@ -173,11 +172,9 @@ const COMPLIANCE_SCREENS = [
     f.amlProgram?.approvedDate &&
     (f.austracEnrolment?.enrolmentId || f.austracEnrolment?.enrolled)
   );
-}
+};
 
 // ─── NAV STRUCTURE ────────────────────────────────────────────────────────────
-// Each item: { screen, label, section, requiresSetup }
-// section label triggers a divider + heading in the sidebar
 const NAV_ITEMS = [
   { screen: 'dashboard',    label: 'Dashboard' },
 
@@ -191,7 +188,7 @@ const NAV_ITEMS = [
   { screen: 'smr',          label: 'SMR',           requiresSetup: true },
 
   { section: 'REPORTS' },
-  { screen: 'audit-trail',  label: 'Audit Trail',  requiresSetup: true },
+  { screen: 'audit-trail',  label: 'Audit Trail',   requiresSetup: true },
   { screen: 'report',       label: 'Report',        requiresSetup: true },
 
   { section: 'SETTINGS' },
@@ -203,8 +200,6 @@ const NAV_ITEMS = [
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 window.go = function(screen, params = {}) {
-  // If setup not complete and user tries to access a locked screen,
-  // redirect to setup with a message
   if (typeof screen === 'string') {
     const navItem = NAV_ITEMS.find(n => n.screen === screen);
     if (navItem?.requiresSetup && !isSetupComplete()) {
@@ -213,6 +208,7 @@ window.go = function(screen, params = {}) {
       return;
     }
   }
+
   S.currentScreen = screen;
   S.currentParams = params;
   save();
@@ -222,14 +218,18 @@ window.go = function(screen, params = {}) {
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 function Sidebar() {
-  const cur      = S.currentScreen;
-  const firm     = S.firm || {};
+  const cur       = S.currentScreen;
+  const firm      = S.firm || {};
   const setupDone = isSetupComplete();
+
   const initials = (firm.firmName || firm.name || 'SA')
-    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const rows = NAV_ITEMS.map(item => {
-    // Section divider
     if (item.section) {
       return `
         <div style="
@@ -242,9 +242,8 @@ function Sidebar() {
         ">${item.section}</div>`;
     }
 
-    const locked  = item.requiresSetup && !setupDone;
-    const active  = cur === item.screen ||
-      // Highlight Setup when on firm-profile too
+    const locked = item.requiresSetup && !setupDone;
+    const active = cur === item.screen ||
       (item.screen === 'setup' && cur === 'firm-profile-edit');
 
     if (locked) {
@@ -269,7 +268,6 @@ function Sidebar() {
       <button
         onclick="go('${item.screen}')"
         class="sidebar-item ${active ? 'active' : ''}"
-        style="${locked ? 'opacity:0.4;pointer-events:none;' : ''}"
       >
         <span class="sidebar-item-dot"></span>
         ${item.label}
@@ -294,8 +292,12 @@ function Sidebar() {
         <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);">
           <div class="avatar" style="width:24px;height:24px;font-size:9px;">${initials}</div>
           <div style="min-width:0;">
-            <div class="truncate" style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">${firm.firmName || firm.name || 'My Firm'}</div>
-            <div class="truncate" style="font-size:10px;color:var(--color-text-muted);">${S.user?.email || ''}</div>
+            <div class="truncate" style="font-size:var(--font-size-xs);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">
+              ${firm.firmName || firm.name || 'My Firm'}
+            </div>
+            <div class="truncate" style="font-size:10px;color:var(--color-text-muted);">
+              ${S.user?.email || ''}
+            </div>
           </div>
         </div>
         <button onclick="signOut()" class="btn-ghost" style="padding:0;font-size:10px;">Sign out</button>
@@ -304,12 +306,12 @@ function Sidebar() {
 }
 
 // ─── SETUP BANNER ─────────────────────────────────────────────────────────────
-// Shows above content when user is inside a setup screen and setup is incomplete.
 function setupBanner() {
   if (isSetupComplete()) return '';
   if (!SETUP_SCREENS.includes(S.currentScreen)) return '';
 
   const f = S.firm || {};
+
   const doneCount = [
     !!(f.firmName && f.abn),
     !!(f.appointments?.amlco?.name),
@@ -348,36 +350,42 @@ function render() {
   const isAuth   = AUTH_SCREENS.includes(cur);
   const isOnb    = ONBOARDING_SCREENS.includes(cur);
 
-  // ── Auth screens — centred, no sidebar ──────────────────────────────────────
   if (isAuth) {
     document.getElementById('app').innerHTML = `
       <div style="min-height:100vh;background:var(--color-surface-alt);display:flex;align-items:center;justify-content:center;padding:var(--space-8);">
         <div style="width:100%;max-width:400px;">
           <div style="text-align:center;margin-bottom:var(--space-8);">
             <div class="sidebar-logo-mark" style="margin:0 auto var(--space-3);width:40px;height:40px;font-size:14px;">SA</div>
-            <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:var(--color-text-primary);">SimpleAML <span class="sidebar-logo-badge">Pro</span></div>
+            <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:var(--color-text-primary);">
+              SimpleAML <span class="sidebar-logo-badge">Pro</span>
+            </div>
           </div>
           ${screenFn()}
         </div>
       </div>`;
+
+    if (cur === 'accept-invite' && ScreenAcceptInvite.init) {
+      ScreenAcceptInvite.init();
+    }
+
     return;
   }
 
-  // ── Onboarding — centred, 2-step progress, no sidebar ───────────────────────
   if (isOnb) {
-    const steps     = ['onboarding-firm', 'onboarding-individual', 'onboarding-complete'];
-    const stepIdx   = steps.indexOf(cur);
-    const stepLabels= ['Firm details', 'Your details', 'Done'];
+    const steps      = ['onboarding-firm', 'onboarding-individual', 'onboarding-complete'];
+    const stepIdx    = steps.indexOf(cur);
+    const stepLabels = ['Firm details', 'Your details', 'Done'];
 
     document.getElementById('app').innerHTML = `
       <div style="min-height:100vh;background:var(--color-surface-alt);display:flex;flex-direction:column;align-items:center;padding:var(--space-8);">
         <div style="width:100%;max-width:520px;">
 
-          <!-- Logo + step progress -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-8);">
             <div style="display:flex;align-items:center;gap:var(--space-2);">
               <div class="sidebar-logo-mark" style="width:32px;height:32px;font-size:12px;">SA</div>
-              <span style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">SimpleAML <span class="sidebar-logo-badge">Pro</span></span>
+              <span style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">
+                SimpleAML <span class="sidebar-logo-badge">Pro</span>
+              </span>
             </div>
             <div style="display:flex;align-items:center;gap:var(--space-2);">
               ${stepLabels.map((label, i) => `
@@ -402,9 +410,8 @@ function render() {
     return;
   }
 
-  // ── Main app — sidebar + content ─────────────────────────────────────────────
   const banner = setupBanner();
-  const topPad = banner ? '44px' : '0';   // banner is 44px tall approx
+  const topPad = banner ? '44px' : '0';
 
   document.getElementById('app').innerHTML = `
     <div class="app-shell">
@@ -424,11 +431,15 @@ window.render = render;
 window.toast = function(msg, type = 'ok') {
   const el = document.getElementById('toast');
   if (!el) return;
+
   el.textContent = msg;
   el.style.display = 'block';
   el.style.background = type === 'err' ? '#991b1b' : '#1e293b';
+
   clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  window._toastTimer = setTimeout(() => {
+    el.style.display = 'none';
+  }, 3000);
 };
 
 // ─── SIGN OUT ─────────────────────────────────────────────────────────────────
@@ -439,28 +450,82 @@ window.signOut = async function() {
   go('login');
 };
 
-// ─── FIREBASE AUTH STATE ──────────────────────────────────────────────────────
+// ─── INVITE URL DETECTION ────────────────────────────────────────────────────
+const _urlParams = new URLSearchParams(window.location.search);
+const _inviteId  = _urlParams.get('invite');
+
+if (_inviteId) {
+  S.currentScreen = 'accept-invite';
+  S.currentParams = { inviteId: _inviteId };
+}
+
 const auth = getAuth(firebaseApp);
 
+// ─── FIREBASE AUTH STATE ──────────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    S.user = { uid: user.uid, email: user.email };
+    S.user = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+    };
+
     await load(user.uid);
 
-    if (!S.firm) {
-      // Brand new user — no firm record exists yet
-      go('onboarding-firm');
+    // If this user's firm access has been removed/disabled, do not let them
+    // fall through to onboarding or dashboard. Sign them out safely.
+    if (S.accessBlocked) {
+      const reason = S.accessBlockedReason || 'Your access to this firm has been removed or disabled.';
+      await auth.signOut();
+      reset();
+      go('login');
+      setTimeout(() => toast(reason, 'err'), 100);
+      return;
+    }
+
+    // If invite was just claimed by new signup — go directly to dashboard.
+    if (S._inviteClaimed) {
+      delete S._inviteClaimed;
+      await load(user.uid);
+
+      if (S.accessBlocked) {
+        const reason = S.accessBlockedReason || 'Your access to this firm has been removed or disabled.';
+        await auth.signOut();
+        reset();
+        go('login');
+        setTimeout(() => toast(reason, 'err'), 100);
+        return;
+      }
+
+      go('dashboard');
+
+    // If user arrived via invite link and hasn't claimed yet — show accept-invite.
+    } else if (_inviteId && S.currentScreen === 'accept-invite') {
+      go('accept-invite', { inviteId: _inviteId });
+
+    } else if (!S.firm) {
+      if (S.firmUsers?.length > 0) {
+        go('dashboard');
+      } else {
+        go('onboarding-firm');
+      }
+
     } else if (ONBOARDING_SCREENS.includes(S.currentScreen)) {
-      // Returning user with currentScreen stuck on an onboarding screen
       go('setup');
+
     } else if (!isSetupComplete() && S.currentScreen === 'dashboard') {
-      // Returning user who hasn't finished setup — send to checklist
       go('setup');
+
     } else {
       go(S.currentScreen || 'dashboard');
     }
+
   } else {
-    go('login');
+    if (_inviteId) {
+      go('accept-invite', { inviteId: _inviteId });
+    } else {
+      go('login');
+    }
   }
 });
 
