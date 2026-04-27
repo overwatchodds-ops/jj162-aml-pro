@@ -11,7 +11,8 @@
 //
 // On claim:
 //   - Write firm_users/{uid} record
-//   - Write individuals/{individualId} record (isStaff: true)
+//   - Link firm_users/{uid}.individualId to the EXISTING invited staff individual
+//   - Update the existing individual record as staff
 //   - Mark invite as claimed
 //   - Write audit entry
 //   - Route to dashboard
@@ -20,7 +21,9 @@ import {
   getInvite,
   claimInvite,
   saveFirmUser,
+  getIndividual,
   saveIndividual,
+  updateIndividual,
   saveAuditEntry,
 } from '../../firebase/firestore.js';
 
@@ -99,7 +102,19 @@ export async function init() {
       return;
     }
 
-    if (new Date(invite.expiresAt) < new Date()) {
+    if (invite.status !== 'pending') {
+      errMsg.textContent = 'This invite is no longer available. Please ask your firm owner for a new invite.';
+      errState.style.display = 'block';
+      return;
+    }
+
+    if (!invite.firmId || !invite.individualId) {
+      errMsg.textContent = 'This invite is missing required firm or staff details. Please ask your firm owner for a new invite.';
+      errState.style.display = 'block';
+      return;
+    }
+
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
       errMsg.textContent = 'This invite has expired (invites are valid for 7 days). Please ask your firm owner to send a new invite.';
       errState.style.display = 'block';
       return;
@@ -124,8 +139,9 @@ export async function init() {
     const loading  = document.getElementById('invite-loading');
     const errState = document.getElementById('invite-error-state');
     const errMsg   = document.getElementById('invite-error-msg');
-    if (loading)  loading.style.display  = 'none';
-    errMsg.textContent = 'Something went wrong loading this invite. Please try again.';
+
+    if (loading) loading.style.display = 'none';
+    if (errMsg) errMsg.textContent = 'Something went wrong loading this invite. Please try again.';
     if (errState) errState.style.display = 'block';
   }
 }
@@ -212,11 +228,16 @@ window.claimInviteWithSignup = async function() {
 
   errEl.style.display = 'none';
 
-  if (!name)                 { showErr(errEl, 'Full name is required.'); return; }
-  if (!email)                { showErr(errEl, 'Email is required.'); return; }
-  if (!password)             { showErr(errEl, 'Password is required.'); return; }
-  if (password.length < 8)   { showErr(errEl, 'Password must be at least 8 characters.'); return; }
-  if (password !== confirm)  { showErr(errEl, 'Passwords do not match.'); return; }
+  if (!invite)                { showErr(errEl, 'Invite details are missing. Please reload the invite link.'); return; }
+  if (!name)                  { showErr(errEl, 'Full name is required.'); return; }
+  if (!email)                 { showErr(errEl, 'Email is required.'); return; }
+  if (invite.email && email.toLowerCase() !== invite.email.toLowerCase()) {
+    showErr(errEl, 'This invite is for a different email address.');
+    return;
+  }
+  if (!password)              { showErr(errEl, 'Password is required.'); return; }
+  if (password.length < 8)    { showErr(errEl, 'Password must be at least 8 characters.'); return; }
+  if (password !== confirm)   { showErr(errEl, 'Passwords do not match.'); return; }
 
   btn.disabled    = true;
   btn.textContent = 'Creating account…';
@@ -228,19 +249,19 @@ window.claimInviteWithSignup = async function() {
 
     await _writeInviteClaim(credential.user.uid, name, email, invite);
 
-    // Set firmId/individualId BEFORE onAuthStateChanged fires so load() resolves correctly.
-    // Also set _inviteClaimed flag so onAuthStateChanged skips accept-invite and goes to dashboard.
+    // Set state before auth redirect logic completes.
     S.firmId         = invite.firmId;
-    S.individualId   = 'ind_' + credential.user.uid;
+    S.individualId   = invite.individualId;
     S._inviteClaimed = true;
 
-    // onAuthStateChanged will fire, see _inviteClaimed, and route to dashboard
+    await load(credential.user.uid);
+    go('dashboard');
 
   } catch (err) {
     console.error('Invite claim error:', err);
     btn.disabled    = false;
     btn.textContent = 'Create account and join firm →';
-    showErr(errEl, friendlyAuthError(err.code) || 'Something went wrong. Please try again.');
+    showErr(errEl, friendlyAuthError(err.code) || err.message || 'Something went wrong. Please try again.');
   }
 };
 
@@ -252,16 +273,36 @@ window.claimInviteDirect = async function() {
   const btn    = document.getElementById('ai-btn');
 
   errEl.style.display = 'none';
+
+  if (!invite) {
+    showErr(errEl, 'Invite details are missing. Please reload the invite link.');
+    return;
+  }
+
+  if (invite.email && S.user?.email?.toLowerCase() !== invite.email.toLowerCase()) {
+    showErr(errEl, `This invite is for ${invite.email}. Please sign in with that email address.`);
+    return;
+  }
+
+  // SimpleAML Pro beta is one firm workspace per login.
+  // Do not allow an already-linked user to overwrite their firm membership accidentally.
+  if (S.firmId && S.firm && S.firmId !== invite.firmId) {
+    showErr(errEl, 'You are already signed in to a different firm workspace. Please sign out and open this invite with the invited account.');
+    return;
+  }
+
   btn.disabled    = true;
   btn.textContent = 'Joining firm…';
 
   try {
     const uid  = S.user.uid;
-    const name = S.user.displayName || S.user.email;
+    const name = S.user.displayName || invite.displayName || S.user.email;
 
     await _writeInviteClaim(uid, name, S.user.email, invite);
 
-    // Reload state with new firmId
+    S.firmId       = invite.firmId;
+    S.individualId = invite.individualId;
+
     await load(uid);
     go('dashboard');
 
@@ -269,7 +310,7 @@ window.claimInviteDirect = async function() {
     console.error('Invite claim error:', err);
     btn.disabled    = false;
     btn.textContent = `Join ${invite.firmName || 'firm'} →`;
-    showErr(errEl, 'Something went wrong. Please try again.');
+    showErr(errEl, err.message || 'Something went wrong. Please try again.');
   }
 };
 
@@ -277,46 +318,83 @@ window.claimInviteDirect = async function() {
 
 async function _writeInviteClaim(uid, displayName, email, invite) {
   const now          = new Date().toISOString();
-  const individualId = 'ind_' + uid;
   const firmId       = invite.firmId;
+  const individualId = invite.individualId;
 
-  // 1. firm_users record — FIRST (rules depend on it)
+  if (!firmId) throw new Error('Invite is missing firmId.');
+  if (!individualId) throw new Error('Invite is missing linked staff individualId.');
+
+  // Confirm the invited individual exists and belongs to the same firm.
+  const existingIndividual = await getIndividual(individualId);
+
+  if (!existingIndividual) {
+    throw new Error('The invited staff record could not be found. Please ask the firm owner to create a new invite.');
+  }
+
+  if (existingIndividual.firmId !== firmId) {
+    throw new Error('The invited staff record does not belong to this firm. Please ask the firm owner to create a new invite.');
+  }
+
+  // 1. firm_users record — FIRST.
+  // This maps the Firebase Auth user to the EXISTING staff individual record.
   await saveFirmUser(uid, {
     uid,
     firmId,
     individualId,
-    role:        invite.role,
-    displayName,
-    email,
+    role:        invite.role || 'staff',
+    status:      'active',
+    displayName: displayName || existingIndividual.fullName || invite.displayName || '',
+    email:       email || invite.email || '',
     inviteId:    invite.inviteId,
     createdAt:   now,
+    updatedAt:   now,
   });
 
-  // 2. Individual record (staff member)
-  await saveIndividual(individualId, {
-    individualId,
-    firmId,
-    fullName:  displayName,
-    email,
-    role:      invite.role === 'owner' ? 'Principal' : 'Staff',
-    isStaff:   true,
-    createdAt: now,
-    updatedAt: now,
+  // 2. Update existing individual record as staff.
+  // Do NOT create a duplicate ind_<uid> individual.
+  try {
+    await updateIndividual(individualId, {
+      fullName:  displayName || existingIndividual.fullName || invite.displayName || '',
+      email:     email || existingIndividual.email || invite.email || '',
+      role:      existingIndividual.role || (invite.role === 'owner' ? 'Principal' : 'Staff'),
+      isStaff:   true,
+      updatedAt: now,
+    });
+  } catch (err) {
+    // Defensive fallback only. This should rarely run because the invited staff
+    // individual should already exist.
+    await saveIndividual(individualId, {
+      ...existingIndividual,
+      individualId,
+      firmId,
+      fullName:  displayName || existingIndividual.fullName || invite.displayName || '',
+      email:     email || existingIndividual.email || invite.email || '',
+      role:      existingIndividual.role || (invite.role === 'owner' ? 'Principal' : 'Staff'),
+      isStaff:   true,
+      updatedAt: now,
+    });
+  }
+
+  // 3. Mark invite as claimed.
+  // The current helper may ignore the second argument until firestore.js is updated,
+  // but passing it here is harmless and keeps this file ready for the next helper patch.
+  await claimInvite(invite.inviteId, {
+    claimedByUid:   uid,
+    claimedByEmail: email || invite.email || '',
+    claimedAt:      now,
   });
 
-  // 3. Mark invite as claimed
-  await claimInvite(invite.inviteId);
-
-  // 4. Audit entry
+  // 4. Audit entry.
   await saveAuditEntry({
     firmId,
     userId:     individualId,
-    userName:   displayName,
+    userName:   displayName || existingIndividual.fullName || invite.displayName || '',
+    userEmail:  email || invite.email || '',
     action:     'user_joined',
     targetType: 'firm',
     targetId:   firmId,
     targetName: invite.firmName || '',
-    detail:     `${displayName} (${email}) joined as ${invite.role} via invite`,
+    detail:     `${displayName || existingIndividual.fullName || invite.displayName || 'User'} (${email || invite.email || ''}) joined as ${invite.role || 'staff'} via invite`,
     timestamp:  now,
   });
 }
@@ -324,6 +402,7 @@ async function _writeInviteClaim(uid, displayName, email, invite) {
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function showErr(el, msg) {
+  if (!el) return;
   el.textContent   = msg;
   el.style.display = 'block';
 }
