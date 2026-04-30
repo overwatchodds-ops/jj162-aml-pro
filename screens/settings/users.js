@@ -1,28 +1,14 @@
 // ─── SETTINGS — USERS ────────────────────────────────────────────────────────
 // Shows two sections:
-//   1. Current users — staff who already have a firm_users record (login access)
-//   2. Staff without access — existing staff individuals who don't have a login yet
+//   1. Current users — all users with login access (flat, equal permissions)
+//   2. Staff without access — existing staff who don't have a login yet
 //
-// Owner invites staff from section 2 — generates a link they copy and share.
-// The invitee clicks the link, creates a password, and joins the firm.
-// Max 3 users per firm for beta.
+// Any user can generate a claim link for staff and remove other users.
+// Users cannot remove themselves. Max 3 users per firm for beta.
 
 import { S } from '../../state/index.js';
 
 const MAX_USERS = 3;
-
-function roleBadge(role) {
-  switch (role) {
-    case 'owner': return `<span class="badge badge-primary">Owner</span>`;
-    case 'staff': return `<span class="badge badge-neutral">Staff</span>`;
-    default:      return `<span class="badge badge-neutral">${role}</span>`;
-  }
-}
-
-function currentUserIsOwner() {
-  const me = (S.firmUsers || []).find(u => u.uid === S.user?.uid);
-  return me?.role === 'owner';
-}
 
 function hasActiveFirmLink(individualId) {
   return (S.links || []).some(l =>
@@ -35,19 +21,12 @@ function hasActiveFirmLink(individualId) {
 
 function isFirmStaff(individual) {
   if (!individual?.individualId) return false;
-
-  // Explicit staff flag is the cleanest signal for new records.
   if (individual.isStaff === true) return true;
-
-  // Backward-compatible signal for older records created before isStaff was
-  // written consistently. This avoids treating client individuals, directors,
-  // trustees or beneficiaries as staff merely because isStaff is missing.
   return hasActiveFirmLink(individual.individualId);
 }
 
 function getStaffWithoutAccess() {
   const userIndividualIds = new Set((S.firmUsers || []).map(u => u.individualId));
-
   return (S.individuals || []).filter(i =>
     isFirmStaff(i) &&
     !userIndividualIds.has(i.individualId)
@@ -56,7 +35,6 @@ function getStaffWithoutAccess() {
 
 export function screen() {
   const users         = S.firmUsers || [];
-  const isOwner       = currentUserIsOwner();
   const uninvited     = getStaffWithoutAccess();
   const canInviteMore = users.length < MAX_USERS;
 
@@ -113,42 +91,42 @@ export function screen() {
       </div>
 
       <!-- Staff without login access -->
-        <div class="card" style="margin-bottom:var(--space-4);">
-          <div class="section-heading">Staff without login access</div>
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
-            Generate a claim link for existing staff members to give them their own login.
+      <div class="card" style="margin-bottom:var(--space-4);">
+        <div class="section-heading">Staff without login access</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
+          Generate a claim link for existing staff members to give them their own login.
+        </p>
+
+        ${uninvited.length === 0 ? `
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+            All staff members already have login access, or no staff have been added yet.
           </p>
-
-          ${uninvited.length === 0 ? `
-            <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-              All staff members already have login access, or no staff have been added yet.
-            </p>
-          ` : uninvited.map(ind => {
-            const initials  = (ind.fullName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
-            return `
-              <div style="display:flex;align-items:center;gap:var(--space-3);
-                          padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);">
-                <div class="avatar" style="flex-shrink:0;">${initials}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);">
-                    ${ind.fullName || '—'}
-                  </div>
-                  <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-                    ${ind.email || '<span style="color:var(--color-warning);">No email on record — add in Staff first</span>'}
-                  </div>
+        ` : uninvited.map(ind => {
+          const initials = (ind.fullName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+          return `
+            <div style="display:flex;align-items:center;gap:var(--space-3);
+                        padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);">
+              <div class="avatar" style="flex-shrink:0;">${initials}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:var(--font-size-base);font-weight:var(--font-weight-medium);">
+                  ${ind.fullName || '—'}
                 </div>
-                ${canInviteMore && ind.email ? `
-                  <button onclick="inviteStaffMember('${ind.individualId}')" class="btn btn-sm">
-                    Get link
-                  </button>
-                ` : !ind.email ? '' : `
-                  <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Seats full</span>
-                `}
-              </div>`;
-          }).join('')}
-        </div>
+                <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                  ${ind.email || '<span style="color:var(--color-warning);">No email on record — add in Staff first</span>'}
+                </div>
+              </div>
+              ${canInviteMore && ind.email ? `
+                <button onclick="inviteStaffMember('${ind.individualId}')" class="btn btn-sm">
+                  Get link
+                </button>
+              ` : !ind.email ? '' : `
+                <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Seats full</span>
+              `}
+            </div>`;
+        }).join('')}
+      </div>
 
-      <!-- Generated invite link -->
+      <!-- Claim link card -->
       <div id="invite-link-card" style="display:none;">
         <div class="card" style="margin-bottom:var(--space-4);">
           <div class="section-heading">Claim link ready</div>
@@ -207,7 +185,6 @@ window.inviteStaffMember = async function(individualId) {
       individualId,
       displayName:   ind.fullName,
       email:         ind.email,
-      role:          'staff',
       status:        'pending',
       createdAt:     now,
       expiresAt,
@@ -221,7 +198,7 @@ window.inviteStaffMember = async function(individualId) {
       targetType: 'individual',
       targetId:   individualId,
       targetName: ind.fullName,
-      detail:     `Login invite sent to ${ind.fullName} (${ind.email})`,
+      detail:     `Claim link generated for ${ind.fullName} (${ind.email})`,
       timestamp:  now,
     });
 
@@ -234,7 +211,7 @@ window.inviteStaffMember = async function(individualId) {
     document.getElementById('invite-link-card').scrollIntoView({ behavior: 'smooth' });
 
   } catch (err) {
-    toast('Failed to generate invite. Please try again.', 'err');
+    toast('Failed to generate claim link. Please try again.', 'err');
     console.error(err);
   }
 };
@@ -252,7 +229,7 @@ window.copyInviteLink = function() {
   }).catch(() => {
     input.select();
     document.execCommand('copy');
-    toast('Invite link copied');
+    toast('Claim link copied');
   });
 };
 
