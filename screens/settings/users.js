@@ -58,7 +58,7 @@ export function screen() {
   const users         = S.firmUsers || [];
   const isOwner       = currentUserIsOwner();
   const uninvited     = getStaffWithoutAccess();
-  const canInviteMore = isOwner && users.length < MAX_USERS;
+  const canInviteMore = users.length < MAX_USERS;
 
   return `
     <div class="screen-narrow">
@@ -67,10 +67,6 @@ export function screen() {
           <h1 class="screen-title">Users</h1>
           <p class="screen-subtitle">Manage who has login access to your SimpleAML Pro account. Up to ${MAX_USERS} users per firm during beta.</p>
         </div>
-      </div>
-
-      <div class="banner banner-info" style="margin-bottom:var(--space-4);">
-        Each user has their own login and sees the same compliance register. The firm owner cannot be removed. Staff users can view and edit records but cannot manage billing or users.
       </div>
 
       <!-- Current users with login access -->
@@ -94,8 +90,7 @@ export function screen() {
                 <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${u.email || ''}</div>
               </div>
               <div style="display:flex;align-items:center;gap:var(--space-2);">
-                ${roleBadge(u.role)}
-                ${isOwner && !isMe && u.role !== 'owner' ? `
+                ${!isMe ? `
                   <button onclick="removeUser('${u.uid}')"
                           class="btn-ghost"
                           style="color:var(--color-danger);font-size:var(--font-size-xs);">
@@ -118,11 +113,10 @@ export function screen() {
       </div>
 
       <!-- Staff without login access -->
-      ${isOwner ? `
         <div class="card" style="margin-bottom:var(--space-4);">
           <div class="section-heading">Staff without login access</div>
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
-            Invite existing staff members to give them their own login.
+            Generate a claim link for existing staff members to give them their own login.
           </p>
 
           ${uninvited.length === 0 ? `
@@ -145,7 +139,7 @@ export function screen() {
                 </div>
                 ${canInviteMore && ind.email ? `
                   <button onclick="inviteStaffMember('${ind.individualId}')" class="btn btn-sm">
-                    Invite
+                    Get link
                   </button>
                 ` : !ind.email ? '' : `
                   <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Seats full</span>
@@ -153,15 +147,14 @@ export function screen() {
               </div>`;
           }).join('')}
         </div>
-      ` : ''}
 
       <!-- Generated invite link -->
       <div id="invite-link-card" style="display:none;">
         <div class="card" style="margin-bottom:var(--space-4);">
-          <div class="section-heading">Invite link ready</div>
+          <div class="section-heading">Claim link ready</div>
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
             Copy this link and send it to <span id="invite-link-name" style="font-weight:var(--font-weight-medium);"></span>.
-            It expires in 7 days and can only be used once.
+            They must open it using that email address. It expires in 7 days and can only be used once.
           </p>
           <div style="display:flex;gap:var(--space-2);align-items:center;">
             <input id="invite-link-display" type="text" class="inp"
