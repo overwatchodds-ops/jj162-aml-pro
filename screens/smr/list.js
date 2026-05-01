@@ -2,16 +2,24 @@ import { S }       from '../../state/index.js';
 import { fmtDate } from '../../firebase/firestore.js';
 
 export function screen() {
-  const smrs   = S.smrs || [];
-  const filter = S.currentParams?.filter || 'all';
+  const smrs         = S.smrs || [];
+  const filter       = S.currentParams?.filter || 'all';
+  const filterEntity = S.currentParams?.filterEntity || null;
+  const filterLabel  = filterEntity
+    ? (S.entities || []).find(e => e.entityId === filterEntity)?.entityName || 'this client'
+    : null;
 
-  const filtered = filter === 'all' ? smrs : smrs.filter(s => s.status === filter);
+  const baseSmrs = filterEntity
+    ? smrs.filter(s => (s.relatedEntities || []).includes(filterEntity))
+    : smrs;
+
+  const filtered = filter === 'all' ? baseSmrs : baseSmrs.filter(s => s.status === filter);
 
   const counts = {
-    all:       smrs.length,
-    draft:     smrs.filter(s => s.status === 'draft').length,
-    submitted: smrs.filter(s => s.status === 'submitted').length,
-    closed:    smrs.filter(s => s.status === 'closed').length,
+    all:       baseSmrs.length,
+    draft:     baseSmrs.filter(s => s.status === 'draft').length,
+    submitted: baseSmrs.filter(s => s.status === 'submitted').length,
+    closed:    baseSmrs.filter(s => s.status === 'closed').length,
   };
 
   function statusBadge(status) {
@@ -28,9 +36,12 @@ export function screen() {
       <div class="screen-header">
         <div>
           <h1 class="screen-title">SMR</h1>
-          <p class="screen-subtitle">Suspicious matter reports. Strictly firm-scoped — never shared with other firms.</p>
+          <p class="screen-subtitle">${filterLabel ? `SMRs involving ${filterLabel}` : 'Suspicious matter reports. Strictly firm-scoped — never shared with other firms.'}</p>
         </div>
-        <button onclick="go('smr-new')" class="btn btn-sm">+ New SMR</button>
+        <div style="display:flex;gap:var(--space-2);">
+          ${filterEntity ? `<button onclick="go('entity-detail',{entityId:'${filterEntity}'})" class="btn-sec btn-sm">← Client</button>` : ''}
+          <button onclick="go('smr-new')" class="btn btn-sm">+ New SMR</button>
+        </div>
       </div>
 
       <div class="banner banner-warning" style="margin-bottom:var(--space-4);">
