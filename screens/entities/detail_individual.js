@@ -762,10 +762,9 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
 };
 
 window.fileSMRForIndividual = function(entityId, individualId) {
-  // Pre-select both the individual and their self-entity in the SMR draft
   S._draft = {
-    relatedEntities:    entityId    ? [entityId]    : [],
-    relatedIndividuals: individualId ? [individualId] : [],
+    individualId,
+    entityId: entityId || null,
   };
   go('smr-new');
 };

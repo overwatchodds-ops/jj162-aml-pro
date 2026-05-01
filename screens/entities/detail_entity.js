@@ -663,7 +663,8 @@ window.saveEntityClient = async function(fid, etype) {
 };
 
 window.fileSMRForEntity = function(entityId) {
-  // Pre-select this entity in the SMR draft
-  S._draft = { relatedEntities: [entityId] };
+  // SMRs are filed against individuals — route to individual search
+  // pre-loading the entity context so the SMR can be linked back
+  S._draft = { entityId };
   go('smr-new');
 };
