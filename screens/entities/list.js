@@ -198,8 +198,10 @@ export function screen() {
           <h1 class="screen-title">Clients</h1>
           <p class="screen-subtitle">All client relationships — individuals, sole traders, companies, trusts and more.</p>
         </div>
-        <button onclick="go('bulk-upload')" class="btn-sec btn-sm">Import</button>
-        <button onclick="go('entity-new')" class="btn btn-sm">+ New client</button>
+        <div style="display:flex;gap:var(--space-2);">
+          <button onclick="go('bulk-upload')" class="btn-sec btn-sm">Import</button>
+          <button onclick="go('entity-new')" class="btn btn-sm">+ New client</button>
+        </div>
       </div>
 
       <div class="toolbar">
