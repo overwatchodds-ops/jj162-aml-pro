@@ -110,7 +110,7 @@ export function screen() {
       <div style="background:var(--color-surface);border:0.5px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:2px;">Progress</div>
-          <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};">${doneCount} of 6 complete</div>
+          <div style="font-size:var(--font-size-lg);font-weight:var(--font-weight-semibold);color:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};">${doneCount} of 5 complete</div>
         </div>
         <div style="width:120px;height:6px;background:var(--color-border);border-radius:99px;overflow:hidden;">
           <div style="height:100%;width:${(doneCount/5)*100}%;background:${allDone ? 'var(--color-success)' : 'var(--color-primary)'};border-radius:99px;transition:width .3s;"></div>
