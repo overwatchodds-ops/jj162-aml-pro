@@ -55,8 +55,12 @@ export function screen() {
 
             <div class="form-row">
               <label class="label label-required">Submitted by</label>
-              <input id="smr-by-name" type="text" class="inp"
-                     value="${d.submittedByName||''}" placeholder="Staff member name">
+              <select id="smr-by-name" class="inp">
+                <option value="">Select staff member...</option>
+                ${(S.individuals || []).filter(i => i.isStaff).map(i =>
+                  `<option value="${i.fullName}" ${d.submittedByName === i.fullName ? 'selected' : ''}>${i.fullName}</option>`
+                ).join('')}
+              </select>
             </div>
 
             <div class="form-row">
