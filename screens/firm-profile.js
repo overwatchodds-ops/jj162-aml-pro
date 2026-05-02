@@ -82,7 +82,10 @@ export function screen() {
       <!-- 1.1 Appointments -->
       ${sectionCard('Appointments', 'appointments', `
         ${row('Principal',           appointments?.principal?.name)}
-        ${row('AML/CTF Compliance',  appointments?.amlco?.name)}
+        ${row('AML/CTF Compliance Officer', appointments?.amlco?.name)}
+        ${row('Reporting Officer',   appointments?.reporting?.name)}
+        ${row('Senior Manager',      appointments?.senior?.name)}
+        ${row('Delegate',            appointments?.delegate?.name)}
       `, !!appointments?.principal?.name)}
 
       <!-- 2. Designated services -->
