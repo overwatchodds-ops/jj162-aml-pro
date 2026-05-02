@@ -263,6 +263,26 @@ function staffStatusBadge(status) {
   }
 }
 
+function checkRow(label, done, detail, editTab, individualId) {
+  const icon = done
+    ? '<span style="width:18px;height:18px;border-radius:50%;background:var(--color-success-bg, #f0fdf4);display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--color-success);flex-shrink:0;">✓</span>'
+    : '<span style="width:18px;height:18px;border-radius:50%;background:#fef2f2;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--color-danger);flex-shrink:0;">✕</span>';
+  const badge = done ? '' : '<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:#fef2f2;color:var(--color-danger);">Not done</span>';
+  return `
+    <div style="padding:10px 0;border-bottom:0.5px solid var(--color-border-light);">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${icon}
+          <span style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">${label}</span>
+        </div>
+        ${badge}
+      </div>
+      <div style="margin-left:28px;margin-top:3px;font-size:var(--font-size-xs);color:var(--color-text-muted);">
+        ${detail || (done ? '' : 'No record found')}
+      </div>
+    </div>`;
+}
+
 function renderStaffDetail(individualId, ind) {
   const screenings = (S.screenings || []).filter(s => s.individualId === individualId);
   const training = (S.training || []).filter(t => t.individualId === individualId);
@@ -285,144 +305,78 @@ function renderStaffDetail(individualId, ind) {
   const { required, satisfied, status } = staffRequirementStatus(classification, evidence);
   const auditEntries = (S._auditCache?.[individualId] || []).slice(0, 5);
 
+  // Build compliance check rows
+  const scrDetail = latestScr?.result
+    ? [latestScr.provider, fmtDate(latestScr.date), latestScr.result, latestScr.referenceId ? 'Ref: ' + latestScr.referenceId : '', latestScr.nextDueDate ? 'Next due: ' + fmtDate(latestScr.nextDueDate) : ''].filter(Boolean).join(' · ')
+    : '';
+  const trnDetail = latestTrn?.completedDate
+    ? [latestTrn.provider, latestTrn.type, 'Completed ' + fmtDate(latestTrn.completedDate), latestTrn.expiryDate ? 'Expires ' + fmtDate(latestTrn.expiryDate) : ''].filter(Boolean).join(' · ')
+    : '';
+  const polDetail = latestVet?.policeCheckDate
+    ? ['Police check', fmtDate(latestVet.policeCheckDate), latestVet.policeCheckResult, latestVet.policeCheckRef ? 'Ref: ' + latestVet.policeCheckRef : ''].filter(Boolean).join(' · ')
+    : '';
+  const bankDetail = latestVet?.bankruptcyCheckDate
+    ? ['Bankruptcy check', fmtDate(latestVet.bankruptcyCheckDate), latestVet.bankruptcyCheckResult].filter(Boolean).join(' · ')
+    : '';
+
+  const functionLabels = functions.map(code => STAFF_FUNCTIONS[code]?.label).filter(Boolean).join(', ') || 'None selected';
+
   return `
     <div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-6);">
-        <div style="display:flex;align-items:center;gap:var(--space-4);">
-          <button onclick="go('staff')" class="btn-ghost" style="color:var(--color-text-muted);padding:0;font-size:var(--font-size-sm);">← Staff</button>
-        </div>
+        <button onclick="go('staff')" class="btn-ghost" style="color:var(--color-text-muted);padding:0;font-size:var(--font-size-sm);">← Staff</button>
         <button onclick="go('staff-edit',{individualId:'${individualId}'})" class="btn-sec btn-sm">Edit</button>
       </div>
 
-      <div class="card" style="margin-bottom:var(--space-3);">
-        <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4);">
-          <div class="avatar" style="width:48px;height:48px;font-size:var(--font-size-lg);">${initials(ind.fullName)}</div>
-          <div>
-            <div style="font-size:var(--font-size-xl);font-weight:var(--font-weight-medium);margin-bottom:var(--space-2);">${ind.fullName || '—'}</div>
-            <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;">
-              ${classificationBadge(classification)}
-              ${staffStatusBadge(status)}
-            </div>
-          </div>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4);">
+        <div class="avatar" style="width:48px;height:48px;font-size:var(--font-size-lg);">${initials(ind.fullName)}</div>
+        <div style="flex:1;">
+          <div style="font-size:var(--font-size-xl);font-weight:var(--font-weight-medium);">${ind.fullName || '—'}</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;">${ind.role || ''} · ${classificationLabel(classification)}</div>
         </div>
+        ${staffStatusBadge(status)}
+      </div>
 
+      <!-- Identity card -->
+      <div class="card" style="margin-bottom:var(--space-3);">
         <div class="section-heading">Identity</div>
-        ${row('Role / title', ind.role)}
         ${row('Email', ind.email)}
         ${row('Phone', ind.phone)}
-        ${row('Notes', ind.notes)}
+        ${row('AML/CTF functions', functionLabels)}
+        ${ind.notes ? row('Notes', ind.notes) : ''}
         ${row('Created', fmtDate(ind.createdAt))}
         ${row('Last updated', fmtDate(ind.updatedAt))}
       </div>
 
-      <div class="card">
-        <div class="section-heading">AML/CTF functions</div>
-        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
-          Classification is derived from the AML/CTF functions this staff member performs.
-        </p>
-
-        ${functions.length ? functions.map(code => {
-          const meta = STAFF_FUNCTIONS[code];
-          return `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);">
-              <div>
-                <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">${meta.label}</div>
-                <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;">${meta.desc}</div>
-              </div>
-              ${meta.level === 'key' ? softBadge('Key Personnel', 'key') : meta.level === 'standard' ? softBadge('Standard Staff', 'standard') : softBadge('None', 'neutral')}
-            </div>`;
-        }).join('') : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No AML/CTF functions selected yet.</p>
-        `}
-      </div>
-
-      <div class="card">
-        <div class="section-heading">Vetting requirements</div>
-        <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
-          Required checks are derived from this staff member's AML/CTF functions.
-        </p>
-
-        ${required.length ? required.map(code => requirementRow(STAFF_REQUIREMENT_LABELS[code], satisfied.includes(code))).join('') : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No AML/CTF vetting checks are currently required for this staff member.</p>
-        `}
-      </div>
-
-      <div class="card">
+      <!-- Compliance checks card -->
+      <div class="card" style="margin-bottom:var(--space-3);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">Screening</div>
-          ${sectionActionButton(latestScr ? 'Update' : '+ Add', 'staff-edit', individualId, 'screening')}
+          <div class="section-heading" style="margin:0;">Compliance checks</div>
+          <button onclick="go('staff-edit',{individualId:'${individualId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Update →</button>
         </div>
 
-        ${latestScr ? `
-          ${row('Provider', latestScr.provider)}
-          ${row('Date', fmtDate(latestScr.date))}
-          ${row('Result', latestScr.result)}
-          ${row('Reference ID', latestScr.referenceId)}
-          ${row('Next due', fmtDate(latestScr.nextDueDate))}
-        ` : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No screening recorded yet.</p>
-        `}
+        ${required.includes('screening') ? checkRow('PEP / sanctions screening', evidence.screening, scrDetail, 'screening', individualId) : ''}
+        ${required.includes('training') ? checkRow('AML/CTF training', evidence.training, trnDetail, 'training', individualId) : ''}
+        ${required.includes('police_check') ? checkRow('Police check', evidence.police_check, polDetail, 'vetting', individualId) : ''}
+        ${required.includes('bankruptcy_check') ? checkRow('Bankruptcy check', evidence.bankruptcy_check, bankDetail, 'vetting', individualId) : ''}
+
+        ${!required.length ? '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No compliance checks required for this staff member.</p>' : ''}
       </div>
 
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">Training</div>
-          ${sectionActionButton(latestTrn ? 'Add new' : '+ Add', 'staff-edit', individualId, 'training')}
-        </div>
-
-        ${latestTrn ? `
-          ${row('Type', latestTrn.type)}
-          ${row('Completed date', fmtDate(latestTrn.completedDate))}
-          ${row('Provider', latestTrn.provider)}
-          ${row('Expiry date', fmtDate(latestTrn.expiryDate))}
-          ${latestTrn.certificateLink ? row('Certificate', `<a href="${latestTrn.certificateLink}" target="_blank" style="color:var(--color-primary);">View →</a>`) : ''}
-        ` : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No training recorded yet.</p>
-        `}
-      </div>
-
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-          <div class="section-heading" style="margin:0;">Vetting</div>
-          ${sectionActionButton(latestVet ? 'Update' : '+ Add', 'staff-edit', individualId, 'vetting')}
-        </div>
-
-        ${latestVet ? `
-          ${row('Police check date', fmtDate(latestVet.policeCheckDate))}
-          ${row('Police check result', latestVet.policeCheckResult)}
-          ${row('Police check ref', latestVet.policeCheckRef)}
-          ${row('Bankruptcy date', fmtDate(latestVet.bankruptcyCheckDate))}
-          ${row('Bankruptcy result', latestVet.bankruptcyCheckResult)}
-          ${row('Declaration date', fmtDate(latestVet.declDate))}
-          ${row('Declaration next', fmtDate(latestVet.declNext))}
-          ${row('Declaration signed', latestVet.declSigned ? 'Yes' : 'No')}
-        ` : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No vetting records yet.</p>
-        `}
-      </div>
-
-      <div class="card">
-        <div class="section-heading">SMR</div>
-        <button onclick="viewIndividualSMRs('${individualId}')" class="btn-sec btn-sm">View SMRs involving this staff member</button>
-        <p style="font-size:10px;color:var(--color-text-muted);margin-top:var(--space-2);">Only your firm's SMRs are shown. Tipping-off rules apply.</p>
-      </div>
-
+      <!-- Recent activity -->
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
           <div class="section-heading" style="margin:0;">Recent activity</div>
           <button onclick="loadIndividualAudit('${individualId}')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">Load</button>
         </div>
-
         ${auditEntries.length > 0 ? auditEntries.map(e => `
           <div class="audit-row">
             <span class="audit-arrow">→</span>
             <span class="audit-date">${fmtDateTime(e.timestamp)}</span>
             <span>${e.detail}</span>
           </div>
-        `).join('') : `
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Click Load to view activity for this staff record.</p>
-        `}
-
+        `).join('') : '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Click Load to view activity for this staff record.</p>'}
         <button onclick="go('audit-trail',{individualId:'${individualId}'})" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);margin-top:var(--space-2);">View full audit trail →</button>
       </div>
     </div>`;
@@ -490,6 +444,8 @@ function renderLegacyIndividualDetail(individualId, ind) {
         </div>
 
         <div class="section-heading">Core identity</div>
+        ${row('Date of birth', fmtDate(ind.dateOfBirth))}
+        ${row('Address', ind.address)}
         ${row('Email', ind.email)}
         ${row('Phone', ind.phone)}
         ${row('Created', fmtDate(ind.createdAt))}
