@@ -134,8 +134,6 @@ export function screen() {
       ${sectionCard('AUSTRAC enrolment', 'enrolment', austracConfirmed ? `
         ${row('Status', enrolment.enrolled ? 'Confirmed' : (enrolment.status || 'Confirmed'))}
         ${enrolment.enrolmentId ? row('Enrolment ID', enrolment.enrolmentId) : ''}
-        ${row('Enrolment date', fmtDate(enrolment.enrolmentDate))}
-        ${row('Next confirmation', fmtDate(enrolment.nextConfirmationDate))}
         ${!enrolment.enrolmentId ? `
           <div style="margin-top:var(--space-3);font-size:var(--font-size-xs);color:var(--color-text-muted);">
             Enrolment ID is optional and has not been recorded.
