@@ -308,8 +308,6 @@ function renderStaffDetail(individualId, ind) {
 
         <div class="section-heading">Identity</div>
         ${row('Role / title', ind.role)}
-        ${row('Date of birth', fmtDate(ind.dateOfBirth))}
-        ${row('Residential address', ind.address)}
         ${row('Email', ind.email)}
         ${row('Phone', ind.phone)}
         ${row('Notes', ind.notes)}
@@ -492,8 +490,6 @@ function renderLegacyIndividualDetail(individualId, ind) {
         </div>
 
         <div class="section-heading">Core identity</div>
-        ${row('Date of birth', fmtDate(ind.dateOfBirth))}
-        ${row('Address', ind.address)}
         ${row('Email', ind.email)}
         ${row('Phone', ind.phone)}
         ${row('Created', fmtDate(ind.createdAt))}
