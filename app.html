@@ -169,7 +169,6 @@ window.isSetupComplete = function() {
   return !!(
     f.firmName &&
     f.abn &&
-    f.appointments?.principal?.name &&
     f.designatedServices?.length &&
     f.riskAssessment?.rating &&
     f.amlProgram?.approvedBy &&
@@ -318,7 +317,6 @@ function setupBanner() {
 
   const doneCount = [
     !!(f.firmName && f.abn),
-    !!(f.appointments?.amlco?.name),
     !!(f.designatedServices?.length),
     !!(f.riskAssessment?.rating),
     !!(f.amlProgram?.approvedBy && f.amlProgram?.approvedDate),
@@ -522,6 +520,16 @@ onAuthStateChanged(auth, async (user) => {
         go('onboarding-firm');
       }
       return;
+    }
+
+    // Auto-save appointments if not yet done
+    if (S.firm && !S.firm?.appointments?.savedDate) {
+      try {
+        const { autoSaveAppointments } = await import('./screens/appointments.js');
+        await autoSaveAppointments();
+      } catch(e) {
+        console.warn('Could not auto-save appointments:', e);
+      }
     }
 
     // If the user signs in from login/signup/forgot-password, do not send them
