@@ -508,10 +508,7 @@ export function screen() {
               )
               .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
-            if (indSmrs.length === 0) return \`
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-                No suspicious matter reports on record for this individual.
-              </p>\`;
+            if (indSmrs.length === 0) return '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No suspicious matter reports on record for this individual.</p>';
 
             return indSmrs.map(s => {
               const statusColour = s.status === 'submitted'
@@ -519,33 +516,20 @@ export function screen() {
                 : s.status === 'closed'
                   ? 'var(--color-text-muted)'
                   : 'var(--color-warning)';
-              const statusLabel = s.status === 'submitted'
-                ? 'Submitted'
-                : s.status === 'closed'
-                  ? 'Closed'
-                  : 'Draft';
-              return \`
-                <div onclick="go('smr-detail',{smrId:'\${s.smrId}'})"
-                     style="display:flex;align-items:center;justify-content:space-between;
-                            padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);
-                            cursor:pointer;">
-                  <div>
-                    <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">
-                      \${s.austracRef || 'Draft SMR'}
-                    </div>
-                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-                      \${s.submittedByName || ''} · \${s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : ''}
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:var(--space-2);">
-                    <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
-                                 background:transparent;border:1px solid \${statusColour};
-                                 color:\${statusColour};">
-                      \${statusLabel}
-                    </span>
-                    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>
-                  </div>
-                </div>\`;
+              const statusLabel = s.status === 'submitted' ? 'Submitted' : s.status === 'closed' ? 'Closed' : 'Draft';
+              const ref  = s.austracRef || 'Draft SMR';
+              const by   = s.submittedByName || '';
+              const date = s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : '';
+              return '<div onclick="go(\'smr-detail\',{smrId:\'' + s.smrId + '\'})" style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;">'
+                + '<div>'
+                + '<div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">' + ref + '</div>'
+                + '<div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">' + by + (by && date ? ' · ' : '') + date + '</div>'
+                + '</div>'
+                + '<div style="display:flex;align-items:center;gap:var(--space-2);">'
+                + '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:transparent;border:1px solid ' + statusColour + ';color:' + statusColour + ';">' + statusLabel + '</span>'
+                + '<span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>'
+                + '</div>'
+                + '</div>';
             }).join('');
           })()}
 
