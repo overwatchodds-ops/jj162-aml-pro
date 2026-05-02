@@ -137,27 +137,25 @@ window.saveAppointments = async function() {
   const errEl = document.getElementById('appt-error');
   if (errEl) errEl.style.display = 'none';
 
-  const requiredRoles = [
-    ['amlco',     'AML/CTF Compliance Officer'],
-    ['reporting', 'Reporting Officer'],
-    ['senior',    'Senior Manager'],
-    ['principal', 'Principal / Managing Partner'],
-  ];
+  // Principal is the only truly required role
+  const principalVal  = document.getElementById('appt-principal-individual')?.value;
+  const principalDate = document.getElementById('appt-principal-date')?.value;
+  if (!principalVal)  { showErr(errEl, 'Principal / Managing Partner: please select a staff member.'); return; }
+  if (!principalDate) { showErr(errEl, 'Principal / Managing Partner: date appointed is required.'); return; }
 
-  for (const [key, label] of requiredRoles) {
-    const val  = document.getElementById(`appt-${key}-individual`)?.value;
-    const date = document.getElementById(`appt-${key}-date`)?.value;
-    if (!val)  { showErr(errEl, `${label}: please select a staff member.`); return; }
-    if (!date) { showErr(errEl, `${label}: date appointed is required.`); return; }
-  }
+  const today = new Date().toISOString().split('T')[0];
 
   const appointments = {};
   ['amlco','reporting','senior','principal','delegate'].forEach(k => {
     const val  = document.getElementById(`appt-${k}-individual`)?.value || '';
     const date = document.getElementById(`appt-${k}-date`)?.value || '';
-    if (!val) return;
-    const [individualId, ...nameParts] = val.split('|');
-    appointments[k] = { individualId, name: nameParts.join('|'), date };
+    // Required roles fall back to Principal if left blank
+    const isRequired = ['amlco','reporting','senior','principal'].includes(k);
+    const resolvedVal  = val  || (isRequired ? principalVal  : '');
+    const resolvedDate = date || (isRequired ? principalDate : '');
+    if (!resolvedVal) return; // delegate is optional — skip if empty
+    const [individualId, ...nameParts] = resolvedVal.split('|');
+    appointments[k] = { individualId, name: nameParts.join('|'), date: resolvedDate };
   });
 
   const reviewEl = document.getElementById('appt-next-review');
