@@ -2,24 +2,16 @@ import { S }       from '../../state/index.js';
 import { fmtDate } from '../../firebase/firestore.js';
 
 export function screen() {
-  const smrs         = S.smrs || [];
-  const filter       = S.currentParams?.filter || 'all';
-  const filterEntity = S.currentParams?.filterEntity || null;
-  const filterLabel  = filterEntity
-    ? (S.entities || []).find(e => e.entityId === filterEntity)?.entityName || 'this client'
-    : null;
+  const smrs   = S.smrs || [];
+  const filter = S.currentParams?.filter || 'all';
 
-  const baseSmrs = filterEntity
-    ? smrs.filter(s => (s.relatedEntities || []).includes(filterEntity))
-    : smrs;
-
-  const filtered = filter === 'all' ? baseSmrs : baseSmrs.filter(s => s.status === filter);
+  const filtered = filter === 'all' ? smrs : smrs.filter(s => s.status === filter);
 
   const counts = {
-    all:       baseSmrs.length,
-    draft:     baseSmrs.filter(s => s.status === 'draft').length,
-    submitted: baseSmrs.filter(s => s.status === 'submitted').length,
-    closed:    baseSmrs.filter(s => s.status === 'closed').length,
+    all:       smrs.length,
+    draft:     smrs.filter(s => s.status === 'draft').length,
+    submitted: smrs.filter(s => s.status === 'submitted').length,
+    closed:    smrs.filter(s => s.status === 'closed').length,
   };
 
   function statusBadge(status) {
@@ -31,17 +23,21 @@ export function screen() {
     }
   }
 
+  // Resolve individual name from relatedIndividuals
+  function individualName(smr) {
+    const id = (smr.relatedIndividuals || [])[0];
+    if (!id) return '—';
+    return (S.individuals || []).find(i => i.individualId === id)?.fullName || '—';
+  }
+
   return `
     <div>
       <div class="screen-header">
         <div>
           <h1 class="screen-title">SMR</h1>
-          <p class="screen-subtitle">${filterLabel ? `SMRs involving ${filterLabel}` : 'Suspicious matter reports. Strictly firm-scoped — never shared with other firms.'}</p>
+          <p class="screen-subtitle">Firm-wide suspicious matter report register. Strictly firm-scoped — never shared with other firms.</p>
         </div>
-        <div style="display:flex;gap:var(--space-2);">
-          ${filterEntity ? `<button onclick="go('entity-detail',{entityId:'${filterEntity}'})" class="btn-sec btn-sm">← Client</button>` : ''}
-          <button onclick="go('smr-new')" class="btn btn-sm">+ New SMR</button>
-        </div>
+        <button onclick="go('smr-new')" class="btn btn-sm">+ New SMR</button>
       </div>
 
       <div class="banner banner-warning" style="margin-bottom:var(--space-4);">
@@ -51,10 +47,10 @@ export function screen() {
       <div class="toolbar">
         <div class="filter-tabs">
           ${[
-            { key: 'all',       label: `All (${counts.all})`            },
-            { key: 'draft',     label: `Draft (${counts.draft})`        },
-            { key: 'submitted', label: `Submitted (${counts.submitted})` },
-            { key: 'closed',    label: `Closed (${counts.closed})`      },
+            { key: 'all',       label: `All (${counts.all})`             },
+            { key: 'draft',     label: `Draft (${counts.draft})`         },
+            { key: 'submitted', label: `Submitted (${counts.submitted})`  },
+            { key: 'closed',    label: `Closed (${counts.closed})`       },
           ].map(f => `
             <button onclick="smrFilter('${f.key}')" class="filter-tab ${filter===f.key?'active':''}">${f.label}</button>
           `).join('')}
@@ -64,13 +60,14 @@ export function screen() {
       ${filtered.length === 0 ? `
         <div class="empty-state">
           <div class="empty-state-title">${filter === 'all' ? 'No SMRs recorded yet.' : `No ${filter} SMRs.`}</div>
-          <div class="empty-state-sub">SMRs are submitted to AUSTRAC when you identify suspicious activity.</div>
+          <div class="empty-state-sub">To file an SMR, find the individual under Clients and use the SMR section on their record.</div>
         </div>
       ` : `
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th>Individual</th>
                 <th>Reference</th>
                 <th>Submitted by</th>
                 <th>Date</th>
@@ -81,6 +78,7 @@ export function screen() {
             <tbody>
               ${filtered.map(s => `
                 <tr onclick="go('smr-detail',{smrId:'${s.smrId}'})">
+                  <td style="font-weight:var(--font-weight-medium);">${individualName(s)}</td>
                   <td>
                     <div style="font-weight:var(--font-weight-medium);">${s.austracRef || 'Draft'}</div>
                     <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">SMRID: ${s.smrId}</div>
