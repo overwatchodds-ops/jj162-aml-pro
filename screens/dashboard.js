@@ -212,7 +212,7 @@ export function screen() {
         ${[
           { label: 'Staff / people', value: individuals.length,        screen: 'staff',        color: 'var(--color-primary)' },
           { label: 'Clients',        value: entities.length,           screen: 'clients',      color: 'var(--color-primary)' },
-          { label: 'Action needed',  value: action.length,             screen: 'staff',        color: action.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
+          { label: 'Action needed',  value: action.length + incompleteStaff.length, screen: 'staff', color: (action.length + incompleteStaff.length) > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
           { label: 'Firm setup gaps',value: gaps.length,               screen: 'firm-profile', color: gaps.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
         ].map(s => `
           <div
