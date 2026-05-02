@@ -26,10 +26,13 @@ function isFirmStaff(individual) {
 }
 
 function getStaffWithoutAccess() {
-  const userIndividualIds = new Set((S.firmUsers || []).map(u => u.individualId));
+  const userIndividualIds = new Set((S.firmUsers || []).map(u => u.individualId).filter(Boolean));
+  const userEmails        = new Set((S.firmUsers || []).map(u => (u.email || '').toLowerCase()).filter(Boolean));
+
   return (S.individuals || []).filter(i =>
     isFirmStaff(i) &&
-    !userIndividualIds.has(i.individualId)
+    !userIndividualIds.has(i.individualId) &&
+    !userEmails.has((i.email || '').toLowerCase())
   );
 }
 
