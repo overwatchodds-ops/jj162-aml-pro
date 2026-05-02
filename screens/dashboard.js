@@ -9,7 +9,12 @@ function individualCompliance(ind) {
     l => l.individualId === ind.individualId && l.status === 'active'
   );
 
-  if (!links.length) return { status: 'no_links', missing: [] };
+  // Staff members don't need a link record — isStaff: true is their role.
+  // Links are only required for client entity relationships.
+  if (!links.length) {
+    if (ind.isStaff) return { status: 'no_links', missing: [], isStaffOnly: true };
+    return { status: 'no_links', missing: [] };
+  }
 
   const required  = getRequirements(links, S.entities || []);
   const latestVer = (S.verifications || [])
@@ -90,7 +95,7 @@ export function screen() {
 
   const recordsComplete = indResults.filter(r => r.result.status === 'compliant');
   const action          = indResults.filter(r => r.result.status === 'action_required');
-  const noLinks         = indResults.filter(r => r.result.status === 'no_links');
+  const noLinks         = indResults.filter(r => r.result.status === 'no_links' && !r.result.isStaffOnly);
 
   // Firm setup gaps
   const gaps = firmGaps();
