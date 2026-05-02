@@ -100,8 +100,9 @@ export function screen() {
   // Firm setup gaps
   const gaps = firmGaps();
 
-  // Overall record status
-  const totalIssues = action.length + gaps.length;
+  // Overall record status — includes incomplete staff records
+  const incompleteStaff = indResults.filter(r => r.result.isStaffOnly);
+  const totalIssues = action.length + gaps.length + incompleteStaff.length;
 
   const verdict = totalIssues === 0 && individuals.length > 0
     ? {
