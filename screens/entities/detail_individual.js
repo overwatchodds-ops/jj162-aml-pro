@@ -493,24 +493,65 @@ export function screen() {
 
       ${!isNew ? `
         <div class="card" style="margin-bottom:var(--space-3);">
-          <div class="section-heading">SMR</div>
-          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
-            <button onclick="go('smr',{filterEntity:'${fid}'})" class="btn-sec btn-sm">
-              View SMRs involving this client
-            </button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
+            <div class="section-heading" style="margin:0;">Suspicious Matter Reports</div>
             <button onclick="fileSMRForIndividual('${fid}','${individualId || ''}')" class="btn btn-sm">
-              + File SMR
+              + New SMR
             </button>
           </div>
+
           ${(() => {
-            const indSmrs = (S.smrs || []).filter(s =>
-              (s.relatedEntities || []).includes(fid) ||
-              (s.relatedIndividuals || []).includes(individualId)
-            );
-            return indSmrs.length > 0
-              ? `<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-2);">${indSmrs.length} SMR${indSmrs.length !== 1 ? 's' : ''} on record.</p>`
-              : '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-2);">No SMRs on record for this client.</p>';
+            const indSmrs = (S.smrs || [])
+              .filter(s =>
+                (s.relatedEntities    || []).includes(fid) ||
+                (s.relatedIndividuals || []).includes(individualId)
+              )
+              .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+            if (indSmrs.length === 0) return \`
+              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                No suspicious matter reports on record for this individual.
+              </p>\`;
+
+            return indSmrs.map(s => {
+              const statusColour = s.status === 'submitted'
+                ? 'var(--color-success)'
+                : s.status === 'closed'
+                  ? 'var(--color-text-muted)'
+                  : 'var(--color-warning)';
+              const statusLabel = s.status === 'submitted'
+                ? 'Submitted'
+                : s.status === 'closed'
+                  ? 'Closed'
+                  : 'Draft';
+              return \`
+                <div onclick="go('smr-detail',{smrId:'\${s.smrId}'})"
+                     style="display:flex;align-items:center;justify-content:space-between;
+                            padding:var(--space-3) 0;border-bottom:0.5px solid var(--color-border-light);
+                            cursor:pointer;">
+                  <div>
+                    <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">
+                      \${s.austracRef || 'Draft SMR'}
+                    </div>
+                    <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                      \${s.submittedByName || ''} · \${s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : ''}
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);">
+                    <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                 background:transparent;border:1px solid \${statusColour};
+                                 color:\${statusColour};">
+                      \${statusLabel}
+                    </span>
+                    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>
+                  </div>
+                </div>\`;
+            }).join('');
           })()}
+
+          <div class="banner banner-warning" style="margin-top:var(--space-3);font-size:var(--font-size-xs);">
+            Tipping-off prohibition — do not disclose to this individual or any other person that an SMR has been or may be submitted to AUSTRAC.
+          </div>
         </div>
       ` : ''}
 

@@ -418,21 +418,25 @@ export function screen() {
       <!-- SMR (existing only) -->
       ${!isNew ? `
         <div class="card" style="margin-bottom:var(--space-3);">
-          <div class="section-heading">SMR</div>
-          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
-            <button onclick="go('smr',{filterEntity:'${fid}'})" class="btn-sec btn-sm">
-              View SMRs involving this client
-            </button>
-            <button onclick="fileSMRForEntity('${fid}')" class="btn btn-sm">
-              + File SMR
-            </button>
-          </div>
+          <div class="section-heading">Suspicious Matter Reports</div>
           ${(() => {
             const entitySmrs = (S.smrs || []).filter(s => (s.relatedEntities || []).includes(fid));
-            return entitySmrs.length > 0
-              ? `<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-2);">${entitySmrs.length} SMR${entitySmrs.length !== 1 ? 's' : ''} on record.</p>`
-              : '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-2);">No SMRs on record for this client.</p>';
+            if (entitySmrs.length === 0) return \`
+              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
+                No SMRs on record involving this entity.
+              </p>\`;
+            return entitySmrs.map(s => \`
+              <div onclick="go('smr-detail',{smrId:'\${s.smrId}'})"
+                   style="display:flex;align-items:center;justify-content:space-between;
+                          padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);
+                          cursor:pointer;">
+                <div style="font-size:var(--font-size-xs);">\${s.austracRef || 'Draft SMR'} · \${s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : ''}</div>
+                <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>
+              </div>\`).join('');
           })()}
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-3);">
+            To file an SMR, open the relevant individual's record from the key persons section above.
+          </p>
         </div>
       ` : ''}
 
@@ -662,9 +666,3 @@ window.saveEntityClient = async function(fid, etype) {
   }
 };
 
-window.fileSMRForEntity = function(entityId) {
-  // SMRs are filed against individuals — route to individual search
-  // pre-loading the entity context so the SMR can be linked back
-  S._draft = { entityId };
-  go('smr-new');
-};
