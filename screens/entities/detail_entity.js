@@ -421,18 +421,15 @@ export function screen() {
           <div class="section-heading">Suspicious Matter Reports</div>
           ${(() => {
             const entitySmrs = (S.smrs || []).filter(s => (s.relatedEntities || []).includes(fid));
-            if (entitySmrs.length === 0) return \`
-              <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-                No SMRs on record involving this entity.
-              </p>\`;
-            return entitySmrs.map(s => \`
-              <div onclick="go('smr-detail',{smrId:'\${s.smrId}'})"
-                   style="display:flex;align-items:center;justify-content:space-between;
-                          padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);
-                          cursor:pointer;">
-                <div style="font-size:var(--font-size-xs);">\${s.austracRef || 'Draft SMR'} · \${s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : ''}</div>
-                <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>
-              </div>\`).join('');
+            if (entitySmrs.length === 0) return '<p style="font-size:var(--font-size-xs);color:var(--color-text-muted);">No SMRs on record involving this entity.</p>';
+            return entitySmrs.map(s => {
+              const ref  = s.austracRef || 'Draft SMR';
+              const date = s.submittedDate ? new Date(s.submittedDate).toLocaleDateString('en-AU') : '';
+              return '<div onclick="go(\'smr-detail\',{smrId:\'' + s.smrId + '\'})" style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:0.5px solid var(--color-border-light);cursor:pointer;">'
+                + '<div style="font-size:var(--font-size-xs);">' + ref + (date ? ' · ' + date : '') + '</div>'
+                + '<span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">View →</span>'
+                + '</div>';
+            }).join('');
           })()}
           <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-3);">
             To file an SMR, open the relevant individual's record from the key persons section above.
