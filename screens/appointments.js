@@ -1,88 +1,98 @@
-import { S }                  from '../state/index.js';
-import { updateFirmProfile }  from '../firebase/firestore.js';
+// ─── APPOINTMENTS ─────────────────────────────────────────────────────────────
+// First time: auto-assigns all roles to the owner and saves silently.
+// Subsequent edits: shows dropdown screen to reassign roles to any staff member.
+
+import { S }                 from '../state/index.js';
+import { updateFirmProfile } from '../firebase/firestore.js';
 
 const today = new Date().toISOString().split('T')[0];
 
-function fmtDate(d) {
-  return d ? new Date(d).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' }) : '—';
+function getOwner() {
+  // Find the owner — the individual matching the current user
+  return (S.individuals || []).find(i =>
+    i.individualId === S.individualId
+  ) || (S.individuals || []).find(i =>
+    i.isStaff === true && i.firmId === S.firmId
+  ) || null;
 }
 
-// Get the principal's name from individuals linked to the firm
-function principalName() {
-  const principal = (S.individuals || []).find(i =>
-    i.role === 'Principal' || i.role === 'Principal / Managing Partner' || i.role === 'owner'
-  );
-  return principal?.fullName || principal?.name || '';
+function getStaff() {
+  return (S.individuals || []).filter(i => i.isStaff === true && i.firmId === S.firmId);
 }
 
+const ROLES = [
+  { key: 'amlco',     title: 'AML/CTF Compliance Officer (AMLCO)',  desc: 'Primary regulatory liaison. Responsible for your firm\'s AML/CTF compliance program.', required: true  },
+  { key: 'reporting', title: 'Reporting Officer',                    desc: 'Responsible for filing Suspicious Matter Reports (SMRs) with AUSTRAC.',               required: true  },
+  { key: 'senior',    title: 'Senior Manager',                       desc: 'Must formally approve the AML/CTF Program.',                                          required: true  },
+  { key: 'principal', title: 'Principal / Managing Partner',         desc: 'Overall firm-level accountability for AML/CTF obligations.',                          required: true  },
+  { key: 'delegate',  title: 'Delegate',                             desc: 'Optional. For larger firms where compliance tasks are formally delegated.',            required: false },
+];
+
+// ─── AUTO SAVE (first time) ───────────────────────────────────────────────────
+export async function autoSaveAppointments() {
+  const owner = getOwner();
+  if (!owner) return; // safety — should never happen
+
+  const appointments = {};
+  ROLES.forEach(({ key }) => {
+    appointments[key] = {
+      individualId: owner.individualId,
+      name:         owner.fullName,
+      date:         today,
+    };
+  });
+
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  appointments.nextReview = d.toISOString().split('T')[0];
+  appointments.savedDate  = today;
+
+  await updateFirmProfile(S.firmId, { appointments });
+  S.firm.appointments = appointments;
+}
+
+// ─── SCREEN (edit mode only) ──────────────────────────────────────────────────
 export function screen() {
-  const appt    = S.firm?.appointments || {};
-  const defName = principalName();
+  const appt = S.firm?.appointments || {};
+  const staff = getStaff();
 
-  const ROLES = [
-    {
-      key:      'amlco',
-      title:    'AML/CTF Compliance Officer (AMLCO)',
-      desc:     'Primary regulatory liaison. Responsible for your firm\'s AML/CTF compliance program.',
-      required: true,
-    },
-    {
-      key:      'reporting',
-      title:    'Reporting Officer',
-      desc:     'Responsible for filing Suspicious Matter Reports (SMRs) with AUSTRAC.',
-      required: true,
-    },
-    {
-      key:      'senior',
-      title:    'Senior Manager',
-      desc:     'Must formally approve the AML/CTF Program.',
-      required: true,
-    },
-    {
-      key:      'principal',
-      title:    'Principal / Managing Partner',
-      desc:     'Overall firm-level accountability for AML/CTF obligations.',
-      required: true,
-    },
-    {
-      key:      'delegate',
-      title:    'Delegate',
-      desc:     'Optional. For larger firms where compliance tasks are formally delegated.',
-      required: false,
-    },
-  ];
+  // If no appointments saved yet — auto save and move on
+  if (!appt.savedDate) {
+    autoSaveAppointments().then(() => {
+      go('firm-profile-edit', { tab: 'services' });
+    });
+    return `<div class="empty-state"><div class="empty-state-title">Setting up appointments...</div></div>`;
+  }
 
-  const requiredKeys = ROLES.filter(r => r.required).map(r => r.key);
-  const isComplete   = requiredKeys.every(k => appt[k]?.name && appt[k]?.date);
-
+  // Edit mode — show dropdown screen
   return `<div style="max-width:680px;">
 
-    <!-- HEADER -->
     <div style="margin-bottom:24px;">
       <h1 style="font-size:20px;font-weight:500;color:#0f172a;margin-bottom:3px;">Appointments</h1>
-      <p style="font-size:13px;color:#64748b;">Record who holds each AML/CTF governance role at your firm. For sole practitioners, all roles default to you — adjust only if responsibilities are shared.</p>
+      <p style="font-size:13px;color:#64748b;">Reassign AML/CTF governance roles to staff members. To add a new person, add them in Staff first.</p>
     </div>
 
-    <!-- INFO BANNER -->
     <div class="banner banner-info" style="margin-bottom:var(--space-4);">
       <div class="banner-title">Why this matters</div>
       AUSTRAC requires every reporting entity to formally designate who holds each compliance role.
       Even if one person holds every role, each must be recorded separately.
-      These names appear in your AML/CTF Program approval and compliance reports.
     </div>
 
-    <!-- ROLE CARDS -->
     ${ROLES.map(({ key, title, desc, required }) => {
       const val    = appt[key] || {};
-      const name   = val.name || defName;
+      const indId  = val.individualId || '';
       const date   = val.date || today;
       const filled = !!(val.name && val.date);
+
+      const staffOptions = staff.map(i =>
+        `<option value="${i.individualId}|${i.fullName}" ${indId === i.individualId ? 'selected' : ''}>${i.fullName}</option>`
+      ).join('');
 
       return `
       <div style="background:var(--color-surface);border:0.5px solid ${filled ? 'var(--color-border)' : required ? '#fecaca' : 'var(--color-border)'};border-radius:var(--radius-xl);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-3);">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-3);">
           <div>
-            <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">${title}</div>
+            <div style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">${title}</div>
             <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;">${desc}</div>
           </div>
           ${required
@@ -93,8 +103,11 @@ export function screen() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
           <div class="form-row" style="margin:0;">
-            <label class="label${required ? ' label-required' : ''}">Full name</label>
-            <input id="appt-${key}-name" type="text" class="inp" value="${name}" placeholder="Full legal name">
+            <label class="label${required ? ' label-required' : ''}">Staff member</label>
+            <select id="appt-${key}-individual" class="inp">
+              <option value="">Select...</option>
+              ${staffOptions}
+            </select>
           </div>
           <div class="form-row" style="margin:0;">
             <label class="label${required ? ' label-required' : ''}">Date appointed</label>
@@ -104,24 +117,22 @@ export function screen() {
       </div>`;
     }).join('')}
 
-    <!-- NEXT REVIEW -->
     <div style="background:var(--color-surface);border:0.5px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-5);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-        <span style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);color:var(--color-text-primary);">Next review date</span>
+        <span style="font-size:var(--font-size-sm);font-weight:var(--font-weight-medium);">Next review date</span>
         <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">AUSTRAC expects annual review</span>
       </div>
       <input id="appt-next-review" type="date" class="inp" value="${appt.nextReview || ''}">
-      <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-2);">Leave blank to auto-set to 12 months from today.</p>
     </div>
 
     <div id="appt-error" class="banner banner-danger" style="display:none;margin-bottom:var(--space-3);"></div>
 
-    <button onclick="saveAppointments()" class="btn btn-full">Save &amp; continue to Designated Services →</button>
+    <button onclick="saveAppointments()" class="btn btn-full">Save appointments →</button>
 
   </div>`;
 }
 
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+// ─── SAVE (edit mode) ─────────────────────────────────────────────────────────
 window.saveAppointments = async function() {
   const errEl = document.getElementById('appt-error');
   if (errEl) errEl.style.display = 'none';
@@ -134,18 +145,19 @@ window.saveAppointments = async function() {
   ];
 
   for (const [key, label] of requiredRoles) {
-    const name = document.getElementById(`appt-${key}-name`)?.value?.trim();
+    const val  = document.getElementById(`appt-${key}-individual`)?.value;
     const date = document.getElementById(`appt-${key}-date`)?.value;
-    if (!name) { showErr(errEl, `${label}: name is required.`); return; }
+    if (!val)  { showErr(errEl, `${label}: please select a staff member.`); return; }
     if (!date) { showErr(errEl, `${label}: date appointed is required.`); return; }
   }
 
   const appointments = {};
   ['amlco','reporting','senior','principal','delegate'].forEach(k => {
-    appointments[k] = {
-      name: document.getElementById(`appt-${k}-name`)?.value?.trim() || '',
-      date: document.getElementById(`appt-${k}-date`)?.value || '',
-    };
+    const val  = document.getElementById(`appt-${k}-individual`)?.value || '';
+    const date = document.getElementById(`appt-${k}-date`)?.value || '';
+    if (!val) return;
+    const [individualId, ...nameParts] = val.split('|');
+    appointments[k] = { individualId, name: nameParts.join('|'), date };
   });
 
   const reviewEl = document.getElementById('appt-next-review');
@@ -159,61 +171,10 @@ window.saveAppointments = async function() {
   appointments.savedDate = today;
 
   try {
-    const { saveIndividual, genId } = await import('../firebase/firestore.js');
-    const now = new Date().toISOString();
-
-    // Build unique persons — deduplicate by name
-    const roleLabels = {
-      amlco:     'AMLCO',
-      reporting: 'Reporting Officer',
-      senior:    'Senior Manager',
-      principal: 'Principal',
-      delegate:  'Delegate',
-    };
-
-    // Group roles by person name
-    const personMap = {};
-    for (const [key, label] of Object.entries(roleLabels)) {
-      const name = appointments[key]?.name;
-      if (!name) continue;
-      if (!personMap[name]) personMap[name] = [];
-      personMap[name].push(label);
-    }
-
-    // For each unique person — find existing individual or create new one
-    for (const [fullName, roles] of Object.entries(personMap)) {
-      const existing = (S.individuals || []).find(i =>
-        (i.fullName || i.name || '').toLowerCase() === fullName.toLowerCase()
-      );
-
-      if (!existing) {
-        // Create new individual with firmId
-        const individualId = genId('ind');
-        const newInd = {
-          individualId,
-          firmId:    S.firmId,
-          fullName,
-          role:      roles[0],
-          isStaff:   true,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await saveIndividual(individualId, newInd);
-        S.individuals = [...(S.individuals || []), newInd];
-      } else if (!existing.isStaff) {
-        // Existing individual — mark as staff if not already
-        await import('../../firebase/firestore.js').then(({ updateIndividual }) =>
-          updateIndividual(existing.individualId, { isStaff: true })
-        );
-        existing.isStaff = true;
-      }
-    }
-
-    // Save appointments to firm profile
     await updateFirmProfile(S.firmId, { appointments });
     S.firm.appointments = appointments;
     window.toast('Appointments saved');
-    go('firm-profile-edit', { tab: 'services' });
+    render();
   } catch (e) {
     showErr(errEl, 'Failed to save. Please try again.');
     console.error(e);
