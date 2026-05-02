@@ -243,10 +243,9 @@ export function screen() {
              i._status.status === 'not_required';
     }
     if (filter === 'incomplete' || filter === 'action') {
-      return i._status.status === 'incomplete' || i._status.status === 'action_required';
-    }
-    if (filter === 'not_started') {
-      return i._status.status === 'not_started';
+      return i._status.status === 'incomplete' ||
+             i._status.status === 'action_required' ||
+             i._status.status === 'not_started';
     }
     if (filter === 'no_links') {
       return i._status.status === 'no_links';
@@ -263,9 +262,9 @@ export function screen() {
     ).length,
     incomplete:  withStatus.filter(i =>
       i._status.status === 'incomplete' ||
-      i._status.status === 'action_required'
+      i._status.status === 'action_required' ||
+      i._status.status === 'not_started'
     ).length,
-    not_started: withStatus.filter(i => i._status.status === 'not_started').length,
   };
 
   const title    = isStaffView ? 'Staff' : 'Individuals';
@@ -281,10 +280,9 @@ export function screen() {
 
   const filterTabs = isStaffView
     ? [
-        { key: 'all',         label: `All (${counts.all})` },
-        { key: 'complete',    label: `Complete (${counts.complete})` },
-        { key: 'incomplete',  label: `Incomplete (${counts.incomplete})` },
-        { key: 'not_started', label: `Not started (${counts.not_started})` },
+        { key: 'all',        label: `All (${counts.all})` },
+        { key: 'complete',   label: `Complete (${counts.complete})` },
+        { key: 'incomplete', label: `Incomplete (${counts.incomplete})` },
       ]
     : [
         { key: 'all',       label: `All (${counts.all})` },
@@ -340,24 +338,27 @@ export function screen() {
               <tr>
                 <th>Name</th>
                 <th>${isStaffView ? 'Role' : 'Connections'}</th>
-                <th>Vetting status</th>
+                ${isStaffView ? '<th style="text-align:center;">Screening</th><th style="text-align:center;">Vetting</th><th style="text-align:center;">Training</th>' : '<th>Status</th>'}
                 <th>Last updated</th>
                 <th style="width:40px;"></th>
               </tr>
             </thead>
             <tbody>
               ${filtered.map(i => `
-                <tr onclick="go('${detailRoute}', { individualId: '${i.individualId}' })">
+                <tr onclick="go('${detailRoute}', { individualId: '${i.individualId}' })" style="cursor:pointer;">
                   <td>
                     <div style="display:flex;align-items:center;gap:var(--space-3);">
                       <div class="avatar">${initials(i.fullName)}</div>
-                      <div>
-                        <div style="font-weight:var(--font-weight-medium);">${i.fullName || '—'}</div>
-                      </div>
+                      <div style="font-weight:var(--font-weight-medium);color:var(--color-primary);text-decoration:underline;">${i.fullName || '—'}</div>
                     </div>
                   </td>
                   <td>${roleSummary(i, isStaffView, i._status.classification)}</td>
-                  <td>${statusBadge(i._status.status)}</td>
+                  ${isStaffView ? `
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!screeningRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const scr = (S.screenings||[]).find(x => x.individualId === i.individualId); return scr?.result ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!vettingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const vet = (S.vetting||[]).find(x => x.individualId === i.individualId); return vet?.policeCheckDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!trainingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const trn = (S.training||[]).find(x => x.individualId === i.individualId); return trn?.completedDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}` : `
+                  <td>${statusBadge(i._status.status)}`}
+                  </td>
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${fmtDate(i.updatedAt)}</td>
                   <td style="text-align:right;">
                     <button
