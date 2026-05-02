@@ -299,6 +299,14 @@ function tabProgram(firm) {
   // Default to AMLCO if not yet set
   const defaultApprover = program.approvedBy || appt.amlco?.name || '';
 
+  // Auto-compute next review date if not set (approved date + 1 year)
+  let defaultNextReview = program.nextReviewDate || '';
+  if (!defaultNextReview && program.approvedDate) {
+    const d = new Date(program.approvedDate);
+    d.setFullYear(d.getFullYear() + 1);
+    defaultNextReview = d.toISOString().split('T')[0];
+  }
+
   const approverField = appointedPersons.length
     ? `<select id="prog-approved-by" class="inp">
         <option value="">— Select approver —</option>
@@ -329,7 +337,7 @@ function tabProgram(firm) {
         </div>
         <div class="form-row">
           <label class="label">Next review date</label>
-          <input id="prog-next-review" type="date" class="inp" value="${program.nextReviewDate||''}">
+          <input id="prog-next-review" type="date" class="inp" value="${defaultNextReview}">
         </div>
         <div class="form-row">
           <label class="label">Document link</label>
@@ -569,12 +577,20 @@ window.saveFirmProgram = async function() {
   if (!approvedBy)   { errEl.textContent='Approved by is required.'; errEl.style.display='block'; return; }
   if (!approvedDate) { errEl.textContent='Approved date is required.'; errEl.style.display='block'; return; }
 
+  // Auto-fill next review date if blank (approved date + 1 year)
+  let nextReviewDate = document.getElementById('prog-next-review')?.value || '';
+  if (!nextReviewDate && approvedDate) {
+    const d = new Date(approvedDate);
+    d.setFullYear(d.getFullYear() + 1);
+    nextReviewDate = d.toISOString().split('T')[0];
+  }
+
   const fields = {
     amlProgram: {
       version,
       approvedBy,
       approvedDate,
-      nextReviewDate: document.getElementById('prog-next-review')?.value || '',
+      nextReviewDate,
       documentLink:   document.getElementById('prog-doc-link')?.value?.trim() || '',
     }
   };
