@@ -1,42 +1,67 @@
+// ─── BULK UPLOAD ──────────────────────────────────────────────────────────────
+// Two separate upload flows:
+//
+//   1. Individual clients — creates individual + self-entity + self-link atomically.
+//      Entity type is Individual or Sole Trader. CDD left incomplete for firm to
+//      complete per client.
+//
+//   2. Entity clients — creates entity record only (company, trust, SMSF etc).
+//      Key people are added separately via the entity detail screen.
+
 import { S, addIndividualToState, addEntityToState, addLinkToState } from '../../state/index.js';
 import { saveIndividual, saveEntity, saveLink, saveAuditEntry, genId } from '../../firebase/firestore.js';
-import { ENTITY_ROLES, ROLE_LABELS }                                    from '../../state/rules_matrix.js';
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
 export function screen() {
-  const mode    = S.currentParams?.mode || 'individuals';
-  const rows    = S._bulkRows || defaultRows(mode);
-  const saved   = S._bulkSaved || 0;
+  const mode  = S.currentParams?.mode || 'individuals';
+  const rows  = S._bulkRows || defaultRows(mode);
+  const saved = S._bulkSaved || 0;
+
+  const modeConfig = {
+    individuals: {
+      title:    'Individual clients',
+      subtitle: 'Each row creates an individual client record (Individual or Sole Trader) with a linked self-entity. ID verification and screening must be completed per client after import.',
+      nav:      'entities',
+    },
+    entities: {
+      title:    'Entity clients',
+      subtitle: 'Each row creates an entity client record (company, trust, SMSF etc). Key people (directors, trustees, beneficial owners) are added separately via the entity detail screen after import.',
+      nav:      'entities',
+    },
+  };
+
+  const cfg = modeConfig[mode];
 
   return `
     <div>
       <div class="screen-header">
         <div>
           <h1 class="screen-title">Bulk upload</h1>
-          <p class="screen-subtitle">Add multiple records quickly using the spreadsheet-style table. Tab to move between fields, paste from Excel or Google Sheets.</p>
+          <p class="screen-subtitle">Add multiple client records quickly. Tab to move between fields, paste from Excel or Google Sheets.</p>
         </div>
       </div>
 
       <!-- Mode selector -->
       <div class="filter-tabs" style="margin-bottom:var(--space-4);display:inline-flex;">
-        <button onclick="bulkMode('individuals')" class="filter-tab ${mode==='individuals'?'active':''}">Individuals</button>
-        <button onclick="bulkMode('entities')"    class="filter-tab ${mode==='entities'   ?'active':''}">Entities</button>
+        <button onclick="bulkMode('individuals')" class="filter-tab ${mode==='individuals'?'active':''}">Individual clients</button>
+        <button onclick="bulkMode('entities')"    class="filter-tab ${mode==='entities'   ?'active':''}">Entity clients</button>
       </div>
 
       <div class="banner banner-info" style="margin-bottom:var(--space-4);">
-        <div class="banner-title">How to use</div>
-        Type directly into the table or paste from a spreadsheet. Tab moves to the next cell. Enter adds a new row. Each row creates one record. Required fields are marked with *.
-        ${mode === 'individuals' ? ' After saving, go to each individual to add their connections (firm role or entity membership).' : ''}
+        <div class="banner-title">${cfg.title}</div>
+        ${cfg.subtitle}
       </div>
 
       <!-- Table -->
       <div style="overflow-x:auto;margin-bottom:var(--space-4);">
-        <table style="border-collapse:collapse;width:100%;min-width:${mode==='individuals'?'700px':'600px'};">
+        <table style="border-collapse:collapse;width:100%;min-width:700px;">
           <thead>
             <tr style="background:var(--color-surface-alt);">
               <th style="padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;border:0.5px solid var(--color-border);width:30px;">#</th>
               ${tableHeaders(mode).map(h => `
-                <th style="padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;border:0.5px solid var(--color-border);white-space:nowrap;">${h.label}${h.required?'*':''}</th>
+                <th style="padding:var(--space-2) var(--space-3);font-size:10px;font-weight:500;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;border:0.5px solid var(--color-border);white-space:nowrap;">
+                  ${h.label}${h.required?' *':''}
+                </th>
               `).join('')}
               <th style="border:0.5px solid var(--color-border);width:32px;"></th>
             </tr>
@@ -48,8 +73,8 @@ export function screen() {
       </div>
 
       <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5);">
-        <button onclick="addBulkRow()" class="btn-sec btn-sm">+ Add row</button>
-        <button onclick="addBulkRows(5)" class="btn-sec btn-sm">+ Add 5 rows</button>
+        <button onclick="addBulkRow()"    class="btn-sec btn-sm">+ Add row</button>
+        <button onclick="addBulkRows(5)"  class="btn-sec btn-sm">+ Add 5 rows</button>
         <button onclick="clearBulkTable()" class="btn-ghost" style="color:var(--color-danger);font-size:var(--font-size-xs);">Clear all</button>
         <div style="flex:1;"></div>
         <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${rows.length} row${rows.length!==1?'s':''}</span>
@@ -59,12 +84,13 @@ export function screen() {
 
       ${saved > 0 ? `
         <div class="banner banner-success" style="margin-bottom:var(--space-3);">
-          ${saved} record${saved!==1?'s':''} saved successfully. <button onclick="go('${mode}')" class="btn-ghost" style="color:var(--color-success-text);font-size:var(--font-size-xs);">View ${mode} →</button>
+          ${saved} record${saved!==1?'s':''} saved successfully.
+          <button onclick="go('entities')" class="btn-ghost" style="color:var(--color-success-text);font-size:var(--font-size-xs);">View clients →</button>
         </div>
       ` : ''}
 
       <div style="display:flex;gap:var(--space-3);">
-        <button onclick="go('${mode}')" class="btn-sec" style="flex:1;">Cancel</button>
+        <button onclick="go('entities')" class="btn-sec" style="flex:1;">Cancel</button>
         <button onclick="saveBulkRecords()" class="btn" style="flex:2;">Save all records</button>
       </div>
     </div>`;
@@ -73,18 +99,21 @@ export function screen() {
 // ─── TABLE HEADERS ────────────────────────────────────────────────────────────
 function tableHeaders(mode) {
   if (mode === 'individuals') return [
-    { key: 'fullName',    label: 'Full name',    required: true  },
-    { key: 'dateOfBirth', label: 'Date of birth', required: true  },
-    { key: 'address',     label: 'Address',       required: true  },
-    { key: 'email',       label: 'Email',         required: false },
-    { key: 'phone',       label: 'Phone',         required: false },
+    { key: 'fullName',    label: 'Full legal name',  required: true  },
+    { key: 'dateOfBirth', label: 'Date of birth',    required: true  },
+    { key: 'address',     label: 'Residential address', required: true  },
+    { key: 'email',       label: 'Email',            required: false },
+    { key: 'entityType',  label: 'Type',             required: true  },
+    { key: 'tradingName', label: 'Trading name',     required: false },
+    { key: 'abn',         label: 'ABN',              required: false },
   ];
   if (mode === 'entities') return [
-    { key: 'entityName',  label: 'Entity name',   required: true  },
-    { key: 'entityType',  label: 'Type',          required: true  },
-    { key: 'abn',         label: 'ABN',           required: false },
-    { key: 'acn',         label: 'ACN',           required: false },
-    { key: 'address',     label: 'Address',       required: false },
+    { key: 'entityName',  label: 'Entity name',      required: true  },
+    { key: 'entityType',  label: 'Type',             required: true  },
+    { key: 'abn',         label: 'ABN',              required: false },
+    { key: 'acn',         label: 'ACN',              required: false },
+    { key: 'address',     label: 'Registered address', required: false },
+    { key: 'email',       label: 'Email',            required: false },
   ];
   return [];
 }
@@ -95,28 +124,34 @@ function defaultRows(mode) {
 }
 
 function emptyRow(mode) {
-  if (mode === 'individuals') return { fullName:'', dateOfBirth:'', address:'', email:'', phone:'' };
-  if (mode === 'entities')    return { entityName:'', entityType:'', abn:'', acn:'', address:'' };
+  if (mode === 'individuals') return { fullName:'', dateOfBirth:'', address:'', email:'', entityType:'Individual', tradingName:'', abn:'' };
+  if (mode === 'entities')    return { entityName:'', entityType:'', abn:'', acn:'', address:'', email:'' };
   return {};
 }
 
 // ─── TABLE ROW HTML ───────────────────────────────────────────────────────────
 function tableRow(mode, row, i) {
-  const headers = tableHeaders(mode);
+  const headers  = tableHeaders(mode);
   const cellStyle = 'border:0.5px solid var(--color-border);padding:2px;';
+
+  const INDIVIDUAL_TYPES = ['Individual', 'Sole Trader'];
+  const ENTITY_TYPES     = ['Private Company', 'Trust', 'SMSF', 'Partnership', 'Other'];
 
   const cells = headers.map(h => {
     if (h.key === 'entityType') {
+      const options = mode === 'individuals' ? INDIVIDUAL_TYPES : ENTITY_TYPES;
       return `<td style="${cellStyle}">
-        <select onchange="bulkCellChange(${i},'${h.key}',this.value)" style="width:100%;border:none;font-size:var(--font-size-xs);padding:6px 4px;background:transparent;font-family:var(--font-family);">
-          <option value="">Select...</option>
-          ${['Private Company','Trust','SMSF','Partnership','Individual / Sole Trader','Other'].map(t => `<option value="${t}" ${row[h.key]===t?'selected':''}>${t}</option>`).join('')}
+        <select onchange="bulkCellChange(${i},'${h.key}',this.value)"
+                style="width:100%;border:none;font-size:var(--font-size-xs);padding:6px 4px;background:transparent;font-family:var(--font-family);">
+          ${options.map(t => `<option value="${t}" ${row[h.key]===t?'selected':''}>${t}</option>`).join('')}
         </select>
       </td>`;
     }
     if (h.key === 'dateOfBirth') {
       return `<td style="${cellStyle}">
-        <input type="date" value="${row[h.key]||''}" onchange="bulkCellChange(${i},'${h.key}',this.value)" style="width:100%;border:none;font-size:var(--font-size-xs);padding:6px 4px;background:transparent;font-family:var(--font-family);">
+        <input type="date" value="${row[h.key]||''}"
+               onchange="bulkCellChange(${i},'${h.key}',this.value)"
+               style="width:100%;border:none;font-size:var(--font-size-xs);padding:6px 4px;background:transparent;font-family:var(--font-family);">
       </td>`;
     }
     return `<td style="${cellStyle}">
@@ -154,11 +189,9 @@ window.bulkCellChange = function(i, key, val) {
 window.bulkKeyDown = function(e, i, key) {
   if (e.key === 'Enter') {
     e.preventDefault();
-    // Add new row if on last row
     if (i === (S._bulkRows?.length || 0) - 1) {
       addBulkRow();
     } else {
-      // Move to next row same column
       const nextRow = document.getElementById(`bulk-row-${i+1}`);
       if (nextRow) {
         const inputs = nextRow.querySelectorAll('input,select');
@@ -173,7 +206,6 @@ window.addBulkRow = function() {
   if (!S._bulkRows) S._bulkRows = defaultRows(mode);
   S._bulkRows.push(emptyRow(mode));
   render();
-  // Focus new row
   setTimeout(() => {
     const lastRow = document.getElementById(`bulk-row-${S._bulkRows.length - 1}`);
     if (lastRow) {
@@ -222,7 +254,7 @@ window.saveBulkRecords = async function() {
     });
   });
 
-  // Filter out completely empty rows
+  // Filter out empty rows
   const validRows = mode === 'individuals'
     ? rows.filter(r => r.fullName?.trim())
     : rows.filter(r => r.entityName?.trim());
@@ -237,12 +269,13 @@ window.saveBulkRecords = async function() {
   const errors = [];
   validRows.forEach((r, i) => {
     if (mode === 'individuals') {
-      if (!r.fullName?.trim())    errors.push(`Row ${i+1}: Full name is required`);
-      if (!r.dateOfBirth)         errors.push(`Row ${i+1}: Date of birth is required`);
-      if (!r.address?.trim())     errors.push(`Row ${i+1}: Address is required`);
+      if (!r.fullName?.trim())  errors.push(`Row ${i+1}: Full name is required`);
+      if (!r.dateOfBirth)       errors.push(`Row ${i+1}: Date of birth is required`);
+      if (!r.address?.trim())   errors.push(`Row ${i+1}: Address is required`);
+      if (!r.entityType)        errors.push(`Row ${i+1}: Type is required`);
     } else {
-      if (!r.entityName?.trim())  errors.push(`Row ${i+1}: Entity name is required`);
-      if (!r.entityType)          errors.push(`Row ${i+1}: Entity type is required`);
+      if (!r.entityName?.trim()) errors.push(`Row ${i+1}: Entity name is required`);
+      if (!r.entityType)         errors.push(`Row ${i+1}: Type is required`);
     }
   });
 
@@ -253,35 +286,80 @@ window.saveBulkRecords = async function() {
   }
 
   try {
-    const now = new Date().toISOString();
-    let saved = 0;
+    const now    = new Date().toISOString();
+    const me     = S.individuals?.find(i => i.individualId === S.individualId)?.fullName || 'User';
+    let   saved  = 0;
 
     for (const r of validRows) {
+
       if (mode === 'individuals') {
+        // ── Create individual + self-entity + self-link atomically ─────────
         const iid = genId('ind');
+        const eid = genId('ent');
+        const lid = genId('link');
+
         const indData = {
           individualId: iid,
           firmId:       S.firmId,
           fullName:     r.fullName.trim(),
-          dateOfBirth:  r.dateOfBirth || '',
-          address:      r.address?.trim() || '',
-          email:        r.email?.trim()   || '',
-          phone:        r.phone?.trim()   || '',
+          dateOfBirth:  r.dateOfBirth  || '',
+          address:      r.address?.trim()  || '',
+          email:        r.email?.trim()    || '',
+          isStaff:      false,
           createdAt:    now,
           updatedAt:    now,
         };
+
+        const entData = {
+          entityId:           eid,
+          firmId:             S.firmId,
+          entityName:         r.fullName.trim(),
+          entityType:         r.entityType || 'Individual',
+          tradingName:        r.tradingName?.trim() || '',
+          abn:                r.abn?.trim()         || '',
+          registeredAddress:  r.address?.trim()     || '',
+          email:              r.email?.trim()        || '',
+          createdAt:          now,
+          updatedAt:          now,
+        };
+
+        const linkData = {
+          linkId:           lid,
+          firmId:           S.firmId,
+          individualId:     iid,
+          linkedObjectType: 'entity',
+          linkedObjectId:   eid,
+          roleType:         'self',
+          status:           'active',
+          startDate:        now,
+          createdAt:        now,
+          updatedAt:        now,
+        };
+
         await saveIndividual(iid, indData);
+        await saveEntity(eid, entData);
+        await saveLink(lid, linkData);
+
         addIndividualToState(indData);
+        addEntityToState(entData);
+        addLinkToState(linkData);
+
         await saveAuditEntry({
-          firmId: S.firmId, userId: S.individualId,
-          userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
-          action: 'individual_created', targetType: 'individual',
-          targetId: iid, targetName: r.fullName.trim(),
-          detail: `Individual created via bulk upload — ${r.fullName.trim()}`,
-          timestamp: now,
+          firmId:     S.firmId,
+          userId:     S.individualId,
+          userName:   me,
+          action:     'individual_created',
+          targetType: 'individual',
+          targetId:   iid,
+          targetName: r.fullName.trim(),
+          detail:     `Individual client created via bulk upload — ${r.fullName.trim()} (${r.entityType || 'Individual'}) — CDD incomplete`,
+          timestamp:  now,
         });
+
       } else {
+        // ── Create entity only ─────────────────────────────────────────────
         const eid = genId('ent');
+
         const entData = {
           entityId:           eid,
           firmId:             S.firmId,
@@ -290,21 +368,28 @@ window.saveBulkRecords = async function() {
           abn:                r.abn?.trim()     || '',
           acn:                r.acn?.trim()     || '',
           registeredAddress:  r.address?.trim() || '',
+          email:              r.email?.trim()   || '',
           status:             'active',
           createdAt:          now,
           updatedAt:          now,
         };
+
         await saveEntity(eid, entData);
         addEntityToState(entData);
+
         await saveAuditEntry({
-          firmId: S.firmId, userId: S.individualId,
-          userName: S.individuals?.find(i=>i.individualId===S.individualId)?.fullName || 'User',
-          action: 'entity_created', targetType: 'entity',
-          targetId: eid, targetName: r.entityName.trim(),
-          detail: `Entity created via bulk upload — ${r.entityName.trim()} (${r.entityType})`,
-          timestamp: now,
+          firmId:     S.firmId,
+          userId:     S.individualId,
+          userName:   me,
+          action:     'entity_created',
+          targetType: 'entity',
+          targetId:   eid,
+          targetName: r.entityName.trim(),
+          detail:     `Entity client created via bulk upload — ${r.entityName.trim()} (${r.entityType}) — key people to be added`,
+          timestamp:  now,
         });
       }
+
       saved++;
     }
 
@@ -312,6 +397,7 @@ window.saveBulkRecords = async function() {
     S._bulkRows  = defaultRows(mode);
     toast(`${saved} record${saved!==1?'s':''} saved`);
     render();
+
   } catch (err) {
     errEl.textContent = 'Failed to save records. Please try again.';
     errEl.style.display = 'block';
