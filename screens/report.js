@@ -289,17 +289,25 @@ function buildPrintableReportHTML(storageLocation) {
   }).join('');
 
   const smrRows = smrs.length
-    ? smrs.map(smr => `
-        <tr>
-          <td>${escapeHtml(smr.smrId || '—')}</td>
-          <td>${escapeHtml(smr.status || '—')}</td>
-          <td>${escapeHtml(fmtDateOnly(smr.createdAt || smr.date))}</td>
-          <td>${escapeHtml(smr.subject || smr.summary || '—')}</td>
-        </tr>
-      `).join('')
+    ? smrs.map(smr => {
+        const indId   = (smr.relatedIndividuals || [])[0];
+        const indName = indId
+          ? (individuals.find(i => i.individualId === indId)?.fullName || indId)
+          : '—';
+        const detailsSummary = (smr.details || '').slice(0, 120) + ((smr.details || '').length > 120 ? '…' : '');
+        return `
+          <tr>
+            <td>${escapeHtml(indName)}</td>
+            <td>${escapeHtml(smr.smrId || '—')}</td>
+            <td>${escapeHtml(smr.status || '—')}</td>
+            <td>${escapeHtml(fmtDateOnly(smr.submittedDate || smr.createdAt))}</td>
+            <td>${escapeHtml(smr.austracRef || '—')}</td>
+            <td>${escapeHtml(detailsSummary || '—')}</td>
+          </tr>`;
+      }).join('')
     : `
       <tr>
-        <td colspan="4">No SMR records currently loaded.</td>
+        <td colspan="6">No SMR records currently loaded.</td>
       </tr>
     `;
 
@@ -490,10 +498,12 @@ function buildPrintableReportHTML(storageLocation) {
         <table>
           <thead>
             <tr>
+              <th>Individual</th>
               <th>SMR ID</th>
               <th>Status</th>
-              <th>Date</th>
-              <th>Summary</th>
+              <th>Date submitted</th>
+              <th>AUSTRAC ref</th>
+              <th>Details (summary)</th>
             </tr>
           </thead>
           <tbody>
