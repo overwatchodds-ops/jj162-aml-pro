@@ -182,7 +182,7 @@ const NAV_ITEMS = [
   { screen: 'dashboard',    label: 'Dashboard' },
 
   { section: 'FIRM SETUP' },
-  { screen: 'setup',        label: 'Firm Setup'    },
+  { screen: 'setup',        label: 'Firm Setup',    hideWhenSetupDone: true },
   { screen: 'firm-profile', label: 'Firm Profile'  },
 
   { section: 'COMPLIANCE' },
@@ -246,6 +246,9 @@ function Sidebar() {
     }
 
     const locked = item.requiresSetup && !setupDone;
+
+    // Hide 'Firm Setup' from sidebar once setup is complete
+    if (item.hideWhenSetupDone && setupDone) return '';
     const active = cur === item.screen ||
       (item.screen === 'setup' && cur === 'firm-profile-edit');
 
