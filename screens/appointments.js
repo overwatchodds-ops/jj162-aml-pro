@@ -174,7 +174,7 @@ window.saveAppointments = async function() {
     await updateFirmProfile(S.firmId, { appointments });
     S.firm.appointments = appointments;
     window.toast('Appointments saved');
-    render();
+    go('firm-profile');
   } catch (e) {
     showErr(errEl, 'Failed to save. Please try again.');
     console.error(e);
