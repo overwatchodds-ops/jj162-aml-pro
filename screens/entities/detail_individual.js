@@ -444,10 +444,7 @@ export function screen() {
 
       <!-- CARD 4: RISK ASSESSMENT -->
       <div class="card" style="margin-bottom:var(--space-3);">
-        <div class="section-heading">Client risk assessment
-          <span style="font-size:var(--font-size-xs);font-weight:400;
-                       color:var(--color-text-muted);margin-left:var(--space-2);">(optional)</span>
-        </div>
+        <div class="section-heading">Client risk assessment</div>
 
         <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
 
