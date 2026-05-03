@@ -223,7 +223,7 @@ function staffStatusFromDraft(d) {
   }
 
   if (!required.length) return 'Not required';
-  if (!satisfied.length) return 'Not started';
+  if (!satisfied.length) return 'Incomplete';
   if (satisfied.length === required.length) return 'Complete';
   return 'Incomplete';
 }
@@ -281,8 +281,6 @@ function newBlankDraft() {
     isStaff: true,
     fullName: '',
     role: '',
-    dateOfBirth: '',
-    address: '',
     email: '',
     phone: '',
     notes: '',
@@ -405,16 +403,6 @@ function renderIdentityTab() {
         </div>
 
         <div class="form-row">
-          <label class="label">Date of birth</label>
-          <input type="date" class="inp" value="${esc(d.dateOfBirth || '')}" oninput="updateDraft('dateOfBirth', this.value)">
-        </div>
-
-        <div class="form-row span-2">
-          <label class="label">Residential address</label>
-          <input type="text" class="inp" value="${esc(d.address || '')}" oninput="updateDraft('address', this.value)" placeholder="12 Main St, Sydney NSW 2000">
-        </div>
-
-        <div class="form-row">
           <label class="label label-required">Email</label>
           <input type="email" class="inp" value="${esc(d.email || '')}" oninput="updateDraft('email', this.value)" placeholder="e.g. jane@firm.com.au">
         </div>
@@ -488,7 +476,7 @@ function renderScreeningTab() {
           <label class="label">Date</label>
           <input type="date" class="inp"
             value="${esc(d.screeningDate || '')}"
-            oninput="updateDraft('screeningDate', this.value)">
+            onchange="handleScreeningDateChange(this.value)">
         </div>
 
         <div class="form-row">
@@ -546,58 +534,16 @@ function renderTrainingTab() {
 
         <div class="form-row">
           <label class="label">Completed date</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input
-              type="text"
-              class="inp"
-              value="${esc(formatDateForDisplay(d.trainingCompletedDate || ''))}"
-              placeholder="dd/mm/yyyy"
-              onblur="handleTrainingDateTextBlur(this.value)"
-              style="flex:1;"
-            >
-            <input
-              id="training-completed-picker"
-              type="date"
-              value="${esc(normaliseDateValue(d.trainingCompletedDate || ''))}"
-              onchange="handleTrainingDatePicker(this.value)"
-              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;"
-            >
-            <button
-              type="button"
-              class="btn-ghost"
-              onclick="openDatePicker('training-completed-picker')"
-              style="padding:10px 12px;border:1px solid var(--color-border-light);border-radius:12px;"
-              aria-label="Pick completed date"
-            >📅</button>
-          </div>
+          <input type="date" class="inp"
+            value="${esc(normaliseDateValue(d.trainingCompletedDate || ''))}"
+            onchange="handleTrainingCompletedChange(this.value)">
         </div>
 
         <div class="form-row">
           <label class="label">Expiry date</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input
-              type="text"
-              class="inp"
-              value="${esc(formatDateForDisplay(d.trainingExpiryDate || ''))}"
-              placeholder="dd/mm/yyyy"
-              onblur="handleTrainingExpiryTextBlur(this.value)"
-              style="flex:1;"
-            >
-            <input
-              id="training-expiry-picker"
-              type="date"
-              value="${esc(normaliseDateValue(d.trainingExpiryDate || ''))}"
-              onchange="handleTrainingExpiryPicker(this.value)"
-              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;"
-            >
-            <button
-              type="button"
-              class="btn-ghost"
-              onclick="openDatePicker('training-expiry-picker')"
-              style="padding:10px 12px;border:1px solid var(--color-border-light);border-radius:12px;"
-              aria-label="Pick expiry date"
-            >📅</button>
-          </div>
+          <input type="date" class="inp"
+            value="${esc(normaliseDateValue(d.trainingExpiryDate || ''))}"
+            oninput="updateDraft('trainingExpiryDate', this.value)">
         </div>
 
         <div class="form-row span-2">
@@ -738,8 +684,6 @@ async function saveCoreIndividual(d) {
     isStaff: true,
     fullName: d.fullName,
     role: d.role,
-    dateOfBirth: d.dateOfBirth || '',
-    address: d.address || '',
     email: d.email || '',
     phone: d.phone || '',
     notes: d.notes || '',
@@ -973,8 +917,8 @@ export function screen() {
           ? softBadge('Complete', 'success')
           : status === 'Incomplete'
             ? softBadge('Incomplete', 'danger')
-            : status === 'Not started'
-              ? softBadge('Not started', 'warning')
+            : status === 'Incomplete'
+              ? softBadge('Incomplete', 'warning')
               : softBadge('No checks required', 'neutral')}
       </div>
 
@@ -1120,6 +1064,28 @@ window.handleTrainingExpiryTextBlur = function(value) {
 
 window.handleTrainingExpiryPicker = function(value) {
   window.handleTrainingExpiryTextBlur(value);
+};
+
+window.handleScreeningDateChange = function(value) {
+  if (!S._draft) ensureDraft();
+  S._draft.screeningDate = value;
+  if (value && !S._draft.screeningNextDueDate) {
+    const d = new Date(value);
+    d.setFullYear(d.getFullYear() + 1);
+    S._draft.screeningNextDueDate = d.toISOString().split('T')[0];
+  }
+  window.render();
+};
+
+window.handleTrainingCompletedChange = function(value) {
+  if (!S._draft) ensureDraft();
+  S._draft.trainingCompletedDate = value;
+  if (value && !S._draft.trainingExpiryDate) {
+    const d = new Date(value);
+    d.setFullYear(d.getFullYear() + 1);
+    S._draft.trainingExpiryDate = d.toISOString().split('T')[0];
+  }
+  window.render();
 };
 
 window.handleDeclarationDateChange = function(value) {
