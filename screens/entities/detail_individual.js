@@ -626,7 +626,9 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
   if (!idNum)   return fail('ID number is required.');
   if (!staffBy) return fail('Staff member is required.');
   if (!verDate) return fail('Verified date is required.');
-  if (!scrDate) return fail('Screening date is required.');
+  if (!scrDate)    return fail('Screening date is required.');
+  if (!riskRating) return fail('Client risk assessment: risk rating is required.');
+  if (!riskDate)   return fail('Client risk assessment: assessed date is required.');
 
   const isNew    = fid === 'new';
   const entityId = isNew ? null : S.currentParams?.entityId;
