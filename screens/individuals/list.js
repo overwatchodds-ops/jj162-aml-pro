@@ -139,7 +139,7 @@ function staffVettingStatus(ind) {
 
   if (trainingRequired(classification)) {
     required.push('training');
-    if (latestTrn?.completedDate && latestTrn?.provider) satisfied.push('training');
+    if (latestTrn?.completedDate) satisfied.push('training');
   }
 
   if (vettingRequired(classification)) {
@@ -354,9 +354,9 @@ export function screen() {
                   </td>
                   <td>${roleSummary(i, isStaffView, i._status.classification)}</td>
                   ${isStaffView ? `
-                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!screeningRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const scr = (S.screenings||[]).find(x => x.individualId === i.individualId); return scr?.result ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
-                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!vettingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const vet = (S.vetting||[]).find(x => x.individualId === i.individualId); return vet?.policeCheckDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
-                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!trainingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const trn = (S.training||[]).find(x => x.individualId === i.individualId); return trn?.completedDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}` : `
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!screeningRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const scr = (S.screenings||[]).filter(x => x.individualId === i.individualId).sort((a,b) => (b.date||'').localeCompare(a.date||''))[0]; return scr?.result ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!vettingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const vet = (S.vetting||[]).filter(x => x.individualId === i.individualId).sort((a,b) => (b.policeCheckDate||'').localeCompare(a.policeCheckDate||''))[0]; return vet?.policeCheckDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}</td>
+                  <td style="text-align:center;font-size:var(--font-size-sm);">${(() => { const s = i._status; const cls = s.classification; if (!trainingRequired(cls)) return '<span style="color:var(--color-text-muted);">—</span>'; const trn = (S.training||[]).filter(x => x.individualId === i.individualId).sort((a,b) => (b.completedDate||'').localeCompare(a.completedDate||''))[0]; return trn?.completedDate ? '<span style="color:var(--color-success);">✓</span>' : '<span style="color:var(--color-danger);">✗</span>'; })()}` : `
                   <td>${statusBadge(i._status.status)}`}
                   </td>
                   <td style="font-size:var(--font-size-xs);color:var(--color-text-muted);">${fmtDate(i.updatedAt)}</td>
