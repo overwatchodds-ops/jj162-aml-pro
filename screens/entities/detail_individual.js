@@ -613,6 +613,11 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
   // ── Validation ────────────────────────────────────────────────────────────
   if (!name)    return fail('Full legal name is required.');
   if (!dob)     return fail('Date of birth is required.');
+  const dobDate  = new Date(dob);
+  const today    = new Date();
+  const age      = (today - dobDate) / (365.25 * 24 * 60 * 60 * 1000);
+  if (age < 18)  return fail('Client must be at least 18 years old.');
+  if (age > 100) return fail('Date of birth appears incorrect — client cannot be over 100 years old.');
   if (!address) return fail('Residential address is required.');
   if (!idNum)   return fail('ID number is required.');
   if (!staffBy) return fail('Staff member is required.');
