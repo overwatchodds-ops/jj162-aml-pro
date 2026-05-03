@@ -288,23 +288,23 @@ function newBlankDraft() {
     staffClassification: 'none',
 
     screeningProvider: '',
-    screeningDate: '',
+    screeningDate: new Date().toISOString().split('T')[0],
     screeningResult: '',
     screeningReferenceId: '',
     screeningNextDueDate: '',
 
     trainingType: 'standard',
     trainingProvider: '',
-    trainingCompletedDate: '',
+    trainingCompletedDate: new Date().toISOString().split('T')[0],
     trainingExpiryDate: '',
     trainingCertificateLink: '',
 
-    policeCheckDate: '',
+    policeCheckDate: new Date().toISOString().split('T')[0],
     policeCheckResult: '',
     policeCheckRef: '',
-    bankruptcyCheckDate: '',
+    bankruptcyCheckDate: new Date().toISOString().split('T')[0],
     bankruptcyCheckResult: '',
-    declDate: '',
+    declDate: new Date().toISOString().split('T')[0],
     declNext: '',
     declSigned: false,
   };
