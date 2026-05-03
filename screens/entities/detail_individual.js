@@ -40,10 +40,24 @@ function riskBadge(rating) {
 }
 
 function staffOptions(selected = '') {
-  const staff = (S.individuals || []).filter(i => i.isStaff);
-  if (!staff.length) return `<option value="">No staff found — add staff first</option>`;
+  const allStaff = (S.individuals || []).filter(i => i.isStaff);
+
+  // Only show staff who have completed their vetting/training requirements
+  const completedStaff = allStaff.filter(s => {
+    const cls = s.staffClassification || 'none';
+    if (cls === 'none') return true; // no requirements
+    const scr = (S.screenings || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+    const trn = (S.training   || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.completedDate||'').localeCompare(a.completedDate||''))[0];
+    const vet = (S.vetting    || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.policeCheckDate||'').localeCompare(a.policeCheckDate||''))[0];
+    const scrOk = !!scr?.result;
+    const trnOk = !!trn?.completedDate;
+    const vetOk = cls !== 'key' || (!!vet?.policeCheckDate && !!vet?.bankruptcyCheckDate);
+    return scrOk && trnOk && vetOk;
+  });
+
+  if (!completedStaff.length) return `<option value="">No completed staff found — complete staff vetting first</option>`;
   return `<option value="">Select staff member...</option>` +
-    staff.map(s =>
+    completedStaff.map(s =>
       `<option value="${s.fullName}" ${selected === s.fullName ? 'selected' : ''}>
         ${s.fullName}${s.role ? ' · ' + s.role : ''}
       </option>`
