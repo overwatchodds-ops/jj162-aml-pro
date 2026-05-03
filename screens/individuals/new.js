@@ -870,20 +870,7 @@ async function handleSave(redirectAfter = true) {
     window.toast(isEditMode() ? 'Staff record updated.' : 'Staff member saved.', 'ok');
 
     if (redirectAfter) {
-      // In new mode, advance to next tab rather than jumping to detail
-      const TAB_ORDER = ['identity', 'screening', 'training', 'vetting'];
-      const currentTabKey = currentTab();
-      const currentIndex = TAB_ORDER.indexOf(currentTabKey);
-      const isLastTab = currentIndex === TAB_ORDER.length - 1;
-
-      if (isEditMode() || isLastTab) {
-        window.go('staff-detail', { individualId: record.individualId });
-      } else {
-        // Advance to next tab
-        const nextTab = TAB_ORDER[currentIndex + 1];
-        S.currentParams = { ...S.currentParams, individualId: record.individualId, tab: nextTab };
-        window.render();
-      }
+      window.go('staff-detail', { individualId: record.individualId });
     } else {
       window.render();
     }
@@ -900,15 +887,6 @@ export function screen() {
   const d = S._draft;
   const editMode = isEditMode();
   const title = editMode ? `Edit — ${esc(currentRecordName())}` : 'Add staff member';
-  const activeTab = currentTab();
-
-  const tabs = [
-    { key: 'identity', label: 'Identity' },
-    { key: 'screening', label: 'Screening' },
-    { key: 'training', label: 'Training' },
-    { key: 'vetting', label: 'Vetting' },
-  ];
-
   const classification = d.staffClassification || 'none';
   const status = staffStatusFromDraft(d);
 
@@ -930,31 +908,13 @@ export function screen() {
           ? softBadge('Complete', 'success')
           : status === 'Incomplete'
             ? softBadge('Incomplete', 'danger')
-            : status === 'Incomplete'
-              ? softBadge('Incomplete', 'warning')
-              : softBadge('No checks required', 'neutral')}
+            : softBadge('No checks required', 'neutral')}
       </div>
 
-      <div class="card" style="padding-bottom:0;margin-bottom:var(--space-4);">
-        <div style="display:flex;gap:var(--space-4);border-bottom:1px solid var(--color-border-light);overflow:auto;">
-          ${tabs.map(t => `
-            <button
-              onclick="staffSetTab('${t.key}')"
-              class="btn-ghost"
-              style="
-                padding:0 0 12px 0;
-                border-bottom:2px solid ${activeTab === t.key ? 'var(--color-primary)' : 'transparent'};
-                border-radius:0;
-                color:${activeTab === t.key ? 'var(--color-primary)' : 'var(--color-text-secondary)'};
-                font-weight:${activeTab === t.key ? '600' : '500'};
-                white-space:nowrap;
-              "
-            >${t.label}</button>
-          `).join('')}
-        </div>
-      </div>
-
-      ${renderActiveTab()}
+      ${renderIdentityTab()}
+      ${renderScreeningTab()}
+      ${renderTrainingTab()}
+      ${renderVettingTab()}
 
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
         <button
