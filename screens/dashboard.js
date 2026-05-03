@@ -93,7 +93,7 @@ export function screen() {
     result: individualCompliance(i),
   }));
 
-  const recordsComplete = indResults.filter(r => r.result.status === 'compliant');
+  const recordsComplete = indResults.filter(r => r.result.status === 'compliant' || (r.result.isStaffOnly && r.result.staffComplete));
   const action          = indResults.filter(r => r.result.status === 'action_required');
   const noLinks         = indResults.filter(r => r.result.status === 'no_links' && !r.result.isStaffOnly);
 
