@@ -111,10 +111,9 @@ function getCDDState(latestVer, latestScr) {
   };
 }
 
-function findPotentialDuplicate({ fullName, dateOfBirth, email, idNumber }, excludeIndividualId = '') {
+function findPotentialDuplicate({ fullName, dateOfBirth, idNumber }, excludeIndividualId = '') {
   const name = String(fullName    || '').trim().toLowerCase();
   const dob  = String(dateOfBirth || '').trim();
-  const eml  = String(email       || '').trim().toLowerCase();
   const idNo = String(idNumber    || '').trim().toLowerCase();
 
   if (idNo) {
@@ -133,13 +132,12 @@ function findPotentialDuplicate({ fullName, dateOfBirth, email, idNumber }, excl
   const indDup = (S.individuals || []).find(i => {
     if (i.isStaff) return false;
     if (excludeIndividualId && i.individualId === excludeIndividualId) return false;
-    const sameName  = String(i.fullName    || '').trim().toLowerCase() === name;
-    const sameDOB   = dob && String(i.dateOfBirth || '').trim() === dob;
-    const sameEmail = eml && String(i.email || '').trim().toLowerCase() === eml;
-    return sameName && (sameDOB || sameEmail);
+    const sameName = String(i.fullName    || '').trim().toLowerCase() === name;
+    const sameDOB  = dob && String(i.dateOfBirth || '').trim() === dob;
+    return sameName && sameDOB;
   });
 
-  return indDup ? { type: 'nameDobOrEmail', individual: indDup } : null;
+  return indDup ? { type: 'nameAndDob', individual: indDup } : null;
 }
 
 // Write a link between an individual and a parent entity — skips if already exists
@@ -170,7 +168,7 @@ async function linkToParent(iid, parentEntityId, parentRoleType, now) {
 // Returns array of audit note strings for what was written.
 async function writeCDDRecords(iid, fields, existing = {}, forceWrite = false) {
   const {
-    idType, idNum, verState, verExpiry, verBy, verDate, verMethod,
+    idType, idNum, verBy, verDate, verMethod,
     scrProv, scrDate, scrResult, scrRef, scrBy, scrNext,
     now, firmId,
   } = fields;
@@ -183,13 +181,12 @@ async function writeCDDRecords(iid, fields, existing = {}, forceWrite = false) {
     existing.ver.verifiedDate   !== verDate   ||
     existing.ver.verifiedBy     !== verBy     ||
     existing.ver.verifiedMethod !== verMethod ||
-    existing.ver.issuingState   !== verState  ||
-    existing.ver.expiryDate     !== verExpiry;
+    false; // issuingState and expiryDate no longer collected
 
   if (verChanged) {
     const verRec = {
       verificationId: genId('ver'), firmId, individualId: iid,
-      idType, idNumber: idNum, issuingState: verState, expiryDate: verExpiry,
+      idType, idNumber: idNum,
       verifiedBy: verBy, verifiedDate: verDate, verifiedMethod: verMethod,
       createdAt: now,
     };
@@ -320,11 +317,6 @@ export function screen() {
           <div class="form-row">
             <label class="label label-required">Residential address</label>
             ${inp(`f-address-${fid}`, 'text', ind?.address || entity?.registeredAddress || '', '12 Main St, Sydney NSW 2000')}
-          </div>
-
-          <div class="form-row">
-            <label class="label">Email</label>
-            ${inp(`f-email-${fid}`, 'email', ind?.email || entity?.email || '', 'jane@example.com')}
           </div>
 
           <div style="padding-top:var(--space-3);border-top:0.5px solid var(--color-border-light);margin-top:var(--space-2);">
@@ -588,14 +580,11 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
   const name     = g(`f-name-${fid}`)?.value?.trim();
   const dob      = g(`f-dob-${fid}`)?.value;
   const address  = g(`f-address-${fid}`)?.value?.trim();
-  const email    = g(`f-email-${fid}`)?.value?.trim()    || '';
   const abn      = g(`f-abn-${fid}`)?.value?.trim()      || '';
   const trading  = g(`f-trading-${fid}`)?.value?.trim()  || '';
   const staffBy  = g(`staff-by-${fid}`)?.value           || '';
   const idNum    = g(`ver-num-${fid}`)?.value?.trim();
   const idType   = g(`ver-type-${fid}`)?.value           || '';
-  const verState = g(`ver-state-${fid}`)?.value?.trim()  || '';
-  const verExpiry= g(`ver-expiry-${fid}`)?.value         || '';
   const verDate  = g(`ver-date-${fid}`)?.value;
   const verMethod= g(`ver-method-${fid}`)?.value         || '';
   const scrProv  = g(`scr-provider-${fid}`)?.value?.trim();
@@ -647,7 +636,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
   const entityFields = {
     entityName: name, entityType: etype,
     dateOfBirth: dob, registeredAddress: address,
-    email, abn, tradingName: trading,
+    abn, tradingName: trading,
     entityRiskRating:   riskRating || null,
     riskAssessedBy:     staffBy,
     riskAssessedDate:   riskDate,
@@ -664,7 +653,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
       if (existingIndividualId) {
         const iid      = existingIndividualId;
         const indInState = S.individuals.find(i => i.individualId === iid) || {};
-        const indData  = { ...indInState, fullName: name, dateOfBirth: dob, address, email, isStaff: false, updatedAt: now };
+        const indData  = { ...indInState, fullName: name, dateOfBirth: dob, address, isStaff: false, updatedAt: now };
         await saveIndividual(iid, indData);
         if (S.individuals.some(i => i.individualId === iid)) {
           Object.assign(indInState, indData);
@@ -713,13 +702,29 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
       }
 
       // Sub-case B: brand new individual
-      const duplicate = findPotentialDuplicate({ fullName: name, dateOfBirth: dob, email, idNumber: idNum });
+      const duplicate = findPotentialDuplicate({ fullName: name, dateOfBirth: dob, idNumber: idNum });
       if (duplicate) {
         const matchedName = duplicate.individual?.fullName || 'existing record';
-        const reason = duplicate.type === 'idNumber'
-          ? 'same ID number already exists'
-          : 'same name with matching DOB or email already exists';
-        return fail(`Possible duplicate: ${matchedName} — ${reason}. Search from the parent client page instead.`);
+        const matchedDOB  = duplicate.individual?.dateOfBirth || '';
+        if (duplicate.type === 'idNumber') {
+          return fail(`Cannot save — same ID number already exists for ${matchedName}. This is a definite duplicate.`);
+        }
+        // Soft warning — pause save, let user confirm
+        if (errEl) {
+          errEl.innerHTML = `Possible match found: <strong>${matchedName}</strong>${matchedDOB ? ' &middot; DOB: ' + matchedDOB : ''}.<br>If this is a different person, click <strong>Save client</strong> again to confirm.`;
+          errEl.style.display = 'block';
+          errEl.style.background = 'var(--color-warning-light, #fffbeb)';
+          errEl.style.borderColor = 'var(--color-warning, #f59e0b)';
+          errEl.style.color = 'var(--color-warning-text, #92400e)';
+        }
+        // Tag the form so a second click bypasses the duplicate check
+        const formEl = document.getElementById(`save-error-${fid}`);
+        if (formEl && !formEl.dataset.duplicateConfirmed) {
+          formEl.dataset.duplicateConfirmed = 'pending';
+          return; // Pause — wait for user to click Save again
+        }
+        // Second click — clear the tag and proceed
+        if (formEl) delete formEl.dataset.duplicateConfirmed;
       }
 
       const eid = genId('ent');
@@ -728,8 +733,8 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
       await saveEntity(eid, { entityId: eid, firmId, createdAt: now, updatedAt: now, ...entityFields });
       addEntityToState({ entityId: eid, firmId, createdAt: now, updatedAt: now, ...entityFields });
 
-      await saveIndividual(iid, { individualId: iid, firmId, fullName: name, dateOfBirth: dob, address, email, isStaff: false, createdAt: now, updatedAt: now });
-      addIndividualToState({ individualId: iid, firmId, fullName: name, dateOfBirth: dob, address, email, isStaff: false, createdAt: now, updatedAt: now });
+      await saveIndividual(iid, { individualId: iid, firmId, fullName: name, dateOfBirth: dob, address, isStaff: false, createdAt: now, updatedAt: now });
+      addIndividualToState({ individualId: iid, firmId, fullName: name, dateOfBirth: dob, address, isStaff: false, createdAt: now, updatedAt: now });
 
       const selfLinkData = {
         linkId: genId('link'), individualId: iid, firmId,
@@ -764,7 +769,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
     if (entityInState) Object.assign(entityInState, entityFields);
 
     const indInState = S.individuals.find(i => i.individualId === iid) || {};
-    const updatedInd = { ...indInState, fullName: name, dateOfBirth: dob, address, email, updatedAt: now };
+    const updatedInd = { ...indInState, fullName: name, dateOfBirth: dob, address, updatedAt: now };
     await saveIndividual(iid, updatedInd);
     Object.assign(indInState, updatedInd);
 
