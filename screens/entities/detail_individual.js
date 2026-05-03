@@ -369,16 +369,6 @@ export function screen() {
           </div>
 
           <div class="form-row">
-            <label class="label">Issuing state / country</label>
-            ${inp(`ver-state-${fid}`, 'text', latestVer?.issuingState || '', 'e.g. NSW')}
-          </div>
-
-          <div class="form-row">
-            <label class="label">Expiry date</label>
-            ${inp(`ver-expiry-${fid}`, 'date', latestVer?.expiryDate || '')}
-          </div>
-
-          <div class="form-row">
             <label class="label label-required">Verified date</label>
             ${inp(`ver-date-${fid}`, 'date', latestVer?.verifiedDate || today)}
           </div>
@@ -407,7 +397,7 @@ export function screen() {
         <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
 
           <div class="form-row">
-            <label class="label label-required">Provider</label>
+            <label class="label">Provider</label>
             ${inp(`scr-provider-${fid}`, 'text', latestScr?.provider || '', 'e.g. NameScan')}
           </div>
 
@@ -624,7 +614,6 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
   if (!idNum)   return fail('ID number is required.');
   if (!staffBy) return fail('Staff member is required.');
   if (!verDate) return fail('Verified date is required.');
-  if (!scrProv) return fail('Screening provider is required.');
   if (!scrDate) return fail('Screening date is required.');
 
   const isNew    = fid === 'new';
@@ -634,7 +623,7 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
 
   // ── Shared field bundles ───────────────────────────────────────────────────
   const cddFields = {
-    idType, idNum, verState, verExpiry,
+    idType, idNum,
     verBy: staffBy, verDate, verMethod,
     scrProv, scrDate, scrResult, scrRef,
     scrBy: staffBy, scrNext,
