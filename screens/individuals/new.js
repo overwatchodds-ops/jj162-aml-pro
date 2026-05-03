@@ -870,7 +870,20 @@ async function handleSave(redirectAfter = true) {
     window.toast(isEditMode() ? 'Staff record updated.' : 'Staff member saved.', 'ok');
 
     if (redirectAfter) {
-      window.go('staff-detail', { individualId: record.individualId });
+      // In new mode, advance to next tab rather than jumping to detail
+      const TAB_ORDER = ['identity', 'screening', 'training', 'vetting'];
+      const currentTabKey = currentTab();
+      const currentIndex = TAB_ORDER.indexOf(currentTabKey);
+      const isLastTab = currentIndex === TAB_ORDER.length - 1;
+
+      if (isEditMode() || isLastTab) {
+        window.go('staff-detail', { individualId: record.individualId });
+      } else {
+        // Advance to next tab
+        const nextTab = TAB_ORDER[currentIndex + 1];
+        S.currentParams = { ...S.currentParams, individualId: record.individualId, tab: nextTab };
+        window.render();
+      }
     } else {
       window.render();
     }
