@@ -130,7 +130,7 @@ function getEligibleIndividuals(entityId, query = '') {
   let pool = (S.individuals || []).filter(i => !i.isStaff && !linked.has(i.individualId));
   if (q) {
     pool = pool.filter(i =>
-      (i.fullName || '').toLowerCase().includes(q) ||
+      (i.fullName || '').toLowerCase().includes(q)
     );
   }
   return pool.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')).slice(0, 8);
