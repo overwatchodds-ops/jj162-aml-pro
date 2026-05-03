@@ -12,7 +12,38 @@ function individualCompliance(ind) {
   // Staff members don't need a link record — isStaff: true is their role.
   // Links are only required for client entity relationships.
   if (!links.length) {
-    if (ind.isStaff) return { status: 'no_links', missing: [], isStaffOnly: true };
+    if (ind.isStaff && !ind.isClient) {
+      const screenings = (S.screenings || []).filter(s => s.individualId === ind.individualId);
+      const training   = (S.training   || []).filter(t => t.individualId === ind.individualId);
+      const vetting    = (S.vetting    || []).filter(v => v.individualId === ind.individualId);
+      const latestScr  = [...screenings].sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+      const latestTrn  = [...training].sort((a,b) => (b.completedDate||'').localeCompare(a.completedDate||''))[0];
+      const latestVet  = [...vetting].sort((a,b) => (b.policeCheckDate||'').localeCompare(a.policeCheckDate||''))[0];
+      let fns = ind.staffFunctions || ind.amlFunctions || ind.functions || [];
+      if (!Array.isArray(fns) || !fns.length) {
+        const r = String(ind.role || '').toLowerCase();
+        if (r.includes('principal') || r.includes('director') || r.includes('owner') || r.includes('partner')) fns = ['director_owner_beneficial_owner'];
+        else if (r.includes('amlco')) fns = ['amlco_delegate'];
+        else if (r.includes('senior manager')) fns = ['senior_manager_aml_authority'];
+      }
+      const cls = ind.staffClassification || (fns.some(c => ['director_owner_beneficial_owner','amlco_delegate','senior_manager_aml_authority','reporting_officer'].includes(c)) ? 'key' : fns.length ? 'standard' : 'none');
+      const required = [];
+      const satisfied = [];
+      if (cls === 'key' || cls === 'standard') {
+        required.push('screening');
+        if (latestScr?.result) satisfied.push('screening');
+        required.push('training');
+        if (latestTrn?.completedDate) satisfied.push('training');
+      }
+      if (cls === 'key') {
+        required.push('police');
+        required.push('bankruptcy');
+        if (latestVet?.policeCheckDate) satisfied.push('police');
+        if (latestVet?.bankruptcyCheckDate) satisfied.push('bankruptcy');
+      }
+      const staffComplete = !required.length || satisfied.length === required.length;
+      return { status: 'no_links', missing: [], isStaffOnly: true, staffComplete };
+    }
     return { status: 'no_links', missing: [] };
   }
 
