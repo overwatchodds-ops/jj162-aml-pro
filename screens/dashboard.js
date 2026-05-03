@@ -119,6 +119,8 @@ export function screen() {
   const entities    = S.entities || [];
 
   // Individual record status summary
+  const staffOnly = individuals.filter(i => i.isStaff && !i.isClient);
+
   const indResults = individuals.map(i => ({
     ind: i,
     result: individualCompliance(i),
@@ -241,10 +243,10 @@ export function screen() {
       <!-- Stats row -->
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-3);margin-bottom:var(--space-4);">
         ${[
-          { label: 'Staff / people', value: individuals.length,        screen: 'staff',        color: 'var(--color-primary)' },
+          { label: 'Staff',           value: staffOnly.length,          screen: 'staff',        color: 'var(--color-primary)' },
           { label: 'Clients',        value: entities.length,           screen: 'clients',      color: 'var(--color-primary)' },
           { label: 'Action needed',  value: action.length + incompleteStaff.length, screen: 'staff', color: (action.length + incompleteStaff.length) > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
-          { label: 'Firm setup gaps',value: gaps.length,               screen: 'firm-profile', color: gaps.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
+          { label: 'Firm profile gaps', value: gaps.length,            screen: 'firm-profile', color: gaps.length > 0 ? 'var(--color-danger)' : 'var(--color-success)' },
         ].map(s => `
           <div
             onclick="go('${s.screen}')"
@@ -267,10 +269,10 @@ export function screen() {
         <!-- Left column -->
         <div>
 
-          <!-- Firm setup records -->
+          <!-- Firm profile records -->
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
-              <div class="section-heading" style="margin:0;">Firm setup records</div>
+              <div class="section-heading" style="margin:0;">Firm profile records</div>
               <button onclick="go('firm-profile')" class="btn-ghost" style="font-size:var(--font-size-xs);color:var(--color-primary);">
                 View all
               </button>
@@ -278,7 +280,7 @@ export function screen() {
 
             ${gaps.length === 0 ? `
               <div style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--font-size-xs);color:var(--color-success);">
-                <span style="font-weight:bold;">✓</span> Core firm setup records complete
+                <span style="font-weight:bold;">✓</span> Core firm profile records complete
               </div>
             ` : gaps.map(g => `
               <div
