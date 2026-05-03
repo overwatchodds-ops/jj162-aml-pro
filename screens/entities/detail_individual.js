@@ -256,7 +256,14 @@ export function screen() {
         l.status           === 'active')
     : null;
 
-  const individualId = selfLink2?.individualId || existingIndividualId || null;
+  // Fallback: if self-link is missing (orphaned record), find individual directly
+  const selfLinkIndId = selfLink2?.individualId || existingIndividualId || null;
+  const individualId  = selfLinkIndId ||
+    (entity ? (S.individuals || []).find(i =>
+      i.firmId === S.firmId &&
+      i.isStaff === false &&
+      i.fullName === entity.entityName
+    )?.individualId : null) || null;
   const ind          = individualId ? (S.individuals || []).find(i => i.individualId === individualId) : existingInd || null;
   const latestVer    = individualId ? getLatestVer(individualId) : null;
   const latestScr    = individualId ? getLatestScr(individualId) : null;
