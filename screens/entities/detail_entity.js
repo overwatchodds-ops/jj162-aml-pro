@@ -73,10 +73,18 @@ function riskBadge(rating) {
 }
 
 function staffOptions(selected = '') {
-  const staff = (S.individuals || []).filter(i => i.isStaff);
-  if (!staff.length) return `<option value="">No staff found — add staff first</option>`;
+  const allStaff = (S.individuals || []).filter(i => i.isStaff);
+  const completedStaff = allStaff.filter(s => {
+    const cls = s.staffClassification || 'none';
+    if (cls === 'none') return true;
+    const scr = (S.screenings || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+    const trn = (S.training   || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.completedDate||'').localeCompare(a.completedDate||''))[0];
+    const vet = (S.vetting    || []).filter(x => x.individualId === s.individualId).sort((a,b) => (b.policeCheckDate||'').localeCompare(a.policeCheckDate||''))[0];
+    return !!scr?.result && !!trn?.completedDate && (cls !== 'key' || (!!vet?.policeCheckDate && !!vet?.bankruptcyCheckDate));
+  });
+  if (!completedStaff.length) return `<option value="">No completed staff found — complete staff vetting first</option>`;
   return `<option value="">Select staff member...</option>` +
-    staff.map(s =>
+    completedStaff.map(s =>
       `<option value="${s.fullName}" ${selected === s.fullName ? 'selected' : ''}>
         ${s.fullName}${s.role ? ' · ' + s.role : ''}
       </option>`
@@ -123,7 +131,6 @@ function getEligibleIndividuals(entityId, query = '') {
   if (q) {
     pool = pool.filter(i =>
       (i.fullName || '').toLowerCase().includes(q) ||
-      (i.email    || '').toLowerCase().includes(q)
     );
   }
   return pool.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')).slice(0, 8);
@@ -152,7 +159,6 @@ function renderKPResults(fid, matches) {
           ${i.fullName || 'Unnamed'}
         </div>
         <div style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-          ${i.email || 'No email recorded'}
         </div>
       </div>
       <span style="font-size:var(--font-size-xs);color:var(--color-primary);
@@ -605,6 +611,19 @@ window.saveEntityClient = async function(fid, etype) {
   if (!purpose) return fail('Nature of business / purpose of relationship is required.');
   if (!verBy)   return fail('Verified by is required.');
   if (!verDate) return fail('Date verified is required.');
+
+  // ABN duplicate check — two entities cannot share the same ABN
+  if (abn && isNew) {
+    const normalise = v => String(v || '').replace(/ /g, '').replace(/-/g, '');
+    const abnDup = (S.entities || []).find(e =>
+      e.entityId !== entityId &&
+      normalise(e.abn) === normalise(abn) &&
+      normalise(e.abn) !== ''
+    );
+    if (abnDup) {
+      return fail(`Cannot save — ABN ${abn} already exists for "${abnDup.entityName}". This is a duplicate.`);
+    }
+  }
 
   const isNew    = fid === 'new';
   const entityId = isNew ? null : S.currentParams?.entityId;

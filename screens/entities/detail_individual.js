@@ -727,6 +727,18 @@ window.saveClient = async function(fid, etype, linkedIndividualId) {
         if (formEl) delete formEl.dataset.duplicateConfirmed;
       }
 
+      // ABN duplicate check — sole traders cannot share the same ABN
+      if (abn && isNew) {
+        const normalise = v => String(v || '').replace(/ /g, '').replace(/-/g, '');
+        const abnDup = (S.entities || []).find(e =>
+          normalise(e.abn) === normalise(abn) &&
+          normalise(e.abn) !== ''
+        );
+        if (abnDup) {
+          return fail(`Cannot save — ABN ${abn} already exists for "${abnDup.entityName}". This is a duplicate.`);
+        }
+      }
+
       const eid = genId('ent');
       const iid = genId('ind');
 
