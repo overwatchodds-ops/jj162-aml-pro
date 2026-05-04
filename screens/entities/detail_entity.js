@@ -307,7 +307,49 @@ export function screen() {
         </div>
       </div>
 
-      <!-- CARD 3: KEY PEOPLE -->
+      <!-- CARD 3: RISK ASSESSMENT (optional) -->
+      <div class="card" style="margin-bottom:var(--space-3);">
+        <div class="section-heading">Client risk assessment</div>
+
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+
+          <div class="form-row">
+            <label class="label label-required">Risk rating</label>
+            <select id="f-risk-rating-${fid}" class="inp" onchange="entityRiskAutoNext('${fid}')">
+              <option value="">Select...</option>
+              ${['Low','Medium','High'].map(r =>
+                `<option value="${r}" ${entity?.entityRiskRating === r ? 'selected' : ''}>${r}</option>`
+              ).join('')}
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label class="label label-required">Assessed date</label>
+            <input id="f-risk-date-${fid}" type="date" class="inp"
+                   value="${entity?.riskAssessedDate || today}"
+                   onchange="entityRiskAutoNext('${fid}')">
+          </div>
+
+          <div class="form-row">
+            <label class="label">Next review date</label>
+            ${inp(`f-risk-next-${fid}`, 'date', entity?.riskNextReviewDate || '')}
+          </div>
+
+          <div class="form-row">
+            <label class="label">Methodology notes</label>
+            <textarea id="f-risk-notes-${fid}" class="inp" rows="2"
+                      placeholder="Risk factors considered..."
+            >${entity?.riskMethodology || ''}</textarea>
+          </div>
+
+        </div>
+
+        <div class="banner banner-info" style="margin-top:var(--space-3);">
+          High risk: review every 12 months · Medium: 24 months · Low: 36 months
+        </div>
+      </div>
+
+      <!-- CARD 4: KEY PEOPLE -->
       <div class="card" style="margin-bottom:var(--space-3);">
         <div class="section-heading">Key people</div>
         <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">
@@ -393,48 +435,6 @@ export function screen() {
             </button>
           </div>
         `}
-      </div>
-
-      <!-- CARD 4: RISK ASSESSMENT (optional) -->
-      <div class="card" style="margin-bottom:var(--space-3);">
-        <div class="section-heading">Client risk assessment</div>
-
-        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
-
-          <div class="form-row">
-            <label class="label label-required">Risk rating</label>
-            <select id="f-risk-rating-${fid}" class="inp" onchange="entityRiskAutoNext('${fid}')">
-              <option value="">Select...</option>
-              ${['Low','Medium','High'].map(r =>
-                `<option value="${r}" ${entity?.entityRiskRating === r ? 'selected' : ''}>${r}</option>`
-              ).join('')}
-            </select>
-          </div>
-
-          <div class="form-row">
-            <label class="label label-required">Assessed date</label>
-            <input id="f-risk-date-${fid}" type="date" class="inp"
-                   value="${entity?.riskAssessedDate || today}"
-                   onchange="entityRiskAutoNext('${fid}')">
-          </div>
-
-          <div class="form-row">
-            <label class="label">Next review date</label>
-            ${inp(`f-risk-next-${fid}`, 'date', entity?.riskNextReviewDate || '')}
-          </div>
-
-          <div class="form-row">
-            <label class="label">Methodology notes</label>
-            <textarea id="f-risk-notes-${fid}" class="inp" rows="2"
-                      placeholder="Risk factors considered..."
-            >${entity?.riskMethodology || ''}</textarea>
-          </div>
-
-        </div>
-
-        <div class="banner banner-info" style="margin-top:var(--space-3);">
-          High risk: review every 12 months · Medium: 24 months · Low: 36 months
-        </div>
       </div>
 
       <!-- SMR (existing only) -->
