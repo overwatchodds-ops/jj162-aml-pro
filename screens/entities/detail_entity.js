@@ -236,13 +236,17 @@ export function screen() {
 
           <div class="form-row">
             <label class="label ${etype === 'Private Company' ? 'label-required' : ''}">ABN</label>
-            ${inp(`f-abn-${fid}`, 'text', entity?.abn || '', '12 345 678 901')}
+            <input id="f-abn-${fid}" type="text" class="inp" inputmode="numeric"
+                 value="${entity?.abn || ''}" placeholder="12 345 678 901" maxlength="11"
+                 oninput="this.value=this.value.replace(/[^0-9]/g,'')">
           </div>
 
           ${config.showACN ? `
             <div class="form-row">
               <label class="label">ACN</label>
-              ${inp(`f-acn-${fid}`, 'text', entity?.acn || '', '123 456 789')}
+              <input id="f-acn-${fid}" type="text" class="inp" inputmode="numeric"
+                 value="${entity?.acn || ''}" placeholder="123 456 789" maxlength="9"
+                 oninput="this.value=this.value.replace(/[^0-9]/g,'')">
             </div>
           ` : ''}
 
@@ -311,9 +315,24 @@ export function screen() {
         </p>
 
         ${isNew ? `
-          <div class="banner banner-info">
-            Save this entity first, then you can add key people.
+          <div style="opacity:0.45;pointer-events:none;user-select:none;">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
+              <div class="form-row">
+                <label class="label">Role</label>
+                <select class="inp" disabled>
+                  <option>Director</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label class="label">Search by name</label>
+                <input type="text" class="inp" placeholder="Type 2+ letters to search..." disabled>
+              </div>
+            </div>
+            <button class="btn-sec btn-sm" disabled>+ Create new individual</button>
           </div>
+          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-3);">
+            Save this entity first, then you can add directors and key people here.
+          </p>
         ` : `
           ${keyPeople.length > 0 ? `
             <div style="margin-bottom:var(--space-4);">
@@ -378,15 +397,12 @@ export function screen() {
 
       <!-- CARD 4: RISK ASSESSMENT (optional) -->
       <div class="card" style="margin-bottom:var(--space-3);">
-        <div class="section-heading">Client risk assessment
-          <span style="font-size:var(--font-size-xs);font-weight:400;
-                       color:var(--color-text-muted);margin-left:var(--space-2);">(optional)</span>
-        </div>
+        <div class="section-heading">Client risk assessment</div>
 
         <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
 
           <div class="form-row">
-            <label class="label">Risk rating</label>
+            <label class="label label-required">Risk rating</label>
             <select id="f-risk-rating-${fid}" class="inp" onchange="entityRiskAutoNext('${fid}')">
               <option value="">Select...</option>
               ${['Low','Medium','High'].map(r =>
@@ -396,7 +412,7 @@ export function screen() {
           </div>
 
           <div class="form-row">
-            <label class="label">Assessed date</label>
+            <label class="label label-required">Assessed date</label>
             <input id="f-risk-date-${fid}" type="date" class="inp"
                    value="${entity?.riskAssessedDate || today}"
                    onchange="entityRiskAutoNext('${fid}')">
@@ -608,9 +624,13 @@ window.saveEntityClient = async function(fid, etype) {
 
   if (!name)    return fail('Entity name is required.');
   if (etype === 'Private Company' && !abn) return fail('ABN is required for a Private Company.');
+  if (abn && !/^[0-9]{11}$/.test(abn.replace(/ /g, ''))) return fail('ABN must be exactly 11 digits (numbers only).');
+  if (acn && !/^[0-9]{9}$/.test(acn.replace(/ /g, ''))) return fail('ACN must be exactly 9 digits (numbers only).');
   if (!purpose) return fail('Nature of business / purpose of relationship is required.');
   if (!verBy)   return fail('Verified by is required.');
   if (!verDate) return fail('Date verified is required.');
+  if (!riskRating) return fail('Risk rating is required — select Low, Medium, or High.');
+  if (!riskDate)   return fail('Risk assessed date is required.');
 
   // ABN duplicate check — two entities cannot share the same ABN
   if (abn && isNew) {
