@@ -599,6 +599,9 @@ window.saveEntityClient = async function(fid, etype) {
       ? (g(`f-beneficiary-class-${fid}`)?.value?.trim() || '')
       : '';
 
+  const isNew    = fid === 'new';
+  const entityId = isNew ? null : S.currentParams?.entityId;
+
   const errEl = document.getElementById(`save-error-${fid}`);
   const fail  = msg => {
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
@@ -630,8 +633,6 @@ window.saveEntityClient = async function(fid, etype) {
     }
   }
 
-  const isNew    = fid === 'new';
-  const entityId = isNew ? null : S.currentParams?.entityId;
   const now      = new Date().toISOString();
   const firmId   = S.firmId;
 
