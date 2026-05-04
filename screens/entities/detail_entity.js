@@ -357,24 +357,9 @@ export function screen() {
         </p>
 
         ${isNew ? `
-          <div style="opacity:0.45;pointer-events:none;user-select:none;">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:var(--space-3);">
-              <div class="form-row">
-                <label class="label">Role</label>
-                <select class="inp" disabled>
-                  <option>Director</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label class="label">Search by name</label>
-                <input type="text" class="inp" placeholder="Type 2+ letters to search..." disabled>
-              </div>
-            </div>
-            <button class="btn-sec btn-sm" disabled>+ Create new individual</button>
+          <div class="banner banner-info">
+            Save this entity first, then you can add key people.
           </div>
-          <p style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:var(--space-3);">
-            Save this entity first, then you can add directors and key people here.
-          </p>
         ` : `
           ${keyPeople.length > 0 ? `
             <div style="margin-bottom:var(--space-4);">
